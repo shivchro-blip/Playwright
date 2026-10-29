@@ -8,11 +8,17 @@ from nicegui import ui
 
 from webapp.services.run_manager import Run
 from webapp.state import services
+from webapp.ui.components import (
+    field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table, text,
+)
+from webapp.ui.console_view import ConsoleView
 from webapp.ui.generator import confirm
+from webapp.ui.theme import icon
 
 STATUSES = ["passed", "failed", "error", "cancelled", "running", "queued"]
-STATUS_COLORS = {"queued": "grey", "running": "blue", "passed": "positive", "failed": "negative",
-                 "error": "orange", "cancelled": "grey"}
+RUN_TILES = {"passed": ("tone-pass", "circle-check"), "failed": ("tone-fail", "circle-x"),
+             "error": ("tone-fail", "circle-x"), "running": ("tone-run", "loader-circle"),
+             "queued": ("tone-run", "loader-circle"), "cancelled": ("tone-idle", "square-solid")}
 
 
 def duration(run: Run) -> str:
@@ -34,16 +40,28 @@ class HistoryPanel:
         self.status: str | None = None
         self.signature: tuple = ()
 
-        with ui.row().classes("w-full items-center gap-3"):
-            ui.select(sorted({r.config.system for r in self.svc.runs.list()}), label="System", clearable=True,
-                      on_change=lambda e: self._filter("system", e.value)).props("dense").classes("w-40")
-            ui.select(STATUSES, label="Status", clearable=True,
-                      on_change=lambda e: self._filter("status", e.value)).props("dense").classes("w-40")
-            self.search = ui.input(placeholder="Search id, tags, test IDs").props("dense clearable").classes("w-64")
-            ui.space()
-            ui.button(icon="refresh", on_click=self.refresh).props("flat round").tooltip("Reload")
-        self.table_view()
-        self.details()
+        def select(options, label: str, for_id: str, key: str) -> ui.select:
+            with field(label, for_id):
+                return placeholder(ui.select(options, clearable=True, on_change=lambda e: self._filter(key, e.value))
+                                   .props(f'for="{for_id}"').classes("w-44"), "All")
+
+        with ui.element("div").classes("any-page-inner"):
+            with ui.element("section").classes("any-card").props('aria-label="Runs"'):
+                with ui.element("div").classes("any-card-head"):
+                    with ui.element("div").classes("any-head-left"):
+                        text("h2", "Runs", "any-title")
+                        self.count_pill = text("span", "", "any-count-pill")
+                    with ui.element("div").classes("any-head-right"):
+                        icon_button("rotate-cw", "Reload runs", self.refresh)
+                with ui.element("div").classes("any-filters"):
+                    select(sorted({r.config.system for r in self.svc.runs.list()}), "System", "hist-system",
+                           "system")
+                    select(STATUSES, "Status", "hist-status", "status")
+                    with field("Search", "hist-search"):
+                        self.search = ui.input(placeholder="Search id, tags, test IDs") \
+                            .props('clearable for="hist-search"').classes("w-72 max-w-full")
+                self.table_view()
+            self.details()
         ui.timer(2.0, self._auto_refresh)
 
     def _filter(self, key: str, value) -> None:
@@ -72,26 +90,26 @@ class HistoryPanel:
             "tests": ", ".join(r.config.test_ids), "browsers": ", ".join(r.config.browsers),
             "result": " ".join(f"{k}:{v}" for k, v in sorted(r.counts().items())),
         } for r in self._runs()]
-        table = ui.table(rows=rows, row_key="id", pagination=10, selection="single", columns=[
-            {"name": "started", "label": "Started", "field": "started", "align": "left", "sortable": True},
-            {"name": "duration", "label": "Duration", "field": "duration", "align": "left"},
-            {"name": "status", "label": "Status", "field": "status", "align": "left", "sortable": True},
-            {"name": "target", "label": "System/env", "field": "target", "align": "left", "sortable": True},
-            {"name": "tags", "label": "Tags", "field": "tags", "align": "left"},
-            {"name": "tests", "label": "Only tests", "field": "tests", "align": "left"},
-            {"name": "browsers", "label": "Browsers", "field": "browsers", "align": "left"},
-            {"name": "result", "label": "Result", "field": "result", "align": "left"},
-        ], on_select=lambda e: self._select(e.selection)).classes("w-full").props("dense flat")
-        table.add_slot("body-cell-status", r'''
-            <q-td :props="props">
-              <q-badge :color="{passed:'positive',failed:'negative',error:'orange',running:'blue'}[props.value] || 'grey'"
-                       :label="props.value" />
-            </q-td>''')
-        table.selected = [row for row in rows if row["id"] == self.selected]
-        table.on("rowClick", lambda e: self._click(table, e.args[1]))
-        self.search.bind_value(table, "filter")
-        if not rows:
-            ui.label("No runs match.").classes("text-sm text-grey-7")
+        self.count_pill.text = f"{len(rows)} {'run' if len(rows) == 1 else 'runs'}"
+        with ui.element("div").classes("any-table-wrap"):
+            table = ui.table(rows=rows, row_key="id", pagination=10, selection="single", columns=[
+                {"name": "started", "label": "Started", "field": "started", "align": "left", "sortable": True},
+                {"name": "duration", "label": "Duration", "field": "duration", "align": "left"},
+                {"name": "status", "label": "Status", "field": "status", "align": "left", "sortable": True},
+                {"name": "target", "label": "System/env", "field": "target", "align": "left", "sortable": True},
+                {"name": "tags", "label": "Tags", "field": "tags", "align": "left"},
+                {"name": "tests", "label": "Only tests", "field": "tests", "align": "left"},
+                {"name": "browsers", "label": "Browsers", "field": "browsers", "align": "left"},
+                {"name": "result", "label": "Result", "field": "result", "align": "left"},
+            ], on_select=lambda e: self._select(e.selection)).classes("w-full is-clickable")
+            styled_table(table, len(rows), wide=True)
+            table.add_slot("body-cell-status", f'<q-td :props="props">{status_pill_template()}</q-td>')
+            for col in ("started", "duration", "result"):
+                table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
+            table.add_slot("no-data", '<div class="any-muted text-sm">No runs match.</div>')
+            table.selected = [row for row in rows if row["id"] == self.selected]
+            table.on("rowClick", lambda e: self._click(table, e.args[1]))
+            self.search.bind_value(table, "filter")
 
     def _click(self, table, row: dict) -> None:
         """Clicking anywhere on a row selects it (not just the checkbox)."""
@@ -107,59 +125,87 @@ class HistoryPanel:
     def details(self) -> None:
         run = self.svc.runs.get(self.selected) if self.selected else None
         if not run:
-            ui.label("Select a run to see its details.").classes("text-sm text-grey-7 mt-2")
+            with ui.element("div").classes("any-card any-empty"):
+                ui.label("Select a run to see its details.").classes("any-muted")
             return
         cfg = run.config
-        with ui.card().classes("w-full"):
-            with ui.row().classes("w-full items-center gap-3"):
-                ui.label(run.id).classes("text-lg font-mono")
-                ui.badge(run.status, color=STATUS_COLORS.get(run.status, "grey"))
-                ui.label(duration(run)).classes("text-sm text-grey-7")
-                ui.space()
-                if run.active:
-                    ui.button("Watch live", icon="visibility", on_click=lambda: self.on_watch(run.id)) \
-                        .props("flat no-caps")
-                ui.button("Re-run", icon="replay", on_click=lambda: self.rerun(run.id)).props("no-caps") \
-                    .set_enabled(not any(r.active for r in self.svc.runs.list()))
-                report = ui.button("Allure report", icon="assessment",
-                                   on_click=lambda: ui.navigate.to(f"/runs/{run.id}/allure-report/index.html",
-                                                                   new_tab=True)).props("outline no-caps")
-                report.set_enabled(run.report_status == "ready")
-                if run.report_status != "ready" and run.report_message:
-                    report.tooltip(run.report_message)
-                ui.button("Console log", icon="description",
-                          on_click=lambda: ui.navigate.to(f"/runs/{run.id}/console.log", new_tab=True)) \
-                    .props("flat no-caps")
-                ui.button(icon="delete", color="negative", on_click=lambda: self.delete(run.id)) \
-                    .props("flat round").tooltip("Delete run").set_enabled(not run.active)
+        with ui.element("section").classes("any-card").props('aria-label="Run details"'):
+            with ui.element("div").classes("any-run-head"):
+                with ui.element("div").classes("any-run-id"):
+                    tile_tone, tile_icon = RUN_TILES.get(run.status, ("tone-idle", "circle-play"))
+                    with ui.element("div").classes(f"any-tile {tile_tone}"):
+                        ui.icon(icon(tile_icon)).props('aria-hidden="true"')
+                    with ui.element("div").classes("min-w-0"):
+                        text("h2", "Run", "any-eyebrow")
+                        with ui.element("div").classes("any-run-title"):
+                            text("span", run.id, "any-headline mono is-id")
+                            self._pill(run.status)
+                        with ui.element("div").classes("any-meta"):
+                            with ui.element("span"):
+                                text("span", "Duration")
+                                text("span", duration(run) or "—", "v")
+                with ui.element("div").classes("any-run-actions"):
+                    if run.active:
+                        ui.button("Watch live", icon=icon("circle-play"), color=None,
+                                  on_click=lambda: self.on_watch(run.id)) \
+                            .props("flat unelevated no-caps").classes("any-btn is-38")
+                    ui.button("Re-run", icon=icon("rotate-cw"), color=None, on_click=lambda: self.rerun(run.id)) \
+                        .props("unelevated no-caps").classes("any-primary") \
+                        .set_enabled(not any(r.active for r in self.svc.runs.list()))
+                    report = ui.button("Allure report", icon=icon("chart-column"), color=None,
+                                       on_click=lambda: ui.navigate.to(f"/runs/{run.id}/allure-report/index.html",
+                                                                       new_tab=True)) \
+                        .props("flat unelevated no-caps").classes("any-btn is-38")
+                    report.set_enabled(run.report_status == "ready")
+                    if run.report_status != "ready" and run.report_message:
+                        report.tooltip(run.report_message)
+                    ui.button("Console log", icon=icon("file-text"), color=None,
+                              on_click=lambda: ui.navigate.to(f"/runs/{run.id}/console.log", new_tab=True)) \
+                        .props("flat unelevated no-caps").classes("any-btn is-38")
+                    icon_button("x", "Delete run", lambda: self.delete(run.id)).classes("is-danger") \
+                        .set_enabled(not run.active)
             if run.error:
-                ui.label(run.error).classes("text-sm text-orange-8")
-            with ui.grid(columns=4).classes("w-full gap-x-6 gap-y-1 text-sm"):
+                with ui.element("div").classes("any-callout").props('role="status"'):
+                    ui.icon(icon("triangle-alert")).props('aria-hidden="true"')
+                    with ui.element("div").classes("any-callout-body"):
+                        ui.label(run.error).classes("any-callout-title")
+            with ui.element("dl").classes("any-facts"):
                 options = ", ".join(f"{k}={v}" for k, v in cfg.options.items()) or "-"
                 for label, value in (("System", cfg.system), ("Environment", cfg.env or "-"),
                                      ("Tags", ", ".join(cfg.tags)), ("Browsers", ", ".join(cfg.browsers)),
                                      ("Workers", str(cfg.workers)), ("Only tests", ", ".join(cfg.test_ids) or "-"),
                                      ("Exit code", str(run.exit_code)), ("Options", options)):
-                    with ui.column().classes("gap-0"):
-                        ui.label(label).classes("text-xs text-grey-7")
-                        ui.label(value).classes("break-all")
-            rows = [{"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "browser": r.browser,
-                     "duration": r.duration, "message": r.message} for r in list(run.results.values())]
-            table = ui.table(rows=rows, row_key="nodeid", pagination=10, columns=[
-                {"name": "outcome", "label": "Status", "field": "outcome", "align": "left", "sortable": True},
-                {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
-                {"name": "browser", "label": "Browser", "field": "browser", "align": "left"},
-                {"name": "duration", "label": "Seconds", "field": "duration", "sortable": True},
-                {"name": "message", "label": "Message", "field": "message", "align": "left"},
-            ]).classes("w-full").props("dense flat")
-            table.add_slot("body-cell-outcome", r'''
-                <q-td :props="props">
-                  <q-badge :color="{passed:'positive',failed:'negative',error:'orange',running:'blue'}[props.value] || 'grey'"
-                           :label="props.value" />
-                </q-td>''')
-            with ui.expansion("Console output (last 300 lines)", icon="terminal").classes("w-full"):
-                log = ui.log(max_lines=300).classes("w-full h-80 text-xs")
-                log.push("\n".join(run.log[-300:]) or "(empty)")
+                    with ui.element("div").classes("any-fact" + (" is-wide" if label == "Options" else "")):
+                        text("dt", label, "any-eyebrow")
+                        text("dd", value)
+            rows = []
+            for r in list(run.results.values()):
+                name, code = split_test_id(r.test_id)
+                rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name,
+                             "code": code, "browser": r.browser, "duration": r.duration, "message": r.message})
+            with ui.element("div").classes("any-table-wrap"):
+                table = ui.table(rows=rows, row_key="nodeid", pagination=10, columns=[
+                    {"name": "outcome", "label": "Status", "field": "outcome", "align": "left", "sortable": True,
+                     "style": "width: 140px", "headerStyle": "width: 140px"},
+                    {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
+                    {"name": "browser", "label": "Browser", "field": "browser", "align": "left"},
+                    {"name": "duration", "label": "Duration", "field": "duration", "align": "right",
+                     "sortable": True},
+                    {"name": "message", "label": "Message", "field": "message", "align": "left"},
+                ]).classes("w-full")
+                styled_table(table, len(rows), wide=True)
+                result_slots(table)
+            with ui.expansion("Console output (last 300 lines)", icon=icon("terminal")) \
+                    .props(f'expand-icon="{icon("chevron-down")}"').classes("any-disclosure is-console"):
+                with ui.element("div").classes("any-console is-inline"):
+                    ConsoleView(max_lines=300, lines=run.log[-300:] or ["(empty)"])
+
+    @staticmethod
+    def _pill(status: str) -> None:
+        tone = {"passed": "passed", "failed": "failed", "error": "failed", "running": "running"}.get(status, "idle")
+        with ui.element("span").classes(f"any-pill pill-{tone}"):
+            ui.element("span").classes("dot").props('aria-hidden="true"')
+            text("span", status)
 
     def rerun(self, run_id: str) -> None:
         try:
