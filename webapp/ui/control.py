@@ -129,7 +129,7 @@ class ControlPanel:
                     with field("Environment", "sel-env"):
                         self.env_select = self._select(envs, env, "sel-env",
                                                        on_change=lambda: self.credentials.refresh())
-                tags = _split(cfg["runTags"])
+                tags = self.catalog.tags_for(_split(cfg["runTags"]), system)  # only tags this system has
                 with field("Tags", "sel-tags"):
                     self.tags_select = self._select(
                         sorted(set(self.catalog.all_tags()) | set(tags), key=str.casefold), tags, "sel-tags",
@@ -224,7 +224,7 @@ class ControlPanel:
                 with ui.element("div").classes("any-head-right"):
                     ui.switch("Selected only", value=True, on_change=lambda e: self._set_selected_only(e.value))
                     ui.element("div").classes("any-vdivider").props('aria-hidden="true"')
-                    icon_button("rotate-cw", "Reload tests", self.reload_catalog)
+                    icon_button("rotate-cw", "Reload tests", lambda: self.reload_catalog())
             self.tests_view()
             with ui.element("div").classes("any-launch"):
                 with ui.element("div").classes("any-formula").props('aria-live="polite" data-testid="run-formula"'):
@@ -558,12 +558,14 @@ class ControlPanel:
         self.excluded.clear()
         envs = self.svc.systems.environments(self.system_select.value)
         self.env_select.set_options(envs, value=envs[0] if envs else None)
-        self.reload_catalog()
+        self.reload_catalog(system_changed=True)
         self.credentials.refresh()
 
-    def reload_catalog(self) -> None:
+    def reload_catalog(self, system_changed: bool = False) -> None:
         self.catalog = self.svc.catalog.load(self.system_select.value)
         current = self.tags_select.value or []
+        if system_changed:  # tags of the previous system (e.g. GOOGLE) don't carry over
+            current = self.catalog.tags_for(current, self.system_select.value)
         self.tags_select.set_options(sorted(set(self.catalog.all_tags()) | set(current), key=str.casefold),
                                      value=current)
         self.tests_view.refresh()

@@ -27,6 +27,19 @@ class Catalog:
     def all_tags(self) -> list[str]:
         return sorted({t for tc in self.tests for t in tc.tags}, key=str.casefold)
 
+    def tags_for(self, current: list[str], system: str | None = None) -> list[str]:
+        """Tags to preselect when this system is chosen: those of `current` it has (spelled as its tests spell
+        them), else a tag named like the system, else "all", else none. Tags matching no test of the system
+        (e.g. GOOGLE left over from another system) are dropped."""
+        by_fold = {t.casefold(): t for t in self.all_tags()}
+        kept = [by_fold[c.strip().casefold()] for c in current if c and c.strip().casefold() in by_fold]
+        if kept:
+            return list(dict.fromkeys(kept))
+        for fallback in (system or self.system or "", "all"):
+            if fallback and fallback.casefold() in by_fold:
+                return [by_fold[fallback.casefold()]]
+        return []
+
     def select(self, tags: list[str]) -> list[TestCaseInfo]:
         """Same rule as load_test_cases_from_folder: case-insensitive tag match, no tags -> nothing."""
         wanted = {t.strip().casefold() for t in tags if t and t.strip()}
