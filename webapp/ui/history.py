@@ -8,12 +8,15 @@ from nicegui import ui
 
 from webapp.services.run_manager import Run
 from webapp.state import services
+from webapp.services.run_insights import flaky_tests
 from webapp.ui.components import (
-    field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table, text,
+    RESULT_COLUMNS, field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table,
+    text,
 )
 from webapp.ui.console_view import ConsoleView
-from webapp.ui.test_details import details_for, has_details, open_test_details
 from webapp.ui.generator import confirm
+from webapp.ui.run_compare import open_compare
+from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.theme import icon
 
 STATUSES = ["passed", "failed", "error", "cancelled", "running", "queued"]
@@ -47,6 +50,7 @@ class HistoryPanel:
                                    .props(f'for="{for_id}"').classes("w-44"), "All")
 
         with ui.element("div").classes("any-page-inner is-wide"):
+            self.flaky_view()
             with ui.element("section").classes("any-card").props('aria-label="Runs"'):
                 with ui.element("div").classes("any-card-head"):
                     with ui.element("div").classes("any-head-left"):
@@ -67,9 +71,50 @@ class HistoryPanel:
 
     def _filter(self, key: str, value) -> None:
         setattr(self, key, value)
+        self.flaky_view.refresh()
         self.table_view.refresh()
 
+    @ui.refreshable_method
+    def flaky_view(self) -> None:
+        """Tests whose result flipped between pass and fail in their recent runs (per system/env)."""
+        runs = self.svc.runs.list()
+        found = []
+        for system, env in sorted({(r.config.system, r.config.env) for r in runs}):
+            if self.system and system != self.system:
+                continue
+            found += [(system, env, t) for t in flaky_tests(runs, system, env)]
+        if not found:
+            return
+        rows = []
+        for system, env, t in found:
+            name, code = split_test_id(t.test_id)
+            rows.append({"key": f"{system}/{env}/{t.test_id}/{t.browser}", "test_id": t.test_id, "name": name,
+                         "code": code, "target": f"{system}/{env}", "browser": t.browser, "recent": t.outcomes,
+                         "flips": t.flips, "failures": f"{t.failures} of {len(t.outcomes)}", "flaky": False})
+        with ui.element("section").classes("any-card").props('aria-label="Flaky tests"'):
+            with ui.element("div").classes("any-card-head"):
+                with ui.element("div").classes("any-head-left"):
+                    text("h2", "Flaky tests", "any-title")
+                    text("span", str(len(rows)), "any-count-pill")
+                ui.label("Passed and failed in their last runs, changing result at least twice. "
+                         "Fix or stabilise these before trusting a red run.").classes("any-muted text-sm")
+            with ui.element("div").classes("any-table-wrap"):
+                table = ui.table(rows=rows, row_key="key", pagination=5, columns=[
+                    {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
+                    {"name": "target", "label": "System/env", "field": "target", "align": "left", "sortable": True},
+                    {"name": "browser", "label": "Browser", "field": "browser", "align": "left"},
+                    {"name": "recent", "label": "Recent", "field": "recent", "align": "left"},
+                    {"name": "flips", "label": "Changes", "field": "flips", "align": "right", "sortable": True},
+                    {"name": "failures", "label": "Failed", "field": "failures", "align": "right"},
+                ]).classes("w-full")
+                styled_table(table, len(rows), wide=True)
+                result_slots(table)
+                table.classes(remove="is-clickable")
+                for col in ("flips", "failures"):
+                    table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
+
     def refresh(self) -> None:
+        self.flaky_view.refresh()
         self.table_view.refresh()
         self.details.refresh()
 
@@ -153,13 +198,21 @@ class HistoryPanel:
                     ui.button("Re-run", icon=icon("rotate-cw"), color=None, on_click=lambda: self.rerun(run.id)) \
                         .props("unelevated no-caps").classes("any-primary") \
                         .set_enabled(not any(r.active for r in self.svc.runs.list()))
-                    report = ui.button("Allure report", icon=icon("chart-column"), color=None,
-                                       on_click=lambda: ui.navigate.to(f"/runs/{run.id}/allure-report/index.html",
-                                                                       new_tab=True)) \
-                        .props("flat unelevated no-caps").classes("any-btn is-38")
-                    report.set_enabled(run.report_status == "ready")
-                    if run.report_status != "ready" and run.report_message:
-                        report.tooltip(run.report_message)
+                    ui.button("Report", icon=icon("chart-column"), color=None,
+                              on_click=lambda: self.open_summary(run.id)) \
+                        .props('flat unelevated no-caps data-testid="run-report"').classes("any-btn is-38") \
+                        .set_enabled(not run.active)
+                    ui.button("Compare", icon=icon("list-checks"), color=None,
+                              on_click=lambda: open_compare(run.id)) \
+                        .props("flat unelevated no-caps").classes("any-btn is-38").set_enabled(not run.active)
+                    if run.report_status == "ready" or self.svc.runs.allure_available():
+                        report = ui.button("Allure", icon=icon("external-link"), color=None,
+                                           on_click=lambda: ui.navigate.to(
+                                               f"/runs/{run.id}/allure-report/index.html", new_tab=True)) \
+                            .props("flat unelevated no-caps").classes("any-btn is-38")
+                        report.set_enabled(run.report_status == "ready")
+                        if run.report_status != "ready" and run.report_message:
+                            report.tooltip(run.report_message)
                     ui.button("Console log", icon=icon("file-text"), color=None,
                               on_click=lambda: ui.navigate.to(f"/runs/{run.id}/console.log", new_tab=True)) \
                         .props("flat unelevated no-caps").classes("any-btn is-38")
@@ -179,23 +232,9 @@ class HistoryPanel:
                     with ui.element("div").classes("any-fact" + (" is-wide" if label == "Options" else "")):
                         text("dt", label, "any-eyebrow")
                         text("dd", value)
-            rows = []
-            details = details_for(run)
-            for r in list(run.results.values()):
-                name, code = split_test_id(r.test_id)
-                rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name,
-                             "code": code, "browser": r.browser, "duration": r.duration, "message": r.message,
-                             "has_details": has_details(details, r.test_id, r.browser)})
+            rows = result_rows(run)
             with ui.element("div").classes("any-table-wrap"):
-                table = ui.table(rows=rows, row_key="nodeid", pagination=10, columns=[
-                    {"name": "outcome", "label": "Status", "field": "outcome", "align": "left", "sortable": True,
-                     "style": "width: 140px", "headerStyle": "width: 140px"},
-                    {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
-                    {"name": "browser", "label": "Browser", "field": "browser", "align": "left"},
-                    {"name": "duration", "label": "Duration", "field": "duration", "align": "right",
-                     "sortable": True},
-                    {"name": "message", "label": "Message", "field": "message", "align": "left"},
-                ]).classes("w-full")
+                table = ui.table(rows=rows, row_key="nodeid", pagination=10, columns=RESULT_COLUMNS).classes("w-full")
                 styled_table(table, len(rows), wide=True)
                 result_slots(table)
                 table.on("rowClick", lambda e, run=run: open_test_details(run, e.args[1]))
@@ -210,6 +249,13 @@ class HistoryPanel:
         with ui.element("span").classes(f"any-pill pill-{tone}"):
             ui.element("span").classes("dot").props('aria-hidden="true"')
             text("span", status)
+
+    def open_summary(self, run_id: str) -> None:
+        run = self.svc.runs.get(run_id)
+        if run and self.svc.runs.write_summary(run):
+            ui.navigate.to(f"/runs/{run.id}/report.html", new_tab=True)
+        else:
+            ui.notify("The report could not be written (see the server log).", type="negative")
 
     def rerun(self, run_id: str) -> None:
         try:

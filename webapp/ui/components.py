@@ -135,8 +135,19 @@ def text(tag: str, content: str, cls: str = "") -> TextElement:
     return el.classes(cls) if cls else el
 
 
+RESULT_COLUMNS = [
+    {"name": "outcome", "label": "Status", "field": "outcome", "align": "left", "sortable": True,
+     "style": "width: 140px", "headerStyle": "width: 140px"},
+    {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
+    {"name": "browser", "label": "Browser", "field": "browser", "align": "left"},
+    {"name": "duration", "label": "Duration", "field": "duration", "align": "right", "sortable": True},
+    {"name": "recent", "label": "Recent", "field": "recent", "align": "left"},
+    {"name": "message", "label": "Message", "field": "message", "align": "left"},
+]
+
+
 def result_slots(table: ui.table) -> None:
-    """Cells for a per-test results table (rows: outcome, name, code, test_id, browser, duration, message)."""
+    """Cells for a per-test results table (rows from test_details.result_rows)."""
     table.add_slot("body-cell-outcome", f'<q-td :props="props">{status_pill_template()}</q-td>')
     table.add_slot("body-cell-test_id", f'<q-td :props="props">{test_case_template()}</q-td>')
     table.add_slot("body-cell-browser", f'''
@@ -156,6 +167,21 @@ def result_slots(table: ui.table) -> None:
             <span v-else class="any-msg">—</span>
             <span v-if="props.row.has_details" class="any-details-chip"
                   title="Click the row for failure details">{svg("file-text")}Details</span>
+          </div>
+        </q-td>''')
+    # Last results of the test on this system/env, oldest first (see run_insights.trends)
+    table.add_slot("body-cell-recent", '''
+        <q-td :props="props">
+          <div class="any-recent">
+            <span v-if="props.value && props.value.length" class="any-dots" role="img"
+                  :aria-label="'Last ' + props.value.length + ' results, oldest first: ' + props.value.join(', ')">
+              <i v-for="(o, i) in props.value" :key="i" :title="o"
+                 :class="{'is-pass': ['passed', 'xfailed'].includes(o), 'is-fail': ['failed', 'error'].includes(o)}"
+              ></i>
+            </span>
+            <span v-else class="any-muted">—</span>
+            <span v-if="props.row.flaky" class="any-flaky-chip"
+                  title="Passed and failed in recent runs, and changed its result at least twice">Flaky</span>
           </div>
         </q-td>''')
     table.classes("is-clickable")
