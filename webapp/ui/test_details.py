@@ -8,6 +8,7 @@ from __future__ import annotations
 from nicegui import ui
 
 from webapp.services.run_artifacts import TestDetails
+from webapp.services.run_insights import trends
 from webapp.services.run_manager import Run
 from webapp.state import services
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
@@ -24,6 +25,21 @@ def details_for(run: Run) -> dict[tuple[str, str], TestDetails]:
 def has_details(details: dict[tuple[str, str], TestDetails], test_id: str, browser: str) -> bool:
     item = details.get((test_id, browser))
     return bool(item and (item.has_artifacts or item.log))
+
+
+def result_rows(run: Run) -> list[dict]:
+    """Rows for a per-test results table (see components.result_slots), with each test's recent results."""
+    details = details_for(run)
+    recent = trends(services().runs.list(), run.config.system, run.config.env, until=run.created_at)
+    rows = []
+    for r in list(run.results.values()):
+        name, code = split_test_id(r.test_id)
+        trend = recent.get((r.test_id, r.browser))
+        rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name, "code": code,
+                     "browser": r.browser, "duration": r.duration, "message": r.message,
+                     "has_details": has_details(details, r.test_id, r.browser),
+                     "recent": trend.outcomes if trend else [], "flaky": bool(trend and trend.flaky)})
+    return rows
 
 
 def _link(label: str, url: str, icon_name: str, download: bool = False) -> None:

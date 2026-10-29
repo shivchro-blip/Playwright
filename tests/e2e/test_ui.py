@@ -1,4 +1,4 @@
-"""UI smoke: open every tab, run from the Control page, open a test's details, check a locator in the Generator."""
+"""UI smoke: every tab, a run from Control, a test's details, the built-in report, a Generator locator check."""
 from __future__ import annotations
 
 import os
@@ -78,6 +78,11 @@ def test_every_tab_loads_and_a_run_passes(app_url: str):
         details = page.get_by_role("dialog", name="Test details")
         expect(details.get_by_text("Test log")).to_be_visible()
         details.get_by_role("button", name="Close").click()
+
+        with page.context.expect_page() as report_page:  # built-in report, no Allure CLI needed
+            run_card.get_by_test_id("run-report").click()
+        expect(report_page.value.get_by_text("AutomateNY run report")).to_be_visible()
+        report_page.value.close()
 
         page.get_by_role("tab", name="Generator").click()  # live locator check on the open page's first field
         page.get_by_role("button", name="Check locator on the live page").first.click()

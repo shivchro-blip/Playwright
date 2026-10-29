@@ -5,7 +5,8 @@
 - Origin check: a browser request from another site (or a sandboxed frame, Origin "null") is refused,
   for the REST API and the NiceGUI websocket alike. Scripts and curl send no Origin and are unaffected.
 - Run artifacts (/runs): served with nosniff; Allure attachments and raw results (DOM snapshots of the
-  tested sites) are sandboxed so their scripts can't run with this app's origin.
+  tested sites) are sandboxed so their scripts can't run with this app's origin. So is the built-in
+  report.html, which has no scripts and needs none.
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
 WILDCARD_HOSTS = ("0.0.0.0", "::", "")
-SANDBOXED_RUN_PATHS = ("/allure-report/data/attachments/", "/allure-results/")
+SANDBOXED_RUN_PATHS = ("/allure-report/data/attachments/", "/allure-results/", "/report.html")
 
 
 def extra_hosts(settings: Settings) -> list[str]:

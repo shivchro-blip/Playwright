@@ -8,11 +8,11 @@ from nicegui import ui
 from webapp.services.run_manager import Run, RunConfig
 from webapp.state import services
 from webapp.ui.components import (
-    copy_button, eyebrow, field, fmt_seconds, icon_button, placeholder, plural, split_test_id, status_pill_template,
-    result_slots, styled_table, test_case_template, text, tone,
+    RESULT_COLUMNS, copy_button, eyebrow, field, fmt_seconds, icon_button, placeholder, plural, result_slots,
+    split_test_id, status_pill_template, styled_table, test_case_template, text, tone,
 )
 from webapp.ui.console_view import ConsoleView
-from webapp.ui.test_details import details_for, has_details, open_test_details
+from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.theme import icon, svg
 
 BROWSERS = ["chrome", "msedge", "chromium", "firefox", "webkit"]
@@ -86,6 +86,7 @@ class ControlPanel:
         self.excluded: set[str] = set()
         self.planned_runs = 0
         self._busy: bool | None = None
+        self._allure = self.svc.runs.allure_available()  # the Allure button only shows when the CLI exists
 
         self._build(cfg, system)
         latest = next(iter(self.svc.runs.list()), None)
@@ -329,20 +330,17 @@ class ControlPanel:
                     self.cancel_button = ui.button("Cancel", icon=icon("square-solid"), color=None,
                                                    on_click=self.cancel_run) \
                         .props('unelevated no-caps data-testid="cancel-run"').classes("any-cancel")
-                    self.report_button = ui.button("Allure report", icon=icon("chart-column"), color=None,
+                    self.summary_button = ui.button("Report", icon=icon("chart-column"), color=None,
+                                                    on_click=self.open_summary) \
+                        .props('flat unelevated no-caps data-testid="run-report"').classes("any-btn is-38")
+                    self.report_button = ui.button("Allure", icon=icon("external-link"), color=None,
                                                    on_click=self.open_report) \
                         .props('flat unelevated no-caps data-testid="allure-report"').classes("any-btn is-38")
             self.progress_view(None)
             self.message_view("")
             with ui.element("div").classes("any-table-wrap"):
-                self.results_table = ui.table(rows=[], row_key="nodeid", pagination=10, columns=[
-                    {"name": "outcome", "label": "Status", "field": "outcome", "align": "left", "sortable": True,
-                     "style": "width: 140px", "headerStyle": "width: 140px"},
-                    {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
-                    {"name": "browser", "label": "Browser", "field": "browser", "align": "left"},
-                    {"name": "duration", "label": "Duration", "field": "duration", "align": "right", "sortable": True},
-                    {"name": "message", "label": "Message", "field": "message", "align": "left"},
-                ]).classes("w-full")
+                self.results_table = ui.table(rows=[], row_key="nodeid", pagination=10,
+                                              columns=RESULT_COLUMNS).classes("w-full")
                 styled_table(self.results_table, 0, wide=True)
                 result_slots(self.results_table)
                 self.results_table.on("rowClick", lambda e: self._open_details(e.args[1]))
@@ -633,6 +631,11 @@ class ControlPanel:
             return
         ui.notify("Saved as defaults in .env", type="positive")
 
+    def open_summary(self) -> None:
+        run = self._run()
+        if run and not run.active and self.svc.runs.write_summary(run):
+            ui.navigate.to(f"/runs/{run.id}/report.html", new_tab=True)
+
     def open_report(self) -> None:
         run = self._run()
         if run and run.report_status == "ready":
@@ -683,15 +686,10 @@ class ControlPanel:
         self.meta_tags.text = ", ".join(run.config.tags)
         self.log_view.set_active(run.active)
         self.progress_view.refresh(run)
-        report_problem = run.report_message if run.report_status in ("unavailable", "failed") else ""
+        # A missing Allure CLI is no longer a problem: the built-in report covers it
+        report_problem = run.report_message if run.report_status == "failed" else ""
         self.message_view.refresh(run.error or report_problem)
-        rows = []
-        details = details_for(run)
-        for r in list(run.results.values()):
-            name, code = split_test_id(r.test_id)
-            rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name, "code": code,
-                         "browser": r.browser, "duration": r.duration, "message": r.message,
-                         "has_details": has_details(details, r.test_id, r.browser)})
+        rows = result_rows(run)
         self.results_table.rows = rows
         styled_table(self.results_table, len(rows), wide=True)
         self.results_table.update()
@@ -712,5 +710,7 @@ class ControlPanel:
         # Cancel only does something while the viewed run is active
         self.cancel_button.set_visibility(bool(run and run.active))
         self.live_badge.set_visibility(bool(run and run.active))
+        self.summary_button.set_enabled(bool(run and not run.active))
         self.report_button.set_enabled(bool(run and run.report_status == "ready"))
+        self.report_button.set_visibility(self._allure or bool(run and run.report_status == "ready"))
         self.console_button.set_enabled(bool(run))

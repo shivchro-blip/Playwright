@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from webapp.services.json_files import ConflictError, PathError
+from webapp.services.run_insights import compare, flaky_tests, previous_run, summarize
 from webapp.services.run_manager import RunConfig
 from webapp.state import services
 
@@ -160,6 +161,39 @@ def get_run_log(run_id: str, since: int = 0) -> dict:
         raise HTTPException(404, "Run not found")
     lines, end = run.log_since(since)
     return {"lines": lines, "next": end, "status": run.status}
+
+
+@router.get("/runs/{run_id}/compare")
+def compare_runs(run_id: str, base: str = "") -> dict:
+    """What changed test by test from `base` (default: the previous finished run of the same system/env)."""
+    runs = services().runs
+    target = runs.get(run_id)
+    if not target:
+        raise HTTPException(404, "Run not found")
+    before = runs.get(base) if base else previous_run(runs.list(), target)
+    if not before:
+        raise HTTPException(404, "No run to compare with")
+    first, second = sorted((before, target), key=lambda r: r.created_at)
+    rows = compare(first, second)
+    return {"base": first.id, "target": second.id, "summary": summarize(rows), "tests": [r.to_dict() for r in rows]}
+
+
+@router.post("/runs/{run_id}/report")
+def write_run_report(run_id: str) -> dict:
+    """(Re)write the built-in report; it is served at the returned url."""
+    runs = services().runs
+    run = runs.get(run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    if run.active or not runs.write_summary(run):
+        raise HTTPException(409, "Run is still active or the report could not be written")
+    return {"url": f"/runs/{run.id}/report.html"}
+
+
+@router.get("/insights/flaky")
+def list_flaky(system: str, env: str | None = None) -> list[dict]:
+    """Tests that passed and failed in their recent runs, changing result at least twice."""
+    return [t.to_dict() for t in flaky_tests(services().runs.list(), system, env)]
 
 
 @router.post("/runs/{run_id}/rerun", status_code=201)

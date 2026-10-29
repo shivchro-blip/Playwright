@@ -5,6 +5,7 @@ runs/<id>/
     console.log       full console output
     allure-results/   raw allure-pytest output
     allure-report/    generated HTML report (if the Allure CLI is available)
+    report.html       built-in report: summary, failures, recent results per test, trend (no Allure needed)
 """
 from __future__ import annotations
 
@@ -24,6 +25,8 @@ from pathlib import Path
 from webapp.pytest_events import PREFIX
 from webapp.services.env_config import RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.json_files import NAME_RE
+from webapp.services.run_artifacts import RunArtifacts
+from webapp.services.run_insights import build_report
 
 logger = logging.getLogger(__name__)
 
@@ -87,6 +90,10 @@ class Run:
     @property
     def report_dir(self) -> Path:
         return self.dir / "allure-report"
+
+    @property
+    def summary_file(self) -> Path:
+        return self.dir / "report.html"
 
     @property
     def active(self) -> bool:
@@ -306,6 +313,7 @@ class RunManager:
                 r.outcome = "cancelled" if run._cancelled else "error"
         self._append(run, f"[webapp] Finished: {run.status} (exit code {run.exit_code})")
         self._save(run)
+        self.write_summary(run)
         self._generate_report(run)
         self._save(run)
 
@@ -358,6 +366,21 @@ class RunManager:
             if params.endswith("-" + b):
                 return params[:-len(b) - 1], b
         return params, browsers[0] if len(browsers) == 1 else ""
+
+    def write_summary(self, run: Run) -> Path | None:
+        """(Re)write the run's built-in report.html from its results and the run history."""
+        if run.active:
+            return None
+        try:
+            details = RunArtifacts().details(run.id, run.results_dir)
+            content = build_report(run, list(self._runs.values()), details)
+            tmp = run.dir / "report.html.tmp"
+            tmp.write_text(content, encoding="utf-8")
+            tmp.replace(run.summary_file)
+        except OSError:
+            logger.exception("Could not write the report of run %s", run.id)
+            return None
+        return run.summary_file
 
     def _generate_report(self, run: Run) -> None:
         if not run.results_dir.is_dir() or not any(run.results_dir.iterdir()):

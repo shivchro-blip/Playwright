@@ -1,0 +1,48 @@
+/* Built-in run report (webapp/services/run_insights.build_report). Inlined into report.html. */
+/* Status colours from the app's tokens (--pass-dot, --fail, --idle-dot), with dark-mode steps */
+:root { --bg: #F2F4F7; --surface: #FFFFFF; --border: #E2E6EC; --ink: #101828; --ink-2: #344054; --muted: #5D6679;
+  --pass: #1F9254; --fail: #B42318; --other: #667085; --pass-bg: #E3F4EA; --fail-bg: #FEF3F2; --chip: #EEF1F5;
+  --grid: #EEF1F5; --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0D1320; --surface: #141C2E; --border: #2A3550; --ink: #E6EBF3;
+  --ink-2: #D2DAE6; --muted: #98A4B8; --pass: #3FB977; --fail: #F0776B; --other: #8592A8; --pass-bg: #12301F;
+  --fail-bg: #3A1A17; --chip: #1E2738; --grid: #1E2738; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 "IBM Plex Sans", system-ui, -apple-system,
+  "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; display: flex; flex-direction: column; gap: 16px; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+h1 { font-size: 22px; margin: 4px 0 0; } h1 .mono { font-size: 20px; font-weight: 600; } h2 { font-size: 15px; margin: 0 0 12px; }
+.eyebrow { font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px; margin-top: 6px; }
+.meta b { color: var(--ink-2); font-weight: 500; }
+.pill { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12.5px;
+  font-weight: 600; background: var(--chip); color: var(--ink-2); vertical-align: middle; margin-left: 8px; }
+.pill.passed { background: var(--pass-bg); color: var(--pass); } .pill.failed, .pill.error { background: var(--fail-bg);
+  color: var(--fail); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.tile .n { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--border); padding: 6px 8px; }
+td { border-bottom: 1px solid var(--grid); padding: 7px 8px; vertical-align: top; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+.msg { color: var(--fail); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px;
+  margin: 0; max-height: 160px; overflow: auto; }
+.dots { display: inline-flex; gap: 3px; vertical-align: middle; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--other); display: inline-block; }
+.dots i.p { background: var(--pass); } .dots i.f { background: var(--fail); }
+.tag { display: inline-block; padding: 0 6px; border-radius: 6px; background: var(--chip); color: var(--ink-2);
+  font-size: 12px; margin-left: 6px; }
+.tag.flaky { background: var(--fail-bg); color: var(--fail); }
+.legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--ink-2); margin: 0 0 8px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .bar-p { fill: var(--pass); } .chart .bar-f { fill: var(--fail); } .chart .bar-o { fill: var(--other); }
+.chart .axis { stroke: var(--border); } .chart text { fill: var(--muted); font: 11px var(--mono); }
+.chart .current { stroke: var(--ink-2); stroke-width: 1.5; fill: none; stroke-dasharray: 3 3; }
+.shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.shots img { max-width: 320px; max-height: 200px; border: 1px solid var(--border); border-radius: 8px; }
+.note { color: var(--muted); font-size: 13px; margin: 12px 0 0; } .note b { color: var(--ink-2); font-weight: 500; }
+a { color: inherit; }

@@ -64,3 +64,5 @@ def test_failure_details_include_screenshot_and_dom_snapshot(workspace, tmp_path
     assert details.message and details.by_kind("image") and details.by_kind("html"), details
     shot = details.by_kind("image")[0]
     assert (run.results_dir / shot.url.rpartition("/")[2]).read_bytes().startswith(b"\x89PNG")
+    report = run.summary_file.read_text(encoding="utf-8")  # built-in report, written when the run finished
+    assert "TC-SMOKE-004-MissingElement" in report and f'src="allure-results/{shot.url.rpartition("/")[2]}"' in report
