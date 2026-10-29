@@ -67,7 +67,7 @@ How the spec maps onto this stack:
 | "X of Y test case(s) selected × B browser(s) = R run(s)" | label | computed from `catalog.select(tags)` and the browser count (`max(len(browsers), 1)`) | – | always | ✅ split into the header pill "X of Y selected" and the launch-strip formula (`data-testid=run-formula`) |
 | "Could not read <file>: <err>" | label (red), one per catalog error | – | – | when there are errors | ✅ under the card header |
 | "Duplicate test IDs: …" | label (orange) | – | – | when there are duplicates | ✅ under the card header |
-| Selection column | ✓ / – icon, **read-only**. Selection is decided by the Tags filter; rows can't be toggled | – | – | always | ✅ read-only checkbox (see deviations) |
+| Selection column | was a read-only ✓ / – icon; now real checkboxes | `_toggle_test` / `_toggle_all` → `self.excluded` | tag-matched rows only (others disabled) | always | ✅ Unchecking tests runs only the checked ones via `RunConfig.test_ids`, the same mechanism as Generator "Run this test". With everything checked the payload is unchanged (`test_ids=[]`) |
 | Table columns | Test case (sortable), Tags, File (sortable), Steps (sortable) | Quasar client-side sort | – | – | ✅ sorting kept |
 | Pagination | Quasar, 10 rows/page, default "Records per page" options [5, 7, 10, 15, 20, 25, 50, All] | Quasar | – | always | ✅ custom row, same options and state |
 
@@ -139,7 +139,7 @@ Environment: NiceGUI 3.18 / FastAPI 0.162 / Playwright 1.64.1, headless Chromium
 ## Deviations from the brief
 
 1. **No package.json / React / MUI.** The stack is NiceGUI (Quasar). The theme is CSS tokens plus `ui.colors` plus NiceGUI `default_props`. Fonts and icons are vendored from the npm packages (`@fontsource/ibm-plex-*` 5.3.0, OFL; `lucide-static` 1.63.0, ISC) into `webapp/static/`.
-2. **Tests selection checkboxes are read-only.** Selection is decided by the Tags filter: the code has no per-row selection model, and adding one would change the run payload (`test_ids`). The checkboxes show the state, are inert (`aria-disabled`), and say so in a tooltip.
+2. **Tests selection checkboxes (updated after review).** At first they were read-only, because selection was decided only by the Tags filter. They now select tests, using the existing `test_ids` support. Only tag-matched tests can be checked, because the suite filters by tags first. With everything checked the run payload is the same as before. Verified with real runs: a subset run sent and ran exactly the checked IDs; select all / none and disabled unmatched rows also checked (`screenshots/control-tests-subset-1440.png`).
 3. **"All tags" placeholder → "Select tags".** An empty tag list runs nothing, so "All tags" would be wrong.
 4. **No REST calls to compare.** The UI talks to Python over the NiceGUI websocket. The run payload (RunConfig plus command) was compared instead.
 5. **Cancel is hidden while no run is active.** `cancel_run` does nothing in that case.

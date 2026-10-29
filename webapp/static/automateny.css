@@ -297,7 +297,8 @@
 .any-app .any-table .q-table__bottom--nodata .q-icon { display: none; }
 .any-app .any-table.is-clickable tbody tr { cursor: pointer; }
 .any-check-hit { display: inline-grid; place-items: center; width: 32px; height: 40px; }
-.any-check { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; cursor: default; }
+.any-check { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; cursor: pointer; }
+.any-check:disabled { cursor: not-allowed; }
 .any-tc-name { font-size: 14px; font-weight: 500; color: var(--ink); }
 .any-tc-name.is-muted { color: var(--muted); }
 .any-tc-code { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
@@ -322,7 +323,8 @@
 /* launch strip */
 .any-launch { background: var(--surface-subtle); border-top: 1px solid var(--border); padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
 .any-formula { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 14px; color: var(--ink-2); }
-.any-formula b { font: 600 18px var(--font-mono); color: var(--ink); margin-right: 4px; }
+.any-formula b { font: 600 18px var(--font-mono); color: var(--ink); }
+.any-formula > span:not(.op), .any-formula .res > span { white-space: pre; }
 .any-formula .op { font: 15px var(--font-mono); color: var(--muted); }
 .any-formula .res { background: var(--accent-soft); color: var(--accent-deep); padding: 3px 10px; border-radius: 8px; }
 .any-formula .res b { color: var(--accent-deep); }
