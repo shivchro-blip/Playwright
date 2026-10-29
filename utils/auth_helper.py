@@ -65,9 +65,9 @@ async def login_if_needed(page, system_name, environment):
     if not base_url or not username or not password:
         raise ValueError(f"Missing credentials or URL for {system_name} in {environment}.")
     # Load login page configuration (this JSON file defines locators for the login page)
-    with open(f"{workspaceDir}\\Pages\\{system_name}\\{login_page_name}.json", "r", encoding="utf-8") as loginFile:
+    with open(os.path.join(workspaceDir, "Pages", system_name, f"{login_page_name}.json"), "r", encoding="utf-8") as loginFile:
         login_page = json.load(loginFile)
-    with open(f"{workspaceDir}\\Pages\\{system_name}\\{landing_page_name}.json", "r", encoding="utf-8") as landingFile:
+    with open(os.path.join(workspaceDir, "Pages", system_name, f"{landing_page_name}.json"), "r", encoding="utf-8") as landingFile:
         landing_page = json.load(landingFile)
     fields = login_page["fields"]
     landFields = landing_page["fields"]

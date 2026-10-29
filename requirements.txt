@@ -9,5 +9,5 @@ pytest-rerunfailures>=16
 pytest-xdist>=3.8
 python-dotenv>=1.2
 PyYAML>=6.0
-pywinauto>=0.6.9
+pywinauto>=0.6.9; sys_platform == "win32"  # TWAIN scan dialogs (scanFile), Windows only
 requests>=2.34

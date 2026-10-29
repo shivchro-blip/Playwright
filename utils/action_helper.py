@@ -1,6 +1,7 @@
 ﻿import os
 import json
 import logging
+import os
 import allure
 from playwright.async_api import expect, TimeoutError as PlaywrightTimeoutError
 from utils.auth_helper import login_if_needed
@@ -139,7 +140,7 @@ async def action_handler(page, dictionaryContext, action_type, locator=None, ele
 
 async def runCommonAction(browser, page, commonAction):
     logger.info(f"Executing Common Action: {commonAction}")
-    commonActions = json.load(open(f"{workspaceDir}\\Tests\\com\\commonActions.json", "r", encoding="utf-8"))["commonActions"]
+    commonActions = json.load(open(os.path.join(workspaceDir, "Tests", "com", "commonActions.json"), "r", encoding="utf-8"))["commonActions"]
     comActSteps = commonActions.get(commonAction['commonAction'])
     if not comActSteps:
         logger.error(f"[ERROR] Common Action '{commonAction['commonAction']}' not found in commonActions.json!")
@@ -149,7 +150,7 @@ async def runCommonAction(browser, page, commonAction):
     for comActStep in comActSteps:
         screen_name = comActStep["screen"]
         logger.info(f"-> Common Action Step: Navigating to {screen_name}")
-        screen_config_path = f"{workspaceDir}\\Pages\\{systemConfig}\\{screen_name}.json"
+        screen_config_path = os.path.join(workspaceDir, "Pages", systemConfig, f"{screen_name}.json")
         if not os.path.exists(screen_config_path):
             logger.error(f"ERROR: Screen config not found: {screen_config_path}")
             continue

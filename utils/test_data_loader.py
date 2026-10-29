@@ -65,7 +65,7 @@ def load_test_cases_from_folder(folder_path, selected_tags=[], selected_modules=
     logger.warning(f"[DEBUG LOG] selected_tags evaluated to: {normalized_tags}")
     
     if os.path.exists(folder_path):
-        for dirpath, dirnames, filenames in os.walk(f"{folder_path}\\MasterRegressionSuite\\"):
+        for dirpath, dirnames, filenames in os.walk(os.path.join(folder_path, "MasterRegressionSuite")):
             for file_name in filenames:
                 if not file_name.endswith(".json"):
                     continue  # Skip non-JSON files
