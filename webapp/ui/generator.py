@@ -978,12 +978,24 @@ class GeneratorPanel:
                                      'aria-label="Generator sections"').classes("any-subtabs") as tabs:
                     tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
                     pages_tab = ui.tab("Pages", icon=icon("app-window"))
+                self.sections, self.pages_tab = tabs, pages_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
                     self.tests = TestEditor(self)
                 with ui.tab_panel(pages_tab).classes("p-0"):
                     self.pages = PageEditor(self)
         self.tests.load_refs()
+
+    async def show_default(self) -> None:
+        """Default view when the Generator tab is opened: Pages, with the first page open in Form view.
+        A page that is already open (possibly with unsaved edits) stays open."""
+        self.sections.set_value(self.pages_tab)
+        if self.pages.rel is not None or not self.system:
+            return
+        refs = sorted(self.svc.pom.list_pages(self.system), key=lambda r: r.rel.casefold())
+        if refs:
+            self.pages.json_mode = False
+            await self.pages.open(refs[0].rel)
 
     def all_systems(self) -> list[str]:
         return sorted(set(self.svc.pom.systems()) | set(self.svc.tests.systems()) | set(self.svc.systems.systems()))

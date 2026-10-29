@@ -45,7 +45,7 @@ class HistoryPanel:
                 return placeholder(ui.select(options, clearable=True, on_change=lambda e: self._filter(key, e.value))
                                    .props(f'for="{for_id}"').classes("w-44"), "All")
 
-        with ui.element("div").classes("any-page-inner"):
+        with ui.element("div").classes("any-page-inner is-wide"):
             with ui.element("section").classes("any-card").props('aria-label="Runs"'):
                 with ui.element("div").classes("any-card-head"):
                     with ui.element("div").classes("any-head-left"):

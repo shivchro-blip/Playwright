@@ -117,7 +117,8 @@
 /* ───────────── shell ───────────── */
 .q-tab-panel.any-app { padding: 0; background: var(--bg); }
 .q-tab-panel.any-app.any-page { padding: 24px; min-height: calc(100vh - 56px); }
-.any-page-inner { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+/* width: 100% because NiceGUI tab panels are flex columns with align-items: flex-start (children would shrink to fit) */
+.any-page-inner { width: 100%; max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .any-shell { display: flex; flex-wrap: wrap; align-items: stretch; width: 100%; min-height: calc(100vh - 56px); }
 .any-sidebar { flex: 1 1 320px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-width: 0; }
 .any-main { flex: 999 1 560px; min-width: 0; padding: clamp(16px, 4vw, 24px); }
@@ -472,7 +473,7 @@
 .any-app .any-subtabs .q-tab__content--inline .q-tab__icon + .q-tab__label { padding-left: 8px; }
 .any-app .any-subtabs .q-tab__label { font-size: 14px; font-weight: 500; }
 .any-app .any-subtabs .q-tab__indicator { display: none; }
-.any-split { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.any-split { width: 100%; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
 .any-split-list { flex: 1 1 340px; max-width: 100%; }
 .any-split-main { flex: 999 1 560px; min-width: 0; padding: 18px 20px 22px 24px; display: flex; flex-direction: column; gap: 18px; }
 .any-list-head { display: flex; align-items: center; gap: 6px; padding: 14px 12px 14px 16px; }

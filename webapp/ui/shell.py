@@ -43,7 +43,12 @@ def register() -> None:
                 else:
                     tab.props(remove="aria-current")
 
-        tabs.on_value_change(lambda e: mark_current(e.value))
+        async def on_tab(e) -> None:
+            mark_current(e.value)
+            if e.value == "Generator":
+                await panels["generator"].show_default()
+
+        tabs.on_value_change(on_tab)
         mark_current("Control")
 
         panels: dict[str, object] = {}
@@ -58,7 +63,7 @@ def register() -> None:
             with ui.tab_panel(control_tab).classes("any-app"):
                 panels["control"] = ControlPanel()
             with ui.tab_panel(generator_tab).classes("any-app any-page"):
-                GeneratorPanel(on_run=watch)
+                panels["generator"] = GeneratorPanel(on_run=watch)
             with ui.tab_panel(history_tab).classes("any-app any-page"):
                 HistoryPanel(on_watch=watch)
             with ui.tab_panel(help_tab).classes("any-app any-page"):
