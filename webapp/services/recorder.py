@@ -10,6 +10,9 @@ the generated Python is parsed (never executed) with `ast` and mapped onto this 
   field; a second step would navigate to the page's path again and lose the page state.
 
 Values typed into fields that look like credentials are dropped, so passwords never land in test JSON.
+Wizard mode splits a long, multi-screen flow into one page per screen (a click on a button such as
+"Save & Continue" ends the screen) and records one `screen` step per page, so the report names the screen that
+failed and each page object stays small.
 The feature is off unless `recorderEnabled=true` in .env, and it only runs when the app listens on
 loopback: codegen opens its browser on the machine running the app.
 """
@@ -42,6 +45,7 @@ TYPE_SUFFIX = {"button": "Button", "link": "Link", "checkbox": "Checkbox", "radi
                "document": "File"}
 IGNORED_CALLS = {"close", "wait_for_load_state", "wait_for_timeout", "wait_for_url", "bring_to_front",
                  "set_viewport_size", "once", "on"}
+DEFAULT_BREAKS = ("Save & Continue", "Save and Continue", "Next", "Continue", "Submit")
 SECRET_HINT = re.compile(r"pass(word|code)?|pwd|secret|token|otp|pin\b", re.IGNORECASE)
 
 
@@ -50,14 +54,36 @@ class RecorderError(Exception):
 
 
 @dataclass
+class RecordOptions:
+    """How a recording is turned into pages. break_on: button names that end a screen (wizard mode, empty = one
+    page). id_attribute: an attribute that identifies elements on the site (e.g. data-attribute-id); locators
+    use it and field names come from its values with id_prefix removed."""
+    break_on: tuple[str, ...] = ()
+    id_attribute: str = ""
+    id_prefix: str = ""
+
+
+@dataclass
+class Screen:
+    name: str
+    fields: dict[str, dict] = field(default_factory=dict)
+    steps: list[dict] = field(default_factory=list)  # one formData dict
+
+
+@dataclass
 class Recording:
     start_url: str = ""
-    fields: dict[str, dict] = field(default_factory=dict)  # name -> field config
+    fields: dict[str, dict] = field(default_factory=dict)  # name -> field config (single-page recordings)
     steps: list[dict] = field(default_factory=list)  # formData dicts, one per screen step (normally one)
+    screens: list[Screen] = field(default_factory=list)  # wizard mode: one page and step per screen
     warnings: list[str] = field(default_factory=list)
     actions: int = 0
     assertions: int = 0
     source: str = ""  # the generated code, with credential values masked
+
+    @property
+    def field_count(self) -> int:
+        return sum(len(s.fields) for s in self.screens) if self.screens else len(self.fields)
 
     def page(self, base_url: str = "") -> dict:
         """Page JSON for the recorded fields: path relative to base_url when the start URL is under it."""
@@ -105,7 +131,7 @@ def _quote(value: str, exact: bool = False) -> str:
     return json.dumps(value, ensure_ascii=False) + ("s" if exact else "i")
 
 
-def _selector(method: str, args: list, kwargs: dict, warnings: list[str]) -> str | None:
+def _selector(method: str, args: list, kwargs: dict, warnings: list[str], attr: str = "data-testid") -> str | None:
     """One locator call as a Playwright selector string (the engine's own syntax), for chained locators."""
     first = _literal(args[0], warnings) if args else None
     exact = bool(_literal(kwargs["exact"], warnings)) if "exact" in kwargs else False
@@ -125,7 +151,7 @@ def _selector(method: str, args: list, kwargs: dict, warnings: list[str]) -> str
     if method == "get_by_title":
         return f"internal:attr=[title={_quote(str(first), exact)}]"
     if method == "get_by_test_id":
-        return f"internal:testid=[data-testid={_quote(str(first), True)}]"
+        return f"internal:testid=[{attr}={_quote(str(first), True)}]"
     if method == "filter" and "has_text" in kwargs:
         return f"internal:has-text={_quote(str(_literal(kwargs['has_text'], warnings)))}"
     if method == "nth":
@@ -137,15 +163,16 @@ def _selector(method: str, args: list, kwargs: dict, warnings: list[str]) -> str
     return None
 
 
-def field_config(segments: list[tuple[str, list, dict]], warnings: list[str]) -> dict | None:
+def field_config(segments: list[tuple[str, list, dict]], warnings: list[str], attr: str = "data-testid",
+                 tidy: bool = False) -> dict | None:
     """Locator calls -> field config with get_element's keys; chains fall back to one selector string."""
     segments = list(segments)
     index = None
     if segments and segments[-1][0] in ("first", "nth"):
         method, args, _ = segments.pop()
         index = 0 if method == "first" else _literal(args[0], warnings) if args else None
-    cfg: dict | None = None
-    if len(segments) == 1:
+    cfg: dict | None = _container_config(segments, warnings, attr) if tidy else None
+    if cfg is None and len(segments) == 1:
         method, args, kwargs = segments[0]
         value = _literal(args[0], warnings) if args else None
         if method == "locator" and value and not kwargs:
@@ -158,12 +185,12 @@ def field_config(segments: list[tuple[str, list, dict]], warnings: list[str]) ->
         elif method in ("get_by_label", "get_by_placeholder", "get_by_text") and value not in (None, ""):
             cfg = {method.removeprefix("get_by_"): str(value)}
         elif method == "get_by_test_id" and value:
-            cfg = {"locator": f"[data-testid={json.dumps(str(value))}]"}
+            cfg = {"locator": f"[{attr}={json.dumps(str(value))}]"}
         elif method in ("get_by_alt_text", "get_by_title") and value:
             attr = "alt" if method == "get_by_alt_text" else "title"
             cfg = {"locator": f"[{attr}={json.dumps(str(value))}]"}
     if cfg is None and segments:
-        parts = [_selector(m, a, k, warnings) for m, a, k in segments]
+        parts = [_selector(m, a, k, warnings, attr) for m, a, k in segments]
         if any(p is None for p in parts):
             return None
         cfg = {"locator": " >> ".join(parts)}  # type: ignore[arg-type]
@@ -172,6 +199,37 @@ def field_config(segments: list[tuple[str, list, dict]], warnings: list[str]) ->
     if index is not None:
         cfg["index"] = int(index)
     return cfg
+
+
+def _css_text(value: str) -> str:
+    return str(value).replace("\\", "\\\\").replace("'", "\\'")
+
+
+def _container_config(segments: list[tuple[str, list, dict]], warnings: list[str], attr: str) -> dict | None:
+    """get_by_test_id("X") alone, or followed by one locator("css") / button or link with a name, as the readable
+    selector sites like this are written with:  [attr='X'] input   [attr='X'] button:text-is('No')"""
+    if not segments or segments[0][0] != "get_by_test_id" or not segments[0][1]:
+        return None
+    ident = _literal(segments[0][1][0], warnings)
+    if not ident:
+        return None
+    base = f"[{attr}='{_css_text(ident)}']"
+    if len(segments) == 1:
+        return {"locator": base}
+    if len(segments) != 2:
+        return None
+    method, args, kwargs = segments[1]
+    first = _literal(args[0], warnings) if args else None
+    if method == "locator" and first and not kwargs:
+        return {"locator": f"{base} {first}"}
+    if method == "get_by_role" and first in ("button", "link"):
+        name = _literal(kwargs["name"], warnings) if "name" in kwargs else None
+        tag = "button" if first == "button" else "a"
+        if name in (None, ""):
+            return {"locator": f"{base} {tag}"}
+        exact = bool(_literal(kwargs["exact"], warnings)) if "exact" in kwargs else False
+        return {"locator": f"{base} {tag}:{'text-is' if exact else 'has-text'}('{_css_text(name)}')"}
+    return None
 
 
 def _words(cfg: dict) -> list[str]:
@@ -183,7 +241,21 @@ def _words(cfg: dict) -> list[str]:
     return re.findall(r"[A-Za-z0-9]+", source)[:5]
 
 
-def field_name(cfg: dict, kind: str, taken: set[str]) -> str:
+def _pascal(value: str) -> str:
+    return "".join(w[:1].upper() + w[1:] for w in re.findall(r"[A-Za-z0-9]+", value))
+
+
+def field_name(cfg: dict, kind: str, taken: set[str], attr: str = "", prefix: str = "") -> str:
+    ident = re.match(rf"\[{re.escape(attr)}='((?:[^'\\]|\\.)*)'\]", str(cfg.get("locator") or "")) if attr else None
+    if ident:  # the site's own id names the field: PascalCase, no type suffix
+        raw = ident.group(1)
+        base = _pascal(raw[len(prefix):] if prefix and raw.startswith(prefix) else raw)[:40] or kind
+        if base[:1].isdigit():
+            base = "F" + base
+        name, n = base, 2
+        while name in taken:
+            name, n = f"{base}{n}", n + 1
+        return name
     words = _words(cfg)
     base = (words[0].lower() + "".join(w[:1].upper() + w[1:].lower() for w in words[1:])) if words else kind
     if base[:1].isdigit():
@@ -217,7 +289,26 @@ def _statements(body: list[ast.stmt]):
             yield stmt, False
 
 
-def parse_codegen(source: str) -> Recording:
+@dataclass
+class _State:
+    """What is being collected for the current page (a wizard recording has one per screen)."""
+    fields: dict[str, dict] = field(default_factory=dict)
+    step: dict = field(default_factory=dict)  # formData, in action order
+    by_config: dict[str, str] = field(default_factory=dict)  # json(config) -> field name
+    uses: dict[str, int] = field(default_factory=dict)
+    last: list = field(default_factory=lambda: [None, None, False])  # formData key, field name, created
+
+
+def _label(cfg: dict) -> str:
+    """The visible text a field is found by, for matching screen-ending buttons."""
+    text = cfg.get("name") or cfg.get("text") or cfg.get("label")
+    if not text:
+        m = re.search(r"(?:has-text|text-is)\('((?:[^'\\]|\\.)*)'\)\s*$", str(cfg.get("locator") or ""))
+        text = m.group(1) if m else ""
+    return re.sub(r"\s+", " ", str(text)).strip().casefold()
+
+
+def parse_codegen(source: str, options: RecordOptions | None = None) -> Recording:
     """Map `playwright codegen --target python` output onto fields and steps. The code is never run."""
     rec = Recording()
     warnings = rec.warnings
@@ -225,19 +316,24 @@ def parse_codegen(source: str) -> Recording:
         tree = ast.parse(source)
     except SyntaxError as e:
         raise RecorderError(f"The recording could not be read: {e}") from e
-    by_config: dict[str, str] = {}  # json(config) -> field name
-    step: dict = {}  # formData, in action order
+    options = options or RecordOptions()
+    attr, tidy = options.id_attribute or "data-testid", bool(options.id_attribute)
+    breaks = {b.strip().casefold() for b in options.break_on if b and b.strip()}
+    st = _State()
+    screens: list[Screen] = []
     secrets_masked: list[str] = []
     navigations = 0
 
-    uses: dict[str, int] = {}
-    last: list = [None, None, False]  # formData key, field name, field created by that action
-
     def add(name: str, value, created: bool = False) -> None:
-        uses[name] = uses.get(name, 0) + 1
-        key = name + "|" * (uses[name] - 1)  # the documented way to repeat a field: next, next|, next||
-        step[key] = value
-        last[:] = [key, name, created]
+        st.uses[name] = st.uses.get(name, 0) + 1
+        key = name + "|" * (st.uses[name] - 1)  # the documented way to repeat a field: next, next|, next||
+        st.step[key] = value
+        st.last[:] = [key, name, created]
+
+    def end_screen() -> None:
+        nonlocal st
+        screens.append(Screen(f"Screen{len(screens) + 1}", st.fields, [st.step]))
+        st = _State()
 
     for stmt, in_popup in _statements(tree.body):
         if not isinstance(stmt, ast.Expr) or not isinstance(stmt.value, (ast.Call, ast.Await)):
@@ -266,7 +362,7 @@ def parse_codegen(source: str) -> Recording:
             continue
         if parts[0][0] == "keyboard" and method == "press" and len(parts) == 2:
             key = _literal(args[0], warnings) if args else None
-            target = last[1]
+            target = st.last[1]
             if target and key:
                 add(target, {"type": "keyboard", "value": str(key)})
                 rec.actions += 1
@@ -282,7 +378,7 @@ def parse_codegen(source: str) -> Recording:
         if not segments or any(m not in LOCATOR_METHODS for m, _, _ in segments):
             warnings.append(f"Skipped an unsupported call '{method}' (line {stmt.lineno}).")
             continue
-        cfg = field_config(segments, warnings)
+        cfg = field_config(segments, warnings, attr, tidy)
         if cfg is None:
             warnings.append(f"Couldn't express the locator on line {stmt.lineno} as a field; skipped.")
             continue
@@ -319,37 +415,43 @@ def parse_codegen(source: str) -> Recording:
             continue
 
         key = json.dumps(cfg, sort_keys=True)
-        name = by_config.get(key)
+        name = st.by_config.get(key)
         created = name is None
         if created:
-            name = field_name(cfg, kind, set(rec.fields))
-            rec.fields[name] = {**cfg, "type": kind}
-            by_config[key] = name
-        elif method in ("fill", "type", "press_sequentially", "select_option") and last[1] == name \
-                and step.get(last[0]) == "click":
+            name = field_name(cfg, kind, set(st.fields), options.id_attribute, options.id_prefix)
+            st.fields[name] = {**cfg, "type": kind}
+            st.by_config[key] = name
+        elif method in ("fill", "type", "press_sequentially", "select_option") and st.last[1] == name \
+                and st.step.get(st.last[0]) == "click":
             # codegen records the click that focused a field before typing into it: drop it
-            del step[last[0]]
-            uses[name] -= 1
+            del st.step[st.last[0]]
+            st.uses[name] -= 1
             rec.actions -= 1
-            if last[2]:
-                rec.fields[name]["type"] = kind
-                renamed = field_name(cfg, kind, set(rec.fields) - {name})
+            if st.last[2]:
+                st.fields[name]["type"] = kind
+                renamed = field_name(cfg, kind, set(st.fields) - {name}, options.id_attribute, options.id_prefix)
                 if renamed != name:
-                    rec.fields[renamed] = rec.fields.pop(name)
-                    by_config[key] = name = renamed
+                    st.fields[renamed] = st.fields.pop(name)
+                    st.by_config[key] = name = renamed
         if in_popup:
-            rec.fields[name]["waitForNewTab"] = True
+            st.fields[name]["waitForNewTab"] = True
         if method in ("fill", "type", "press_sequentially") and value not in ("", None) \
-                and _looks_secret(name, rec.fields[name]):
+                and _looks_secret(name, st.fields[name]):
             secrets_masked.append(str(value))
             warnings.append(f"The value typed into '{name}' looks like a credential and was not saved. "
                             "Use an ENV.<KEY> value from .env instead.")
             value = ""
         add(name, value, created)
         rec.actions += 1
+        if breaks and value == "click" and _label(cfg) in breaks:
+            end_screen()  # the button that moves the wizard on is the last action of its screen
 
-    if step:
-        rec.steps.append(step)
+    if breaks:
+        if st.step:
+            end_screen()
+        rec.screens = screens
+    elif st.step:
+        rec.fields, rec.steps = st.fields, [st.step]
     if rec.assertions:
         warnings.append(f"{rec.assertions} assertion(s) were not converted: test cases have no assertion step. "
                         "Use the page's titleContains / errorContains checks instead.")
@@ -407,6 +509,7 @@ class Session:
     status: str = "starting"  # starting | recording | finished | cancelled | failed
     error: str = ""
     recording: Recording | None = None
+    options: RecordOptions = field(default_factory=RecordOptions)
 
     @property
     def output(self) -> Path:
@@ -426,7 +529,7 @@ class Recorder:
     def active(self) -> bool:
         return bool(self.session and self.session.status in ("starting", "recording"))
 
-    def start(self, url: str, storage_state: Path | None = None) -> Session:
+    def start(self, url: str, storage_state: Path | None = None, options: RecordOptions | None = None) -> Session:
         parts = urlsplit(url or "")
         if parts.scheme not in ("http", "https") or not parts.netloc:
             raise RecorderError("Enter a full http(s) URL to start recording from.")
@@ -434,8 +537,10 @@ class Recorder:
             if self.active:
                 raise RecorderError("A recording is already in progress. Close its browser window first.")
             workdir = Path(tempfile.mkdtemp(prefix="automateny-rec-"))
-            session = Session(url=url, workdir=workdir)
+            session = Session(url=url, workdir=workdir, options=options or RecordOptions())
             argv = [*self.command, "codegen", "--target", "python", "-o", str(session.output)]
+            if session.options.id_attribute:
+                argv += ["--test-id-attribute", session.options.id_attribute]
             if storage_state and Path(storage_state).is_file():
                 argv += ["--load-storage", str(storage_state)]
             argv.append(url)
@@ -465,7 +570,7 @@ class Recorder:
             if not source.strip():
                 tail = out.decode("utf-8", "replace").strip()[-800:]
                 raise RecorderError("The browser closed without a recording." + (f"\n{tail}" if tail else ""))
-            session.recording = parse_codegen(source)
+            session.recording = parse_codegen(source, session.options)
             session.status = "finished"
         except RecorderError as e:
             session.status, session.error = "failed", str(e)
@@ -504,6 +609,20 @@ class SavedRecording:
     renames: dict[str, str]
 
 
+def _write_page(pom, system: str, page_name: str, fields: dict[str, dict], page_extra: dict) -> tuple[str, bool, dict]:
+    """Create the page, or merge the fields into the existing page of that name: (rel, created, renames)."""
+    existing_rel = pom.screen_index(system).get(page_name)
+    if existing_rel:
+        data, sha = pom.load(system, existing_rel)
+        merged, renames = merge_fields(data.get("fields") or {}, fields)
+        pom.save(system, existing_rel, {**data, "fields": merged}, sha)
+        return existing_rel, False, renames
+    rel = pom.create(system, "", page_name)  # validates the name
+    _, sha = pom.load(system, rel)
+    pom.save(system, rel, {**page_extra, "fields": dict(fields)}, sha)
+    return rel, True, {name: name for name in fields}
+
+
 def save_recording(pom, tests, system: str, recording: Recording, *, page_name: str, base_url: str,
                    test_id: str, test_file: str, env: str = "", tags: list[str] | None = None,
                    description: str = "") -> SavedRecording:
@@ -514,19 +633,47 @@ def save_recording(pom, tests, system: str, recording: Recording, *, page_name: 
     if not test_id.strip():
         raise RecorderError("Enter a test case ID.")
     page_name = page_name.strip().removesuffix(".json")
-    existing_rel = pom.screen_index(system).get(page_name)
-    if existing_rel:
-        data, sha = pom.load(system, existing_rel)
-        fields, renames = merge_fields(data.get("fields") or {}, recording.fields)
-        pom.save(system, existing_rel, {**data, "fields": fields}, sha)
-        rel, created = existing_rel, False
-    else:
-        rel = pom.create(system, "", page_name)  # validates the name
-        _, sha = pom.load(system, rel)
-        pom.save(system, rel, recording.page(base_url), sha)
-        renames, created = {name: name for name in recording.fields}, True
+    page = recording.page(base_url)
+    rel, created, renames = _write_page(pom, system, page_name, recording.fields,
+                                        {k: v for k, v in page.items() if k != "fields"})
     test_case = {"testCaseID": test_id.strip(), "description": description, "system": system, "env": env,
                  "module": "", "tags": list(tags or [system]),
                  "steps": build_steps(page_name, recording.steps, renames)}
     index, _ = tests.save(system, test_file, None, test_case, None)
     return SavedRecording(rel, created, test_file, index, renames)
+
+
+@dataclass
+class SavedWizard:
+    pages: list[tuple[str, str, bool]]  # (page name, relative path, created)
+    test_file: str
+    test_index: int
+
+
+def save_wizard(pom, tests, system: str, recording: Recording, *, page_names: list[str], base_url: str,
+                test_id: str, test_file: str, env: str = "", tags: list[str] | None = None,
+                description: str = "") -> SavedWizard:
+    """One page per recorded screen (an existing page of that name gets the fields merged in) and one test case
+    with a `screen` step per page. Names and the test ID are checked before anything is written."""
+    screens = [s for s in recording.screens if s.fields]
+    if not screens:
+        raise RecorderError("Nothing to save: the recording has no fields.")
+    if not test_id.strip():
+        raise RecorderError("Enter a test case ID.")
+    names = [n.strip().removesuffix(".json") for n in page_names]
+    if len(names) != len(screens) or not all(names):
+        raise RecorderError("Give every screen a page name.")
+    if len({n.casefold() for n in names}) != len(names):
+        raise RecorderError("Two screens have the same page name; page names must be unique.")
+    first_page = Recording(start_url=recording.start_url).page(base_url)
+    steps: list[dict] = []
+    pages: list[tuple[str, str, bool]] = []
+    for i, (screen, name) in enumerate(zip(screens, names)):
+        extra = {k: v for k, v in first_page.items() if k != "fields"} if i == 0 else {}  # only screen 1 navigates
+        rel, created, renames = _write_page(pom, system, name, screen.fields, extra)
+        pages.append((name, rel, created))
+        steps += build_steps(name, screen.steps, renames)
+    test_case = {"testCaseID": test_id.strip(), "description": description, "system": system, "env": env,
+                 "module": "", "tags": list(tags or [system]), "steps": steps}
+    index, _ = tests.save(system, test_file, None, test_case, None)
+    return SavedWizard(pages, test_file, index)
