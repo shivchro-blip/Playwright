@@ -7,6 +7,7 @@ from functools import lru_cache
 
 from dotenv import dotenv_values
 
+from webapp.services.ai_assist import AIAssist
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
 from webapp.services.notifier import Notifier
@@ -35,10 +36,14 @@ class Services:
     recorder: Recorder
     schedules: ScheduleStore
     scheduler: Scheduler
+    ai: AIAssist
 
+
+    def flag(self, key: str) -> bool:
+        return env_flag(self.env, key)
 
     def recorder_enabled(self) -> bool:
-        return self.env.load().get("recorderEnabled", "false").strip().lower() in ("1", "true", "yes", "on")
+        return self.flag("recorderEnabled")
 
     def recorder_blocker(self) -> str:
         """Why the recorder can't start right now ("" = it can)."""
@@ -60,6 +65,10 @@ class Services:
             if key:
                 status.append({"key": key, "set": bool(os.environ.get(key)) or self.env.is_set(key)})
         return status
+
+
+def env_flag(env: EnvConfigService, key: str) -> bool:
+    return env.load().get(key, "false").strip().lower() in ("1", "true", "yes", "on")
 
 
 def notify_lookup(env: EnvConfigService):
@@ -98,4 +107,6 @@ def services() -> Services:
         runs=runs,
         schedules=schedules,
         scheduler=Scheduler(schedules, runs, catalog, notifier),
+        ai=AIAssist(lambda: env_flag(env, "aiAssistEnabled"), env.env_path,
+                    s.resolved_runs_dir.parent / "ai-audit.jsonl", s.ai_model),
     )

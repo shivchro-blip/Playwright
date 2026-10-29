@@ -13,6 +13,7 @@ import pytest
 from playwright.sync_api import expect, sync_playwright
 
 from tests.e2e.conftest import free_port
+from tests.e2e.fixtures.ai import fake_anthropic
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -26,9 +27,12 @@ def app_url(workspace: Path, tmp_path: Path):
     # Drop PYTEST_* variables: NiceGUI treats them as its own screen-test mode
     base_env = {k: v for k, v in os.environ.items() if not k.startswith("PYTEST_")}
     fake_codegen = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake_codegen.py"
+    base_env = {k: v for k, v in base_env.items() if k not in ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE")}
+    ai_server, ai_url = fake_anthropic.serve()  # AI assist talks to a local fake Messages API
     env = {**base_env, "AUTOMATENY_PORT": str(port), "AUTOMATENY_RUNS_DIR": str(tmp_path / "runs"),
            "AUTOMATENY_DOTENV_PATH": str(env_file), "PYTHONUNBUFFERED": "1",
-           "AUTOMATENY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)])}
+           "AUTOMATENY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)]),
+           "ANTHROPIC_BASE_URL": ai_url, "ANTHROPIC_API_KEY": "sk-ant-test-not-a-real-key"}
     log = (tmp_path / "webapp.log").open("w", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, "-m", "webapp"], cwd=REPO_ROOT, env=env, stdout=log,
                             stderr=subprocess.STDOUT)
@@ -46,6 +50,7 @@ def app_url(workspace: Path, tmp_path: Path):
             pytest.fail("web app did not start")
         yield url
     finally:
+        ai_server.shutdown()
         proc.terminate()
         try:
             proc.wait(timeout=15)
@@ -155,5 +160,56 @@ def test_schedule_is_created_and_runs_now(app_url: str):
         expect(page.locator(".any-headline")).to_have_text("Passed", timeout=180_000)
         page.get_by_role("tab", name="History").click()
         expect(page.get_by_role("region", name="Runs").get_by_text("scheduled").first).to_be_visible()
+        browser.close()
+    assert problems == []
+
+
+def test_ai_assist_is_opt_in_and_only_suggests(app_url: str, tmp_path: Path):
+    problems: list[str] = []
+    urllib.request.urlopen(urllib.request.Request(  # a failing run (unknown autoGen rule) to triage
+        app_url + "api/runs", method="POST", headers={"Content-Type": "application/json"},
+        data=json.dumps({"system": "SMOKE", "env": "dev", "tags": ["fail"], "browsers": ["chromium"],
+                         "options": {"headlessMode": True}}).encode()), timeout=10)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("pageerror", lambda e: problems.append(str(e)))
+        page.goto(app_url, wait_until="networkidle")
+        page.get_by_role("tab", name="Generator").click()
+        expect(page.get_by_test_id("ai-draft-open")).to_be_hidden()  # off by default
+
+        page.get_by_test_id("ai-settings").click()
+        settings = page.get_by_role("dialog", name="AI assist settings")
+        expect(settings.get_by_text("ANTHROPIC_API_KEY is set")).to_be_visible()
+        settings.get_by_test_id("ai-switch").click()
+        settings.get_by_role("button", name="Close").click()
+        assert "aiAssistEnabled=true" in (tmp_path / "ui.env").read_text(encoding="utf-8")
+
+        page.get_by_role("tab", name="History").click()
+        runs = page.get_by_role("region", name="Runs")
+        expect(runs.locator("tbody .pill-failed")).to_have_count(1, timeout=180_000)
+        runs.locator("tbody tr").first.click()
+        details = page.get_by_role("region", name="Run details")
+        details.locator("tbody tr").filter(has_text="BadAutoGen").click()
+        test_dialog = page.get_by_role("dialog", name="Test details")
+        test_dialog.get_by_test_id("ai-triage").click()
+        expect(test_dialog.get_by_test_id("ai-category")).to_have_text("Locator changed")
+        test_dialog.get_by_role("button", name="Close").click()
+
+        details.get_by_test_id("ai-summary").click()
+        summary = page.get_by_role("dialog", name="Run summary")
+        expect(summary.get_by_test_id("ai-summary-headline")).to_have_text("All smoke tests passed.")
+        summary.get_by_role("button", name="Close").click()
+
+        page.get_by_role("tab", name="Generator").click()
+        page.get_by_role("tab", name="Test cases").click()
+        page.get_by_test_id("ai-draft-open").click()
+        draft = page.get_by_role("dialog", name="Draft a test with AI")
+        draft.get_by_test_id("ai-draft-input").fill("Search for shoes")
+        draft.get_by_test_id("ai-draft").click()
+        expect(draft.get_by_test_id("ai-draft-json")).to_contain_text("TC-SMOKE-AI-Search")
+        draft.get_by_test_id("ai-draft-create").click()
+        page.get_by_role("button", name="Create", exact=True).click()  # the usual file dialog: nothing saved before
+        expect(page.get_by_role("region", name="Test cases").get_by_text("TC-SMOKE-AI-Search").first).to_be_visible()
         browser.close()
     assert problems == []

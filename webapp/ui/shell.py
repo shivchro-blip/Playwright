@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from webapp.ui.ai_panels import open_ai_settings
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
@@ -32,6 +33,10 @@ def register() -> None:
             with ui.tabs().props('inline-label no-caps indicator-color="transparent" '
                                  'aria-label="Main sections"') as tabs:
                 tab_elems = {name: ui.tab(name, icon=icon(ico)) for name, ico in tab_defs}
+            ui.button("AI", icon=icon("sparkles"), color=None,
+                      on_click=lambda: open_ai_settings(on_ai_change)) \
+                .props('flat unelevated no-caps aria-label="AI assist settings" data-testid="ai-settings"') \
+                .classes("any-nav-btn")
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
@@ -54,6 +59,10 @@ def register() -> None:
 
         panels: dict[str, object] = {}
 
+        def on_ai_change(enabled: bool) -> None:
+            panels["generator"].set_ai(enabled)
+            panels["history"].details.refresh()
+
         def watch(run_id: str) -> None:
             """Show a run live on the Control tab (used by Generator 'Run' and History 'Re-run')."""
             tabs.set_value(control_tab)
@@ -66,7 +75,7 @@ def register() -> None:
             with ui.tab_panel(generator_tab).classes("any-app any-page"):
                 panels["generator"] = GeneratorPanel(on_run=watch)
             with ui.tab_panel(history_tab).classes("any-app any-page"):
-                HistoryPanel(on_watch=watch)
+                panels["history"] = HistoryPanel(on_watch=watch)
             with ui.tab_panel(schedules_tab).classes("any-app any-page"):
                 SchedulesPanel(on_watch=watch)
             with ui.tab_panel(help_tab).classes("any-app any-page"):

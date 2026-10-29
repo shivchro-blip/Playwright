@@ -15,6 +15,7 @@ from webapp.ui.components import (
     text,
 )
 from webapp.ui.console_view import ConsoleView
+from webapp.ui.ai_panels import open_run_summary
 from webapp.ui.generator import confirm
 from webapp.ui.run_compare import open_compare
 from webapp.ui.test_details import open_test_details, result_rows
@@ -206,6 +207,11 @@ class HistoryPanel:
                               on_click=lambda: self.open_summary(run.id)) \
                         .props('flat unelevated no-caps data-testid="run-report"').classes("any-btn is-38") \
                         .set_enabled(not run.active)
+                    if self.svc.ai.enabled():
+                        ui.button("AI summary", icon=icon("sparkles"), color=None,
+                                  on_click=lambda: open_run_summary(run)) \
+                            .props('flat unelevated no-caps data-testid="ai-summary"').classes("any-btn is-38") \
+                            .set_enabled(not run.active)
                     ui.button("Compare", icon=icon("list-checks"), color=None,
                               on_click=lambda: open_compare(run.id)) \
                         .props("flat unelevated no-caps").classes("any-btn is-38").set_enabled(not run.active)

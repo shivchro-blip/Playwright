@@ -11,6 +11,7 @@ from webapp.services.run_artifacts import TestDetails
 from webapp.services.run_insights import trends
 from webapp.services.run_manager import Run
 from webapp.state import services
+from webapp.ui.ai_panels import ai_enabled, triage_section
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.theme import icon
@@ -82,6 +83,8 @@ def open_test_details(run: Run, row: dict) -> None:
             with ui.element("section").classes("any-error-box"):
                 text("div", "Error", "any-eyebrow")
                 text("pre", message, "any-pre is-error")
+        if ai_enabled() and outcome in ("failed", "error", "broken"):
+            triage_section(run, {**row, "test_id": test_id, "browser": browser, "outcome": outcome}, item)
         if item and item.trace:
             with ui.expansion("Traceback", icon=icon("terminal")).classes("any-disclosure"):
                 text("pre", item.trace, "any-pre")
