@@ -49,10 +49,12 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("TestSuiteLoggerLevel", "choice", "INFO", "Logging", "Suite logger", LEVELS),
     EnvField("PageLoggerLevel", "choice", "INFO", "Logging", "Page logger", LEVELS),
     EnvField("FormHandlerLoggerLevel", "choice", "INFO", "Logging", "Form logger", LEVELS),
+    # Web app features (not passed to runs)
+    EnvField("recorderEnabled", "bool", "false", "App", "Test recorder"),
 )
 FIELD_KEYS = {f.key for f in FIELDS}
 # Typed settings a run may override; the rest are set by RunManager itself for every run
-RUN_OPTION_KEYS = FIELD_KEYS - {"systemConfig", "envConfig", "runTags", "browsers", "del_allure"}
+RUN_OPTION_KEYS = FIELD_KEYS - {"systemConfig", "envConfig", "runTags", "browsers", "del_allure", "recorderEnabled"}
 
 _LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=(.*)$")
 

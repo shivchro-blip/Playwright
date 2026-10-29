@@ -37,6 +37,18 @@ Warnings do not block saving:
 
 Errors (missing ID, malformed steps, the same field twice) block saving.
 
+## Recorder
+
+Record a test by clicking through the site instead of writing locators by hand. It is **off by default**: turn on the **Recorder** switch next to the section tabs (saved as `recorderEnabled` in `.env`), then click **Record**.
+
+1. Pick the environment and start URL (the system's `base_url`), optionally starting logged in from `Data/session.json`, and click **Start recording**.
+2. A Chromium window opens on this computer (Playwright codegen). Click and type through the flow, then close the window.
+3. Review what was recorded: the fields (locators), the step's form data and any warnings, then pick a page (a new one, or an existing page to add fields to; fields with the same locator are reused) and a test file, and **Save page and test case**.
+
+The whole recording becomes one page step; a field used again gets a pipe suffix (`q|`). Not converted: assertions (`expect`), actions inside iframes, and later navigations (they are reported as warnings). Values typed into fields that look like passwords or codes are **not saved**; use `ENV.<KEY>` values instead.
+
+The recorder only works when the web app listens on this machine (`AUTOMATENY_HOST=127.0.0.1`), because the browser opens where the app runs.
+
 ## Pages
 
 1. Select a page on the left, or **+** to create one (optional folder).

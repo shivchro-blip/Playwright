@@ -615,3 +615,9 @@
 .any-dots i.is-pass { background: var(--pass-dot); }
 .any-dots i.is-fail { background: var(--fail); }
 .any-flaky-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--r-chip); background: var(--fail-hover); border: 1px solid var(--fail-border); color: var(--fail); font-size: 11.5px; font-weight: 600; }
+
+/* Recorder (Generator) */
+.any-recorder { display: flex; align-items: center; gap: 8px; padding-right: 12px; border-right: 1px solid var(--border); }
+.any-rec-live { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid var(--fail-border); background: var(--fail-hover); border-radius: 10px; }
+.any-rec-dot { width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--fail); flex-shrink: 0; animation: any-pulse 1.4s ease-in-out infinite; }
+.any-rec-title { font-weight: 600; color: var(--fail); }

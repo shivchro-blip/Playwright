@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     allure_cmd: str = "allure"  # Allure CLI; report generation is skipped if not found
     max_concurrent_runs: int = 1  # local runs drive real browsers; keep to one by default
     auth_enabled: bool = False  # reserved for the shared-server phase
+    # argv that runs the Playwright CLI for the recorder, as a JSON list (default: <python_exe> -m playwright)
+    recorder_command: list[str] = Field(default_factory=list)
 
     @property
     def repo_root(self) -> Path:

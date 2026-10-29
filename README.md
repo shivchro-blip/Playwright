@@ -24,7 +24,7 @@ start.cmd
 | Tab | What it does |
 |---|---|
 | **Control** | Pick system, environment, tags and browsers; run and watch live progress, results and console output. Click a result row for its failure details: error, traceback, screenshots, DOM snapshot, trace, video and log. |
-| **Generator** | Edit test cases and page objects (form or raw JSON), validate them, and run a single test. The scan button on a page field opens the page in headless Chromium and shows what its locator matches (0, 1 or many, with a highlighted screenshot), using the unsaved config. |
+| **Generator** | Edit test cases and page objects (form or raw JSON), validate them, and run a single test. The scan button on a page field opens the page in headless Chromium and shows what its locator matches (0, 1 or many, with a highlighted screenshot), using the unsaved config. The optional **Recorder** (off by default; switch next to the section tabs) records a flow in a real browser with Playwright codegen and saves it as a page and a test case. |
 | **History** | Past runs with details, re-run and delete; result rows open the same failure details as Control. Each test shows its recent results (flaky ones are flagged, and listed in a Flaky tests card), and **Compare** diffs a run against an earlier one: new failures, fixes, slower tests, added and removed tests. |
 | **Help** | Framework and app documentation (`docs/help/`). |
 
