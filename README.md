@@ -1,0 +1,82 @@
+# AutomateNY
+
+JSON-driven browser test automation built on Python, pytest and Playwright, with a local web app for running tests and editing them.
+
+Test cases and page objects are plain JSON files, so testers can write and maintain tests without writing Python. The repo ships with a small **GOOGLE** sample system (3 tests) to show how it fits together.
+
+## Quick start (Windows)
+
+Requires **Python 3.12+** on `PATH`.
+
+```powershell
+git clone https://github.com/shivchro-blip/Playwright.git
+cd Playwright
+powershell -ExecutionPolicy Bypass -File setup.ps1
+start.cmd
+```
+
+`setup.ps1` creates `.venv`, installs the Python packages and Playwright Chromium, creates `.env` from `.env.example` if it doesn't exist, and adds a **Start AutomateNY** desktop shortcut (skip with `-NoShortcut`). It is safe to re-run after pulling updates.
+
+`start.cmd` starts the web app and opens **http://127.0.0.1:8080**. It only listens on your own machine by default.
+
+## The web app
+
+| Tab | What it does |
+|---|---|
+| **Control** | Pick system, environment, tags and browsers; run and watch live progress, results and console output. |
+| **Generator** | Edit test cases and page objects (form or raw JSON), validate them, and run a single test. |
+| **History** | Past runs with details, re-run and delete. |
+| **Help** | Framework and app documentation (`docs/help/`). |
+
+For the sample, choose system `GOOGLE`, environment `dev`, and tag `GOOGLE` (all tests) or `smoke`.
+
+## Running tests without the UI
+
+```powershell
+.venv\Scripts\python -m pytest tests/dynamic_test_suite.py -v
+```
+
+Selection comes from `.env` (`systemConfig`, `envConfig`, `runTags`, `browsers`, `headlessMode`). Any of these can be overridden by setting an environment variable of the same name for that run.
+
+## Project layout
+
+```
+webapp/                 NiceGUI + FastAPI web app (python -m webapp)
+  services/             run manager, test/page editing, system data, help
+  ui/                   Control, Generator, History, Help tabs
+tests/dynamic_test_suite.py   single parametrized pytest suite that runs the JSON tests
+pages/, utils/          framework engine: page handling, form filling, actions, test data
+workspace/
+  Data/systemData.json  systems, environments, base URLs, login settings
+  Data/suiteConfig.json default suite selection
+  Data/rand_gen_rules.json  random test data rules
+  Pages/<SYSTEM>/       page objects: field name -> locator + type
+  Tests/<SYSTEM>/       test cases
+  Tests/com/            common actions shared across systems
+docs/help/              documentation shown in the Help tab
+```
+
+## Adding a system
+
+1. Add an entry under `systems` in `workspace/Data/systemData.json` with at least `base_url` and `logged_in_check` per environment.
+2. Add page objects under `workspace/Pages/<SYSTEM>/` (start from `workspace/Pages/templatePage.json`).
+3. Add test cases under `workspace/Tests/<SYSTEM>/MasterRegressionSuite/`.
+4. If the system needs a login, put the credential variable names in `systemData.json` (`username_env` / `password_env`) and the values in your local `.env`.
+
+The new system appears in the web app's System dropdown. See the Help tab for the full test-case and page-object format.
+
+## Configuration
+
+| Setting | Env var | Default |
+|---|---|---|
+| Port | `AUTOMATENY_PORT` | `8080` |
+| Host | `AUTOMATENY_HOST` | `127.0.0.1` |
+| Workspace folder | `AUTOMATENY_WORKSPACE` | `workspace/` |
+| Run output folder | `AUTOMATENY_RUNS_DIR` | `<workspace>/reports/runs` |
+| Allure CLI | `AUTOMATENY_ALLURE_CMD` | `allure` |
+
+HTML reports need the [Allure command-line tool](https://allurereport.org/docs/install/) on `PATH`; without it, runs still work and the report link shows as unavailable.
+
+## Credentials
+
+Credentials live only in your local `.env`, which is git-ignored. `.env.example` lists the settings with credential values blank. The web app shows whether credentials are set but never displays or edits them. Never commit `.env`.
