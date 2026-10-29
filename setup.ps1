@@ -38,11 +38,42 @@ Write-Host "`n[2/4] Installing Python packages..."
 & $venvPython -m pip install --upgrade pip --quiet
 # requirements-lock.txt pins every package (with hashes) so all machines get the same tested versions
 & $venvPython -m pip install --require-hashes -r requirements-lock.txt --quiet
-if (-not $?) { Write-Error "pip install failed (requirements-lock.txt)."; exit 1 }
+if (-not $?) {
+    # Behind a proxy that re-signs HTTPS traffic, older pip can fail certificate checks. Retry the way many
+    # company machines do it (--trusted-host). The lock file's hashes still verify every downloaded package.
+    Write-Host "`npip install failed. Retrying with --trusted-host pypi.org / files.pythonhosted.org (hashes still checked)..."
+    & $venvPython -m pip install --require-hashes -r requirements-lock.txt --quiet --timeout 120 `
+        --trusted-host pypi.org --trusted-host files.pythonhosted.org
+    if (-not $?) { Write-Error "pip install failed (requirements-lock.txt)."; exit 1 }
+}
 
 Write-Host "`n[3/4] Installing Playwright Chromium..."
 & $venvPython -m playwright install chromium
-if (-not $?) { Write-Error "playwright install failed."; exit 1 }
+if (-not $?) {
+    # "unable to get local issuer certificate": a company proxy re-signs HTTPS traffic with its own root
+    # certificate, which Windows trusts (so browsers work) but Node does not. Retry using the Windows store.
+    Write-Host "`nDownload failed. Retrying with the Windows certificate store (NODE_OPTIONS=--use-system-ca)..."
+    $env:NODE_OPTIONS = "--use-system-ca"
+    & $venvPython -m playwright install chromium
+    $ok = $?
+    Remove-Item Env:\NODE_OPTIONS -ErrorAction SilentlyContinue
+    if (-not $ok) {
+        Write-Host @"
+
+Still failing. If the error mentions a certificate (UNABLE_TO_GET_ISSUER_CERT_LOCALLY), your network inspects
+HTTPS traffic. Ask IT for the company root certificate as a .pem/.crt file, then run:
+
+  `$env:NODE_EXTRA_CA_CERTS = "C:\path\to\company-root.pem"
+  .\setup.ps1
+
+If the error is a timeout or "connection refused", the download host cdn.playwright.dev may be blocked:
+ask IT to allow it, or set `$env:HTTPS_PROXY = "http://proxy-host:port" and re-run.
+(Do not set NODE_TLS_REJECT_UNAUTHORIZED=0: it turns certificate checking off for everything.)
+"@
+        Write-Error "playwright install failed."
+        exit 1
+    }
+}
 
 # 4. .env (never overwrite an existing one - it may hold credentials)
 if (-not (Test-Path ".\.env")) {
