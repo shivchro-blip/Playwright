@@ -214,10 +214,10 @@ class ControlPanel:
                             ui.label("set")
                         else:
                             is_pw = "pass" in item["key"].casefold() or "pwd" in item["key"].casefold()
-                            box = ui.input(placeholder="not in .env - enter for this run only",
-                                           password=is_pw, password_toggle_button=is_pw,
-                                           value=self.entered.get(item["key"], ""),
-                                           on_change=lambda e, k=item["key"]: self.entered.__setitem__(k, e.value or "")) \
+                            ui.input(placeholder="not in .env - enter for this run only",
+                                     password=is_pw, password_toggle_button=is_pw,
+                                     value=self.entered.get(item["key"], ""),
+                                     on_change=lambda e, k=item["key"]: self.entered.update({k: e.value or ""})) \
                                 .props(f'dense outlined autocomplete="off" aria-label="{item["key"]}" '
                                        f'data-testid="cred-{item["key"]}"').classes("any-cred-input")
                 if status and any(not c["set"] for c in status):
