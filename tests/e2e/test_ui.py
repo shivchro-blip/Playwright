@@ -297,3 +297,25 @@ def test_tags_follow_the_selected_system(workspace: Path, tmp_path: Path):
             expect(tags).to_contain_text("smoke")
             expect(tags).not_to_contain_text("OTHER")
             browser.close()
+
+
+def test_login_credentials_can_be_typed_when_not_in_env(workspace: Path, tmp_path: Path):
+    system_data = workspace / "Data" / "systemData.json"
+    data = json.loads(system_data.read_text(encoding="utf-8"))
+    data["systems"]["SMOKE"]["dev"].update(username_env="E2E_CRED_USER", password_env="E2E_CRED_PASS")
+    system_data.write_text(json.dumps(data), encoding="utf-8")
+    with running_app(tmp_path, E2E_CRED_USER="from-the-environment") as url, sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(url, wait_until="networkidle")
+        expect(page.get_by_test_id("cred-E2E_CRED_USER")).to_have_count(0)  # already set: nothing to type
+        box = page.get_by_test_id("cred-E2E_CRED_PASS")
+        expect(box).to_be_visible()
+        expect(box).to_have_attribute("type", "password")
+        box.fill("typed-secret-1")
+        page.get_by_test_id("run-button").click()
+        expect(page.get_by_text("Missing credentials")).to_have_count(0)
+        expect(page.locator(".any-headline")).to_have_text(re.compile("Passed|Failed|Running|Queued"),
+                                                         timeout=180_000)
+        expect(page.get_by_text("typed-secret-1")).to_have_count(0)  # never echoed back
+        browser.close()

@@ -233,6 +233,7 @@
 .any-cred-key .q-icon { font-size: 14px; }
 .any-cred-key .is-set { color: var(--pass-icon); }
 .any-cred-key .is-missing { color: var(--warn-icon); }
+.any-cred-input { width: 100%; max-width: 260px; }
 .any-cred-key code { font-family: var(--font-mono); font-size: 12px; color: var(--ink); background: none; padding: 0; }
 
 /* sidebar footer */

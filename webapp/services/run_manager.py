@@ -17,6 +17,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import re
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 MAX_LOG_LINES = 20_000
 MAX_QUEUED = 20  # runs waiting for a free slot
+ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 SUITE = "tests/dynamic_test_suite.py"
 ACTIVE = ("queued", "running")
 
@@ -85,6 +87,14 @@ class Run:
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
     _proc: subprocess.Popen | None = field(default=None, repr=False)
     _cancelled: bool = field(default=False, repr=False)
+    # Login values typed into the app for this run: memory only, never saved, logged or serialized
+    _secrets: dict[str, str] = field(default_factory=dict, repr=False)
+
+    def scrub(self, text: str) -> str:
+        for value in self._secrets.values():
+            if len(value) >= 3:
+                text = text.replace(value, "***")
+        return text
 
     @property
     def results_dir(self) -> Path:
@@ -164,7 +174,14 @@ class RunManager:
 
     # ───────────── commands ─────────────
 
-    def start(self, config: RunConfig, expected: int = 0, trigger: str = "") -> Run:
+    def start(self, config: RunConfig, expected: int = 0, trigger: str = "",
+              credentials: dict[str, str] | None = None) -> Run:
+        """`credentials`: env var name -> value for this run only, held in memory. A variable the
+        environment already has is left alone."""
+        credentials = {k: v for k, v in (credentials or {}).items() if v}
+        bad_keys = [k for k in credentials if not ENV_KEY_RE.match(k)]
+        if bad_keys:
+            raise ValueError(f"Invalid credential names: {', '.join(bad_keys)}")
         config.tags = [t.strip() for t in config.tags if t and t.strip()]
         config.browsers = [b.strip().lower() for b in config.browsers if b and b.strip()] or ["chrome"]
         config.workers = max(1, int(config.workers or 1))
@@ -188,6 +205,7 @@ class RunManager:
             run_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(2)
             run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger)
             run.dir.mkdir(parents=True)
+            run._secrets = credentials
             self._runs[run_id] = run
             self._queue.append(run)
         self._save(run)
@@ -250,7 +268,7 @@ class RunManager:
         cfg = old.config
         config = RunConfig(system=cfg.system, env=cfg.env, tags=list(cfg.tags), browsers=list(cfg.browsers),
                            workers=cfg.workers, options=dict(cfg.options), test_ids=list(cfg.test_ids))
-        return self.start(config, expected=old.collected or old.expected)
+        return self.start(config, expected=old.collected or old.expected, credentials=old._secrets)
 
     # ───────────── internals ─────────────
 
@@ -280,6 +298,8 @@ class RunManager:
         env = dict(os.environ)
         # The suite loads .env with override=False, so these per-run values win
         env.update({k: format_value(v) for k, v in cfg.options.items()})
+        for key, value in run._secrets.items():
+            env.setdefault(key, value)  # never override what the environment already has
         env.update({
             "systemConfig": cfg.system,
             "envConfig": cfg.env,
@@ -326,6 +346,7 @@ class RunManager:
                     line = line[:idx]
                     if not line.strip():
                         continue
+                line = run.scrub(line)
                 console.write(line + "\n")
                 self._append(run, line)
             run.exit_code = run._proc.wait()
@@ -391,7 +412,7 @@ class RunManager:
                     outcome = "error"
                 result.outcome = outcome
                 result.duration = float(evt.get("duration") or 0)
-                result.message = str(evt.get("message") or "")
+                result.message = run.scrub(str(evt.get("message") or ""))
             run.results[nodeid] = result
 
     @staticmethod

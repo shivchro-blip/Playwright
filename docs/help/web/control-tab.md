@@ -14,6 +14,8 @@
 
 **Login credentials** lists the env var names the selected system/environment needs and whether each is set in `.env`. Values are never shown.
 
+A variable that is **not** set in `.env` or the environment gets a box: type the value there and it is used for the next runs of this page session only. Values from `.env` always win, so the box is a fallback. Typed values are held in memory, never written to disk or to `.env`, masked in the console and test messages, and not sent to AI assist. A re-run of the same run reuses them; scheduled runs do not (they use `.env` only), and they are gone when the app restarts.
+
 **Save as defaults** writes the current selections into `.env` so the app (and command-line runs) start with them. Credentials and other lines in `.env` are left untouched.
 
 ## Tests panel

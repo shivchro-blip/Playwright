@@ -108,4 +108,4 @@ GitHub Actions (`.github/workflows/ci.yml`) runs these on Linux and Windows for 
 
 ## Credentials
 
-Credentials live only in your local `.env`, which is git-ignored. `.env.example` lists the settings with credential values blank. The web app shows whether credentials are set but never displays or edits them. Never commit `.env`.
+Credentials live only in your local `.env`, which is git-ignored. `.env.example` lists the settings with credential values blank. The web app shows whether credentials are set and never displays or edits them. For a variable missing from `.env`, the Control tab lets you type a value for the next run only: it stays in memory, is never saved, and `.env` always wins when both exist. Never commit `.env`.
