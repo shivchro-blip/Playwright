@@ -7,6 +7,7 @@ from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
 from webapp.ui.history import HistoryPanel
+from webapp.ui.schedules import SchedulesPanel
 from webapp.ui.theme import add_head, apply_brand, icon, register_assets
 
 
@@ -22,7 +23,7 @@ def register() -> None:
         # Panels own their padding (the Control tab is full-bleed)
         ui.query(".nicegui-content").classes("any-content")
         tab_defs = [("Control", "circle-play"), ("Generator", "list-plus"), ("History", "history"),
-                    ("Help", "circle-help")]
+                    ("Schedules", "calendar-clock"), ("Help", "circle-help")]
         with ui.header().classes(replace="any-nav"):
             with ui.element("div").classes("any-brand"):
                 with ui.element("div").classes("any-brand-mark"):
@@ -34,7 +35,7 @@ def register() -> None:
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
-        control_tab, generator_tab, history_tab, help_tab = tab_elems.values()
+        control_tab, generator_tab, history_tab, schedules_tab, help_tab = tab_elems.values()
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -66,5 +67,7 @@ def register() -> None:
                 panels["generator"] = GeneratorPanel(on_run=watch)
             with ui.tab_panel(history_tab).classes("any-app any-page"):
                 HistoryPanel(on_watch=watch)
+            with ui.tab_panel(schedules_tab).classes("any-app any-page"):
+                SchedulesPanel(on_watch=watch)
             with ui.tab_panel(help_tab).classes("any-app any-page"):
                 HelpPanel()

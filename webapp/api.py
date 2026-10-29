@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from webapp.services.json_files import ConflictError, PathError
 from webapp.services.run_insights import compare, flaky_tests, previous_run, summarize
 from webapp.services.run_manager import RunConfig
+from webapp.services.schedules import validate as validate_schedule
 from webapp.state import services
 
 router = APIRouter(prefix="/api", tags=["automateny"])
@@ -194,6 +195,69 @@ def write_run_report(run_id: str) -> dict:
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""
     return [t.to_dict() for t in flaky_tests(services().runs.list(), system, env)]
+
+
+def _schedule_view(schedule) -> dict:
+    scheduler = services().scheduler
+    nxt = scheduler.next_run(schedule)
+    last = scheduler.last_runs(schedule, 1)
+    return {**schedule.to_dict(), "next_run": nxt.isoformat() if nxt else None,
+            "last_run": {"id": last[0].id, "status": last[0].status} if last else None,
+            "error": scheduler.errors.get(schedule.id, ""), "queued": schedule.id in scheduler.pending}
+
+
+@router.get("/schedules")
+def list_schedules() -> list[dict]:
+    return [_schedule_view(s) for s in services().schedules.list()]
+
+
+@router.post("/schedules", status_code=201)
+def create_schedule(data: dict) -> dict:
+    data = {k: v for k, v in data.items() if k != "id"}
+    try:
+        return _schedule_view(services().schedules.save(validate_schedule(data)))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except ConflictError as e:
+        raise HTTPException(409, str(e)) from e
+
+
+@router.put("/schedules/{schedule_id}")
+def update_schedule(schedule_id: str, data: dict) -> dict:
+    store = services().schedules
+    if not store.get(schedule_id):
+        raise HTTPException(404, "Schedule not found")
+    try:
+        return _schedule_view(store.save(validate_schedule({**data, "id": schedule_id})))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    except ConflictError as e:
+        raise HTTPException(409, str(e)) from e
+
+
+@router.delete("/schedules/{schedule_id}")
+def delete_schedule(schedule_id: str) -> dict:
+    if not services().schedules.delete(schedule_id):
+        raise HTTPException(404, "Schedule not found")
+    return {"deleted": schedule_id}
+
+
+@router.post("/schedules/{schedule_id}/run", status_code=201)
+def run_schedule(schedule_id: str) -> dict:
+    try:
+        run = services().scheduler.run_now(schedule_id)
+    except ValueError as e:
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e)) from e
+    return {"queued": True} if run is None else run.to_dict()
+
+
+@router.post("/schedules/{schedule_id}/test-notification")
+def test_notification(schedule_id: str) -> list[dict]:
+    svc = services()
+    schedule = svc.schedules.get(schedule_id)
+    if not schedule:
+        raise HTTPException(404, "Schedule not found")
+    return svc.scheduler.send_test(schedule)
 
 
 @router.post("/runs/{run_id}/rerun", status_code=201)

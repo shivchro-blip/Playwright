@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     auth_enabled: bool = False  # reserved for the shared-server phase
     # argv that runs the Playwright CLI for the recorder, as a JSON list (default: <python_exe> -m playwright)
     recorder_command: list[str] = Field(default_factory=list)
+    # How people reach this app, for links in notifications (default http://127.0.0.1:<port>)
+    public_url: str = ""
+    scheduler_enabled: bool = True  # fire schedules from this process (off for extra app instances)
 
     @property
     def repo_root(self) -> Path:
@@ -38,6 +41,13 @@ class Settings(BaseSettings):
     @property
     def systemdata_path(self) -> Path:
         return Path(resolve_systemdata_path(str(self.workspace)))
+
+    @property
+    def resolved_public_url(self) -> str:
+        if self.public_url:
+            return self.public_url.rstrip("/")
+        host = "127.0.0.1" if self.host in ("0.0.0.0", "::", "") else self.host
+        return f"http://{host}:{self.port}"
 
     @property
     def resolved_runs_dir(self) -> Path:

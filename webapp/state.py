@@ -5,12 +5,16 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+from dotenv import dotenv_values
+
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
+from webapp.services.notifier import Notifier
 from webapp.services.pom_service import PomService
 from webapp.services.recorder import Recorder
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
+from webapp.services.schedules import Scheduler, ScheduleStore
 from webapp.services.system_data import SystemDataService
 from webapp.services.test_case_service import TestCaseService
 from webapp.services.test_catalog import TestCatalogService
@@ -29,6 +33,9 @@ class Services:
     help: HelpService
     artifacts: RunArtifacts
     recorder: Recorder
+    schedules: ScheduleStore
+    scheduler: Scheduler
+
 
     def recorder_enabled(self) -> bool:
         return self.env.load().get("recorderEnabled", "false").strip().lower() in ("1", "true", "yes", "on")
@@ -55,10 +62,29 @@ class Services:
         return status
 
 
+def notify_lookup(env: EnvConfigService):
+    """NOTIFY_* values from the environment or .env, for delivering notifications only (never shown)."""
+    def lookup(key: str) -> str | None:
+        if not key.startswith("NOTIFY_"):
+            return None
+        if os.environ.get(key):
+            return os.environ[key]
+        return dotenv_values(env.env_path).get(key) if env.env_path.is_file() else None
+    return lookup
+
+
 @lru_cache
 def services() -> Services:
     s = get_settings()
     pom = PomService(s.workspace, s.repo_root)
+    catalog = TestCatalogService(s.workspace)
+    runs = RunManager(
+        repo_root=s.repo_root, workspace=s.workspace, runs_dir=s.resolved_runs_dir,
+        python_exe=s.python_exe, allure_cmd=s.allure_cmd, max_concurrent=s.max_concurrent_runs,
+    )
+    env = EnvConfigService(s.dotenv_path)
+    schedules = ScheduleStore(s.workspace / "Data" / "schedules.json")
+    notifier = Notifier(notify_lookup(env), s.resolved_public_url)
     return Services(
         pom=pom,
         tests=TestCaseService(s.workspace, pom),
@@ -66,11 +92,10 @@ def services() -> Services:
         artifacts=RunArtifacts("/runs"),
         recorder=Recorder(s.python_exe, s.recorder_command or None),
         settings=s,
-        env=EnvConfigService(s.dotenv_path),
+        env=env,
         systems=SystemDataService(s.systemdata_path),
-        catalog=TestCatalogService(s.workspace),
-        runs=RunManager(
-            repo_root=s.repo_root, workspace=s.workspace, runs_dir=s.resolved_runs_dir,
-            python_exe=s.python_exe, allure_cmd=s.allure_cmd, max_concurrent=s.max_concurrent_runs,
-        ),
+        catalog=catalog,
+        runs=runs,
+        schedules=schedules,
+        scheduler=Scheduler(schedules, runs, catalog, notifier),
     )
