@@ -109,3 +109,40 @@ How the spec maps onto this stack:
 | "queued" / "not run" (display only) | the redesign shows `expected − reported` placeholders: "queued" while the run is active, "not run" after it ends | UI |
 
 Report status: `""`, `generating`, `ready`, `unavailable`, `failed`.
+
+## Verification record
+
+Environment: NiceGUI 3.18 / FastAPI 0.162 / Playwright 1.64.1, headless Chromium. Runs used a temporary **LOCAL** system: a scratch workspace with a local HTTP page and 4 test cases. It is not committed. google.com is not reachable from the build environment, so a real GOOGLE/dev run could only fail on network access.
+
+**Checks**
+
+- **Unit tests:** `python -m pytest tests/unit` → 56 passed.
+- **Lint:** `ruff check --select E,F,W --line-length 120 webapp/` → clean. This also clears the 4 long lines that existed before in `generator.py` and `history.py`.
+- **Interaction pass:** 22 of 22 checks passed, with no browser console errors or warnings and no server tracebacks. Covered:
+  - Control: worker stepper limits, chip remove and re-add, R = 0 disables Run and shows the helper text, disclosure `aria-expanded`, Save as defaults writes `.env`.
+  - Generator: edit → Save writes the JSON file, Check, Form ↔ JSON, the New / Delete / field dialogs, the page editor.
+  - History: search filter and pager count, row selection and details, delete confirm, console.
+  - Help: topic switch and search.
+- **Run payload:** the UI-started run's `RunConfig` and `expected`, as saved in `run.json`, are identical to the baseline captured with the old UI. The pytest command line built for that config is identical too. `git diff main -- webapp/services webapp/api.py utils tests/dynamic_test_suite.py` is empty, so no backend code changed.
+- **Run states:** idle, running, passed, failed and cancelled, captured at 1440×900 and 390×844 (`screenshots/control-*.png`). There are also 1024 and 768 captures, and no page-level horizontal overflow at 1024, 768 or 390 on any tab.
+- **Focus:** keyboard Tab through the Control page reaches every control, and each one shows a 2px ring (`screenshots/focus-run-button.png`).
+- **Contrast:** every text/background token pair is at least 4.5:1. The lowest is muted text on chips, at 5.09.
+
+## Other pages (in scope after the brief was extended)
+
+| Page | Kept 1:1 | Now |
+|---|---|---|
+| Generator | System switch with the unsaved-changes guard; test/page lists with search, open, new and reload; editor with Form/JSON, Check, Revert, Copy, Delete, Run, Save; step add, move, duplicate and remove; form rows; page settings; field grid; field-keys dialog; every confirm | List and editor cards, label-above fields, step cards with kind tags, field grid, token dialogs, Lucide icons |
+| History | System/status/search filters, single selection plus row click, 2 s auto-refresh, Watch live, Re-run, Allure report, Console log, Delete with confirm, last-300-lines console | Runs card with labelled filters and a run count, run-details card with status tile and fact grid, shared results table, dark console |
+| Help | Topic list grouped by category, search with snippets, Markdown article | Topic nav uses real `<button>`s (keyboard-reachable; previously clickable divs), token article typography |
+
+## Deviations from the brief
+
+1. **No package.json / React / MUI.** The stack is NiceGUI (Quasar). The theme is CSS tokens plus `ui.colors` plus NiceGUI `default_props`. Fonts and icons are vendored from the npm packages (`@fontsource/ibm-plex-*` 5.3.0, OFL; `lucide-static` 1.63.0, ISC) into `webapp/static/`.
+2. **Tests selection checkboxes are read-only.** Selection is decided by the Tags filter: the code has no per-row selection model, and adding one would change the run payload (`test_ids`). The checkboxes show the state, are inert (`aria-disabled`), and say so in a tooltip.
+3. **"All tags" placeholder → "Select tags".** An empty tag list runs nothing, so "All tags" would be wrong.
+4. **No REST calls to compare.** The UI talks to Python over the NiceGUI websocket. The run payload (RunConfig plus command) was compared instead.
+5. **Cancel is hidden while no run is active.** `cancel_run` does nothing in that case.
+6. **Focus ring.** Quasar's `q-btn` carries a cascade-layered `outline: 0 !important`, so buttons and switches draw the same 2px ring with a 2px offset as a box-shadow. On the dark app bar and console the ring uses `--accent-light`, because `--accent` would not be visible there.
+7. **Page padding** is `clamp(16px, 4vw, 24px)`, so it is 16px at phone widths instead of a fixed 24px.
+8. **Status words.** The run-status headline also covers `Error` and `Queued`, and the legend also lists `error`, `queued`, `cancelled`, `xfailed` and `xpassed` when they are greater than 0, so no count shown today is lost.
