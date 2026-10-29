@@ -80,6 +80,23 @@ The web app has no login yet. It answers only to its own host names (`127.0.0.1`
 
 HTML reports need the [Allure command-line tool](https://allurereport.org/docs/install/) on `PATH`; without it, runs still work and the report link shows as unavailable.
 
+## Dependencies
+
+- `requirements.txt` / `requirements-web.txt` list the direct dependencies (version ranges).
+- `requirements-lock.txt` pins every package, including transitive ones, with SHA-256 hashes for Windows, Linux and macOS on Python 3.12+. `setup.ps1` and CI install from it with `--require-hashes`.
+- After changing a requirements file, regenerate the lock with the `uv pip compile ...` command in `requirements-dev.txt`, then commit both files.
+
+## Development and CI
+
+```powershell
+.venv\Scripts\python -m pip install -r requirements-dev.txt
+.venv\Scripts\python -m pytest tests/unit          # fast unit tests
+.venv\Scripts\python -m pytest tests/e2e           # real runs against a local test page (needs Playwright Chromium)
+.venv\Scripts\ruff check webapp tests/unit tests/e2e
+```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs these on Linux and Windows for every push and pull request, plus a dependency vulnerability scan (`pip-audit`). A separate, optional workflow runs the GOOGLE sample tests against the real site.
+
 ## Credentials
 
 Credentials live only in your local `.env`, which is git-ignored. `.env.example` lists the settings with credential values blank. The web app shows whether credentials are set but never displays or edits them. Never commit `.env`.

@@ -1,0 +1,9 @@
+{
+  "path": "/index.html",
+  "fields": {
+    "searchBox": { "locator": "#q", "type": "text" },
+    "notes": { "locator": "#notes", "type": "text" },
+    "phone": { "locator": "#phone", "type": "text", "autoGen": "phone" },
+    "badAutoGen": { "locator": "#phone", "type": "text", "autoGen": "doesNotExist" }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "rand_gen_rules": {
+    "phone": "get_phone()"
+  },
+  "custom_functions": {
+    "get_phone": "\nimport random\ndef get_phone():\n    return f'{random.randrange(100, 999)}-{random.randrange(100, 999)}-{random.randrange(1000, 9999)}'"
+  }
+}

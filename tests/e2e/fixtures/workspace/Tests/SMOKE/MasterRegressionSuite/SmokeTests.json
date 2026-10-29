@@ -1,0 +1,25 @@
+{
+  "testCases": [
+    {
+      "testCaseID": "TC-SMOKE-001-Search",
+      "description": "Fill the search box.",
+      "system": "SMOKE", "module": "smoke", "environment": ["dev"],
+      "tags": ["E2E", "smoke"],
+      "steps": [{ "screen": "SmokeHome", "formData": { "searchBox": "Playwright" } }]
+    },
+    {
+      "testCaseID": "TC-SMOKE-002-NotesAutoGen",
+      "description": "Fill notes and an autoGen phone number.",
+      "system": "SMOKE", "module": "smoke", "environment": ["dev"],
+      "tags": ["E2E", "smoke"],
+      "steps": [{ "screen": "SmokeHome", "formData": { "notes": "end to end testing", "phone": null } }]
+    },
+    {
+      "testCaseID": "TC-SMOKE-003-BadAutoGen",
+      "description": "Must fail with a clear autoGen error (an unknown rule used to fill nothing silently).",
+      "system": "SMOKE", "module": "smoke", "environment": ["dev"],
+      "tags": ["E2E", "fail"],
+      "steps": [{ "screen": "SmokeHome", "formData": { "badAutoGen": null } }]
+    }
+  ]
+}
