@@ -61,8 +61,9 @@ def running_app(tmp_path: Path, **extra_env: str):
         log.close()
         server_log = (tmp_path / "webapp.log").read_text(encoding="utf-8")
         # Windows' proactor loop logs this when the browser closes a socket first; it is not an app error
-        server_log = re.sub(r"ERROR asyncio: Exception in callback _ProactorBasePipeTransport\._call_connection_lost\(\).*?"
-                            r"ConnectionResetError: \[WinError 10054\][^\n]*\n?", "", server_log, flags=re.S)
+        server_log = re.sub(
+            r"ERROR asyncio: Exception in callback _ProactorBasePipeTransport\._call_connection_lost\(\).*?"
+            r"ConnectionResetError: \[WinError 10054\][^\n]*\n?", "", server_log, flags=re.S)
         assert "Traceback" not in server_log, server_log
 
 
