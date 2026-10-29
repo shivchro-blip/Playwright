@@ -32,6 +32,7 @@ class LocatorCheck:
     error: str = ""
     warnings: list[str] = field(default_factory=list)
     seconds: float = 0.0
+    html: str = ""  # the page's HTML, when asked for (AI locator suggestions)
 
 
 def page_url(base_url: str, page_config: dict) -> str:
@@ -73,7 +74,7 @@ def build_locator(page, cfg: dict):
 
 
 def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, timeout_ms: int = 15000,
-                  wait_until: str = "load") -> LocatorCheck:
+                  wait_until: str = "load", capture_html: bool = False) -> LocatorCheck:
     """Open `url`, resolve the field config, count and highlight the matches, screenshot the viewport."""
     started = time.monotonic()
     result = LocatorCheck(ok=False, url=url)
@@ -102,6 +103,8 @@ def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, tim
                 page = context.new_page()
                 page.goto(url, wait_until=wait_until, timeout=timeout_ms)
                 result.title, result.final_url = page.title(), page.url
+                if capture_html:
+                    result.html = page.content()
                 el, result.description = build_locator(page, cfg)
                 if result.index is not None:
                     result.description += f".nth({result.index})"
@@ -138,3 +141,31 @@ def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, tim
         result.error = str(e).split("\n=====")[0].strip()[:1500]
     result.seconds = round(time.monotonic() - started, 2)
     return result
+
+
+def count_on_html(html: str, configs: list[dict]) -> list[int | str]:
+    """How many elements each config matches in saved HTML (e.g. a failure's DOM snapshot): no site visited.
+
+    Scripts don't run (JavaScript is disabled), so this checks the markup as it was captured."""
+    from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import sync_playwright
+
+    counts: list[int | str] = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        try:
+            context = browser.new_context(java_script_enabled=False)
+            context.route("**/*", lambda route: route.abort())  # no network: images, CSS, beacons
+            page = context.new_page()
+            page.set_content(html or "<html></html>", wait_until="domcontentloaded")
+            for cfg in configs:
+                try:
+                    el, _ = build_locator(page, cfg)
+                    if cfg.get("index") is not None:
+                        el = el.nth(int(cfg["index"]))
+                    counts.append(el.count())
+                except (ValueError, PlaywrightError) as e:
+                    counts.append(str(e).split("\n")[0][:200])
+        finally:
+            browser.close()
+    return counts

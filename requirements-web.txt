@@ -3,3 +3,5 @@
 -r requirements.txt
 nicegui>=3.18,<4
 pydantic-settings>=2.6
+# AI assist (optional, off by default): failure triage, locator fixes, test drafts, run summaries
+anthropic>=2.3,<3

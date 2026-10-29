@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     recorder_command: list[str] = Field(default_factory=list)
     # How people reach this app, for links in notifications (default http://127.0.0.1:<port>)
     public_url: str = ""
+    ai_model: str = "claude-opus-5-5"  # AI assist model (when aiAssistEnabled=true in .env)
     scheduler_enabled: bool = True  # fire schedules from this process (off for extra app instances)
 
     @property

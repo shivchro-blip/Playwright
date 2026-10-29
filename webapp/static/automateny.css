@@ -633,3 +633,26 @@
 .any-channel-status.is-ok { color: var(--pass-ink); }
 .any-channel-status.is-missing { color: var(--warn-body); }
 .any-app .any-muted.is-invalid { color: var(--fail); }
+
+/* AI assist */
+.any-nav .any-nav-btn.q-btn { margin-left: auto; min-height: 0; height: 34px; padding: 0 10px; color: var(--nav-fg); font: 500 14px var(--font-sans); background: transparent; }
+.any-nav .any-nav-btn.q-btn:hover { color: var(--nav-fg-active); }
+.any-nav .any-nav-btn .q-btn__content { gap: 6px; flex-wrap: nowrap; }
+.any-nav .any-nav-btn .q-icon { font-size: 15px; margin: 0; }
+.any-nav-btn + .any-api { margin-left: 12px; }
+.any-ai { border: 1px solid var(--accent-light); background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.any-ai-head { display: flex; align-items: center; gap: 8px; }
+.any-ai-head > .q-icon { font-size: 16px; color: var(--accent-deep); }
+.any-ai-head .any-eyebrow { color: var(--accent-deep); }
+.any-ai-head .q-btn { margin-left: auto; }
+.any-ai-body { display: flex; flex-direction: column; gap: 8px; }
+.any-ai-body:empty { display: none; }
+.any-ai-summary { margin: 0; font-size: 14px; color: var(--ink); }
+.any-ai-headline { margin: 0; font-size: 16px; font-weight: 600; color: var(--ink); }
+.any-ai-list { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--ink-2); display: flex; flex-direction: column; gap: 2px; }
+.any-ai-suggestions { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.any-ai-suggestions li { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px; }
+.any-ai-suggestion-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.any-ai-suggestion-head .q-btn { margin-left: auto; }
+.any-callout-text.is-error { color: var(--fail); }
+.any-dialog > .any-details-head { align-self: stretch; }

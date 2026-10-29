@@ -15,6 +15,7 @@ from webapp.services.run_manager import RunConfig
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
+from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.recorder_dialog import open_recorder
 from webapp.ui.theme import icon, svg
@@ -139,6 +140,10 @@ class TestEditor:
                     self.search = ui.input(placeholder="Search tests").props(
                         'clearable aria-label="Search tests"').classes("flex-1")
                     icon_button("plus", "New test case", self.new_test_dialog)
+                    self.draft_button = icon_button("sparkles", "Draft a test with AI",
+                                                    lambda: open_draft_dialog(self))
+                    self.draft_button.props('data-testid="ai-draft-open"')
+                    self.draft_button.set_visibility(self.svc.ai.enabled())
                     icon_button("rotate-cw", "Reload", self.reload_list)
                 self.list_view()
             with ui.element("section").classes("any-card any-split-main").props('aria-label="Test case editor"'):
@@ -845,8 +850,16 @@ class PageEditor:
                     more.classes("is-active")
                 icon_button("scan-search", "Check locator on the live page",
                             lambda: open_locator_check(self.gen.system, self._page_name(), dict(self.page), row.name,
-                                                       dict(row.cfg)), "is-32")
+                                                       dict(row.cfg), on_apply=lambda c: self.set_locator(row, c)),
+                            "is-32")
                 icon_button("x", "Remove field", lambda: self.remove_field(row), "is-32").classes("is-danger")
+
+    def set_locator(self, row: FieldRow, locator_keys: dict) -> None:
+        """Replace the row's locator keys (an accepted suggestion); the page stays unsaved until Save."""
+        keep = {k: v for k, v in row.cfg.items() if k not in LOCATOR_KEYS}
+        row.cfg = {**keep, **locator_keys}
+        self.touch()
+        self.editor.refresh()
 
     def _page_name(self) -> str:
         return (self.rel or "").rpartition("/")[2].removesuffix(".json") or "New page"
@@ -1014,6 +1027,9 @@ class GeneratorPanel:
         if refs:
             self.pages.json_mode = False
             await self.pages.open(refs[0].rel)
+
+    def set_ai(self, enabled: bool) -> None:
+        self.tests.draft_button.set_visibility(enabled)
 
     def _toggle_recorder(self, e) -> None:
         try:

@@ -3,6 +3,7 @@
   {"id": "control-tab", "category": "Using the web app", "title": "Control tab", "path": "web/control-tab.md", "tags": ["run", "tags", "browsers", "credentials"]},
   {"id": "generator-tab", "category": "Using the web app", "title": "Generator tab", "path": "web/generator-tab.md", "tags": ["edit", "test case", "page", "pom", "recorder", "codegen"]},
   {"id": "history-and-reports", "category": "Using the web app", "title": "History and reports", "path": "web/history-and-reports.md", "tags": ["allure", "report", "history", "video", "trace"]},
+  {"id": "ai-assist", "category": "Using the web app", "title": "AI assist", "path": "web/ai-assist.md", "tags": ["ai", "claude", "triage", "locator", "draft", "summary", "anthropic"]},
   {"id": "schedules", "category": "Using the web app", "title": "Schedules and notifications", "path": "web/schedules.md", "tags": ["schedule", "cron", "nightly", "slack", "teams", "email", "webhook", "notification"]},
   {"id": "framework-overview", "category": "Test framework", "title": "Framework overview", "path": "framework/overview.md", "tags": ["engine", "steps", "pytest"]},
   {"id": "form-data", "category": "Test framework", "title": "Form data and page mapping", "path": "framework/form-data.md", "tags": ["formData", "locator", "loop", "DICT", "ENV"]},
