@@ -72,6 +72,7 @@ def _chip_slot(kind: str) -> str:
 class ControlPanel:
     def __init__(self):
         self.svc = services()
+        self.entered: dict[str, str] = {}  # login values typed for the next run; memory only
         cfg = self.svc.env.load()
         systems = sorted(set(self.svc.systems.systems()) | set(self.svc.catalog.systems_with_tests()))
         system = cfg["systemConfig"] if cfg["systemConfig"] in systems else (systems[0] if systems else None)
@@ -209,7 +210,19 @@ class ControlPanel:
                         ui.icon(icon("circle-check" if ok else "triangle-alert")) \
                             .classes("is-set" if ok else "is-missing").props('aria-hidden="true"')
                         text("code", item["key"])
-                        ui.label("set" if ok else "missing - add it to .env")
+                        if ok:
+                            ui.label("set")
+                        else:
+                            is_pw = "pass" in item["key"].casefold() or "pwd" in item["key"].casefold()
+                            box = ui.input(placeholder="not in .env - enter for this run only",
+                                           password=is_pw, password_toggle_button=is_pw,
+                                           value=self.entered.get(item["key"], ""),
+                                           on_change=lambda e, k=item["key"]: self.entered.__setitem__(k, e.value or "")) \
+                                .props(f'dense outlined autocomplete="off" aria-label="{item["key"]}" '
+                                       f'data-testid="cred-{item["key"]}"').classes("any-cred-input")
+                if status and any(not c["set"] for c in status):
+                    ui.label("Values typed here are used for this run only if the key is not in .env. "
+                             "They are kept in memory, never saved.").classes("any-cred-line")
 
     def _build_tests(self) -> None:
         with ui.element("section").classes("any-card").props('aria-label="Tests"'):
@@ -602,18 +615,21 @@ class ControlPanel:
             ui.notify("No login entry in systemData.json for this system/environment.", type="negative")
             return
         missing = [c["key"] for c in status if not c["set"]]
+        typed = {k: self.entered[k] for k in missing if self.entered.get(k)}
+        missing = [k for k in missing if k not in typed]
         if missing:
-            ui.notify(f"Missing credentials in .env: {', '.join(missing)} - login steps may fail.",
-                      type="warning", timeout=8000)
+            ui.notify(f"Missing credentials: {', '.join(missing)} - add them to .env or type them in "
+                      "Login credentials; login steps may fail.", type="warning", timeout=8000)
         config = RunConfig(system=self.system_select.value or "", env=self.env_select.value or "",
                            tags=list(tags), browsers=list(browsers),
                            workers=int(self.workers.value or 1), options=self._options(), test_ids=test_ids)
         try:
-            run = self.svc.runs.start(config, expected=len(selected) * len(browsers))
+            run = self.svc.runs.start(config, expected=len(selected) * len(browsers), credentials=typed)
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
-        audit("run.start", run.id, system=config.system, env=config.env, tags=config.tags)
+        audit("run.start", run.id, system=config.system, env=config.env, tags=config.tags,
+              **({"entered_credentials": sorted(typed)} if typed else {}))
         position = self.svc.runs.queue_position(run.id)
         ui.notify(f"Run {run.id} queued (#{position}); it starts when a slot is free" if position
                   else f"Run {run.id} started", type="info" if position else "positive")

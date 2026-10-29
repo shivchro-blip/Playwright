@@ -12,7 +12,7 @@ The test case's system/env has no entry in `Data/systemData.json`. Either add th
 
 ## Login fails or "Login pre-test completed but verification failed"
 
-- **Login credentials** on the Control tab must show both variables as *set*. Add them to `.env`.
+- **Login credentials** on the Control tab must show both variables as *set*. Add them to `.env`, or type the missing ones into the box beside each (used for that run only).
 - `logged_in_check` must match something visible only after login.
 - Try with Headless off and Slow-mo 500 to watch the login steps.
 
