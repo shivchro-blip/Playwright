@@ -17,7 +17,7 @@ async def get_token(page, dictionaryContext, key="token", dictKey = "authToken")
     if not value:
         raise ValueError(f"[TOKEN] Failed to extract token '{key}' from window.localStorage")
     dictionaryContext.set(dictKey, value)
-    logger.info(f"[TOKEN] Extracted token '{key}' saved to DICT.{dictKey} - {value}")
+    logger.info(f"[TOKEN] Extracted token '{key}' saved to DICT.{dictKey} ({len(value)} chars)")
 
 def load_api_endpoints():
     with open(data_path("mappings", "apiEndpoints.json"), encoding="utf-8") as f:
@@ -54,9 +54,7 @@ def replace_url_placeholders(url: str, dictionaryContext) -> str:
     logger.info(f"[URL_PLACEHOLDER] Found placeholders: {matches}")
 
     for key in matches:
-        logger.info(f"Dictionary:\n{dictionaryContext.dump()}")
         val = dictionaryContext.get(key)
-        logger.info(f"val: {val}\n\n")
         if val is None:
             logger.error(f"[URL_PLACEHOLDER] Placeholder '{key}' not found in DICT.")
             raise ValueError(f"[API_REQUEST] Placeholder '{key}' not found in DICT.")
@@ -111,7 +109,8 @@ async def run_api_request(endpoint_key: str, dictionaryContext):
     } if isinstance(endpoint.get("body", {}), dict) else {}
 
     try:
-        logger.info(f"url: {url}\nheaders: {headers}\nbody: {body}")
+        # Header and body values can hold tokens/credentials: log names only
+        logger.info(f"url: {url}\nheaders: {list(headers)}\nbody keys: {list(body)}")
         if method == "GET":
             res = requests.get(url, headers=headers, params=body)
         elif method == "POST":
@@ -137,12 +136,12 @@ async def run_api_request(endpoint_key: str, dictionaryContext):
                 logger.info(f"Save From API {source_key}: Dictionary - {dict_key}: {res.status_code}")
                 dictionaryContext.set(dict_key, res.status_code)
             elif source_key == "$raw":
-                logger.info(f"Save From API {source_key}: Dictionary - {dict_key}: {res.text}")
+                logger.info(f"Save From API {source_key}: Dictionary - {dict_key} ({len(res.text)} chars)")
                 dictionaryContext.set(dict_key, res.text)
             else:
                 val = json_response.get(source_key)
                 if val is not None:
-                    logger.info(f"Save From API {source_key}: Dictionary - {dict_key}: {val}")
+                    logger.info(f"Save From API {source_key}: Dictionary - {dict_key}")
                     dictionaryContext.set(dict_key, val)
                 else:
                     logger.warning(f"[API_REQUEST] Key '{source_key}' not found in response.")
