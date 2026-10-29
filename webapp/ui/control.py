@@ -129,8 +129,9 @@ class ControlPanel:
                         sorted(set(self.catalog.all_tags()) | set(tags), key=str.casefold), tags, "sel-tags",
                         multiple=True, with_input=True, new_value_mode="add-unique", clearable=True,
                         on_change=self._on_tags_change,
-                    ).props(f'clear-icon="{icon("circle-x")}" placeholder="Select tags" hide-dropdown-icon=false')
-                    self.tags_select.classes("any-multi").add_slot("selected-item", _chip_slot("tag"))
+                    ).classes("any-multi")
+                    self.tags_select.add_slot("selected-item", _chip_slot("tag"))
+                    self._sync_tags_placeholder()
 
             with ui.element("section").classes("any-section"):
                 eyebrow("Execution")
@@ -483,7 +484,15 @@ class ControlPanel:
             self._update_buttons(self._run())
 
     def _on_tags_change(self) -> None:
+        self._sync_tags_placeholder()
         self.tests_view.refresh()
+
+    def _sync_tags_placeholder(self) -> None:
+        # Quasar shows an input placeholder even next to chips; only show it while no tag is selected
+        if self.tags_select.value:
+            self.tags_select.props(remove="placeholder")
+        else:
+            self.tags_select.props('placeholder="Select tags"')
 
     def _on_browsers_change(self) -> None:
         self.tests_view.refresh()

@@ -71,8 +71,16 @@
 }
 .any-app .mono, .any-menu .mono { font-family: var(--font-mono); }
 .any-app .q-btn, .any-nav .q-tab { text-transform: none; }
-.any-app :focus-visible, .any-nav :focus-visible { outline: var(--focus); outline-offset: 2px; }
-.any-nav :focus-visible { outline-color: var(--accent-light); }
+/* NiceGUI loads Quasar's !important build, so the focus ring has to be !important too */
+.any-app :focus-visible, .any-nav :focus-visible, .any-menu :focus-visible { outline: var(--focus) !important; outline-offset: 2px !important; }
+.any-nav :focus-visible { outline-color: var(--accent-light) !important; }
+.any-app .q-field__native:focus-visible, .any-app .q-field__input:focus-visible, .any-app input:focus-visible { outline: none !important; }
+/* q-btn carries Quasar's layered `no-outline` (!important), which an unlayered rule can't beat:
+   draw the same 2px ring with a 2px offset as a box-shadow instead */
+.any-app .q-btn:focus-visible, .any-nav .q-btn:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent) !important; }
+.any-app .any-con-btn.q-btn:focus-visible { box-shadow: 0 0 0 2px var(--con-bg), 0 0 0 4px var(--accent-light) !important; }
+.any-app .q-toggle:focus-visible .q-toggle__track { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.any-app .q-field__focusable-action:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .any-app .q-focus-helper, .any-nav .q-focus-helper { display: none; }
 .any-app svg.q-icon, .any-nav svg.q-icon { flex-shrink: 0; }
 
@@ -212,7 +220,6 @@
 .any-app .q-toggle__thumb:after { background: var(--on-accent); box-shadow: 0 1px 2px rgba(16, 24, 40, .25); width: 14px; height: 14px; border-radius: 50%; }
 .any-app .q-toggle__thumb .q-icon { display: none; }
 .any-app .q-toggle__label { padding-left: 10px; font-size: 14px; color: var(--ink-2); line-height: 18px; }
-.any-app .q-toggle:focus-visible .q-toggle__track, .any-app .q-toggle__inner:focus-visible { outline: var(--focus); outline-offset: 2px; }
 
 /* credentials */
 .any-cred { border-radius: 10px; background: var(--surface-subtle); border: 1px solid var(--border); padding: 12px; display: flex; gap: 12px; align-items: flex-start; }
@@ -395,9 +402,9 @@
 .any-app .any-con-btn.q-btn:hover { background: var(--con-btn-hover); }
 .any-app .any-con-btn .q-btn__content { gap: 8px; }
 .any-app .any-con-btn .q-icon { font-size: 14px; margin: 0; }
-.any-app .any-con-btn.q-btn:focus-visible { outline-color: var(--accent-light); }
+.any-app .any-con-btn.q-btn:focus-visible { outline-color: var(--accent-light) !important; }
 .any-console-body { max-height: 320px; min-height: 120px; overflow: auto; padding: 12px 16px 16px; font: 12.5px/1.7 var(--font-mono); color: var(--con-ink); white-space: pre; }
-.any-console-body:focus-visible { outline: 2px solid var(--accent-light); outline-offset: -2px; }
+.any-console-body:focus-visible { outline-color: var(--accent-light) !important; outline-offset: -2px !important; }
 .any-cl { min-height: 1.7em; }
 .any-cl .lvl { display: inline-block; width: 8ch; }
 .any-cl .src { display: inline-block; min-width: 38ch; color: var(--con-muted); }
@@ -529,7 +536,7 @@
 .any-help-cat { padding: 14px 8px 6px; }
 .any-help-item { all: unset; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 7px 10px; border-radius: var(--r-ctl); font-size: 14px; color: var(--ink-2); cursor: pointer; }
 .any-help-item:hover { background: var(--chip-bg); color: var(--ink); }
-.any-help-item:focus-visible { outline: var(--focus); outline-offset: 0; }
+.any-help-item:focus-visible { outline-offset: 0 !important; }
 .any-help-item.is-active { background: var(--accent-soft); color: var(--accent-deep); font-weight: 500; }
 .any-help-title { font-weight: 500; color: var(--accent-deep); }
 .any-help-snippet { font-size: 12.5px; color: var(--muted); }
