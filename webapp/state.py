@@ -8,6 +8,7 @@ from functools import lru_cache
 from dotenv import dotenv_values
 
 from webapp.services.ai_assist import AIAssist
+from webapp.services.audit import AuditLog
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
 from webapp.services.notifier import Notifier
@@ -19,6 +20,7 @@ from webapp.services.schedules import Scheduler, ScheduleStore
 from webapp.services.system_data import SystemDataService
 from webapp.services.test_case_service import TestCaseService
 from webapp.services.test_catalog import TestCatalogService
+from webapp.services.users import UserStore
 from webapp.settings import Settings, get_settings
 
 
@@ -37,6 +39,8 @@ class Services:
     schedules: ScheduleStore
     scheduler: Scheduler
     ai: AIAssist
+    users: UserStore
+    audit: AuditLog
 
 
     def flag(self, key: str) -> bool:
@@ -109,4 +113,6 @@ def services() -> Services:
         scheduler=Scheduler(schedules, runs, catalog, notifier),
         ai=AIAssist(lambda: env_flag(env, "aiAssistEnabled"), env.env_path,
                     s.resolved_runs_dir.parent / "ai-audit.jsonl", s.ai_model),
+        users=UserStore(s.resolved_users_file),
+        audit=AuditLog(s.resolved_runs_dir.parent / "audit.jsonl"),
     )

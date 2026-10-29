@@ -10,9 +10,10 @@ from webapp.services.json_files import ConflictError, PathError
 from webapp.services.run_insights import compare, flaky_tests, previous_run, summarize
 from webapp.services.run_manager import RunConfig
 from webapp.services.schedules import validate as validate_schedule
+from webapp.auth import require
 from webapp.state import services
 
-router = APIRouter(prefix="/api", tags=["automateny"])
+router = APIRouter(prefix="/api", tags=["automateny"], dependencies=[require("view")])
 
 
 class RunRequest(BaseModel):
@@ -52,7 +53,7 @@ def get_config() -> dict:
     return {"path": str(env.env_path), "values": env.load(), "other": env.load_other()}
 
 
-@router.put("/config")
+@router.put("/config", dependencies=[require("settings")])
 def put_config(values: dict[str, str | int | bool]) -> dict:
     try:
         services().env.save(values)
@@ -100,7 +101,7 @@ def get_page(system: str, rel: str) -> dict:
     return {"data": data, "hash": sha}
 
 
-@router.put("/pages/{system}/{rel:path}")
+@router.put("/pages/{system}/{rel:path}", dependencies=[require("edit")])
 def put_page(system: str, rel: str, req: SaveRequest) -> dict:
     return {"hash": _editor_call(services().pom.save, system, rel, req.data, req.hash)}
 
@@ -117,7 +118,7 @@ def get_testcase_file(system: str, rel: str) -> dict:
     return {"data": data, "hash": sha}
 
 
-@router.put("/testcases/{system}/{rel:path}")
+@router.put("/testcases/{system}/{rel:path}", dependencies=[require("edit")])
 def put_testcase(system: str, rel: str, req: SaveRequest, index: int | None = None) -> dict:
     """Replace testCases[index] in the file (append when index is omitted)."""
     new_index, sha = _editor_call(services().tests.save, system, rel, index, req.data, req.hash)
@@ -134,7 +135,7 @@ def list_runs() -> list[dict]:
     return [{k: v for k, v in r.to_dict().items() if k != "results"} for r in services().runs.list()]
 
 
-@router.post("/runs", status_code=201)
+@router.post("/runs", status_code=201, dependencies=[require("run")])
 def start_run(req: RunRequest) -> dict:
     svc = services()
     selected = svc.catalog.load(req.system).select(req.tags)
@@ -142,17 +143,18 @@ def start_run(req: RunRequest) -> dict:
         run = svc.runs.start(RunConfig(**req.model_dump()), expected=len(selected) * max(len(req.browsers), 1))
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    except RuntimeError as e:
+    except RuntimeError as e:  # the queue is full
         raise HTTPException(409, str(e)) from e
-    return run.to_dict()
+    return {**run.to_dict(), "queue_position": svc.runs.queue_position(run.id)}
 
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: str) -> dict:
-    run = services().runs.get(run_id)
+    runs = services().runs
+    run = runs.get(run_id)
     if not run:
         raise HTTPException(404, "Run not found")
-    return run.to_dict()
+    return {**run.to_dict(), "queue_position": runs.queue_position(run.id)}
 
 
 @router.get("/runs/{run_id}/log")
@@ -179,7 +181,7 @@ def compare_runs(run_id: str, base: str = "") -> dict:
     return {"base": first.id, "target": second.id, "summary": summarize(rows), "tests": [r.to_dict() for r in rows]}
 
 
-@router.post("/runs/{run_id}/report")
+@router.post("/runs/{run_id}/report", dependencies=[require("run")])
 def write_run_report(run_id: str) -> dict:
     """(Re)write the built-in report; it is served at the returned url."""
     runs = services().runs
@@ -203,7 +205,7 @@ def _schedule_view(schedule) -> dict:
     last = scheduler.last_runs(schedule, 1)
     return {**schedule.to_dict(), "next_run": nxt.isoformat() if nxt else None,
             "last_run": {"id": last[0].id, "status": last[0].status} if last else None,
-            "error": scheduler.errors.get(schedule.id, ""), "queued": schedule.id in scheduler.pending}
+            "error": scheduler.errors.get(schedule.id, ""), "queued": scheduler.queued(schedule)}
 
 
 @router.get("/schedules")
@@ -211,7 +213,7 @@ def list_schedules() -> list[dict]:
     return [_schedule_view(s) for s in services().schedules.list()]
 
 
-@router.post("/schedules", status_code=201)
+@router.post("/schedules", status_code=201, dependencies=[require("schedule")])
 def create_schedule(data: dict) -> dict:
     data = {k: v for k, v in data.items() if k != "id"}
     try:
@@ -222,7 +224,7 @@ def create_schedule(data: dict) -> dict:
         raise HTTPException(409, str(e)) from e
 
 
-@router.put("/schedules/{schedule_id}")
+@router.put("/schedules/{schedule_id}", dependencies=[require("schedule")])
 def update_schedule(schedule_id: str, data: dict) -> dict:
     store = services().schedules
     if not store.get(schedule_id):
@@ -235,23 +237,23 @@ def update_schedule(schedule_id: str, data: dict) -> dict:
         raise HTTPException(409, str(e)) from e
 
 
-@router.delete("/schedules/{schedule_id}")
+@router.delete("/schedules/{schedule_id}", dependencies=[require("schedule")])
 def delete_schedule(schedule_id: str) -> dict:
     if not services().schedules.delete(schedule_id):
         raise HTTPException(404, "Schedule not found")
     return {"deleted": schedule_id}
 
 
-@router.post("/schedules/{schedule_id}/run", status_code=201)
+@router.post("/schedules/{schedule_id}/run", status_code=201, dependencies=[require("run")])
 def run_schedule(schedule_id: str) -> dict:
     try:
         run = services().scheduler.run_now(schedule_id)
     except ValueError as e:
         raise HTTPException(404 if "not found" in str(e) else 400, str(e)) from e
-    return {"queued": True} if run is None else run.to_dict()
+    return run.to_dict()
 
 
-@router.post("/schedules/{schedule_id}/test-notification")
+@router.post("/schedules/{schedule_id}/test-notification", dependencies=[require("schedule")])
 def test_notification(schedule_id: str) -> list[dict]:
     svc = services()
     schedule = svc.schedules.get(schedule_id)
@@ -260,7 +262,7 @@ def test_notification(schedule_id: str) -> list[dict]:
     return svc.scheduler.send_test(schedule)
 
 
-@router.post("/runs/{run_id}/rerun", status_code=201)
+@router.post("/runs/{run_id}/rerun", status_code=201, dependencies=[require("run")])
 def rerun(run_id: str) -> dict:
     runs = services().runs
     if not runs.get(run_id):
@@ -273,7 +275,7 @@ def rerun(run_id: str) -> dict:
         raise HTTPException(409, str(e)) from e
 
 
-@router.delete("/runs/{run_id}")
+@router.delete("/runs/{run_id}", dependencies=[require("delete")])
 def delete_run(run_id: str) -> dict:
     if not services().runs.delete(run_id):
         raise HTTPException(409, "Run not found or still active")
@@ -297,7 +299,7 @@ def help_topic(topic_id: str) -> dict:
     return {**asdict(topic), "markdown": svc.markdown(topic)}
 
 
-@router.post("/runs/{run_id}/cancel")
+@router.post("/runs/{run_id}/cancel", dependencies=[require("run")])
 def cancel_run(run_id: str) -> dict:
     if not services().runs.cancel(run_id):
         raise HTTPException(409, "Run is not active")

@@ -11,6 +11,7 @@ from webapp.services.cron import Cron, CronError
 from webapp.services.json_files import ConflictError
 from webapp.services.notifier import DEFAULT_ENV, channel_ready
 from webapp.services.schedules import Schedule, validate
+from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field, icon_button, placeholder, status_pill_template, styled_table, text
 from webapp.ui.generator import confirm
@@ -73,7 +74,8 @@ class SchedulesPanel:
                     with ui.element("div").classes("any-head-right"):
                         ui.label("Schedules fire while this app is running, in this computer's time zone.") \
                             .classes("any-muted text-sm")
-                        ui.button("New schedule", icon=icon("plus"), color=None, on_click=lambda: self.edit(None)) \
+                        ui.button("New schedule", icon=icon("plus"), color=None,
+                                  on_click=lambda: guard("schedule", "add schedule") and self.edit(None)) \
                             .props('data-testid="new-schedule"').classes("any-primary")
                 self.table_view()
         self.signature: tuple = ()
@@ -81,7 +83,7 @@ class SchedulesPanel:
 
     def _auto_refresh(self) -> None:
         sched = self.svc.scheduler
-        sig = tuple((s.id, s.enabled, s.cron, *(r.status for r in sched.last_runs(s, 1)), s.id in sched.pending,
+        sig = tuple((s.id, s.enabled, s.cron, *(r.status for r in sched.last_runs(s, 1)), sched.queued(s),
                      sched.errors.get(s.id, ""), str(sched.next_run(s))) for s in self.svc.schedules.list())
         if sig != self.signature:
             self.signature = sig
@@ -100,7 +102,7 @@ class SchedulesPanel:
                 "notify": "Off" if s.notify_when == "never" or not s.channels else
                           {"failure": "On failure", "always": "Always"}[s.notify_when] + ": "
                           + ", ".join(CHANNEL_NAMES[c["type"]] for c in s.channels),
-                "enabled": s.enabled, "queued": s.id in sched.pending, "error": sched.errors.get(s.id, ""),
+                "enabled": s.enabled, "queued": sched.queued(s), "error": sched.errors.get(s.id, ""),
             })
         self.count_pill.text = f"{len(rows)} {'schedule' if len(rows) == 1 else 'schedules'}"
         if not rows:
@@ -146,17 +148,20 @@ class SchedulesPanel:
             table.on("run_now", lambda e: self.run_now(e.args))
 
     def run_now(self, sid: str) -> None:
+        if not guard("run", "run schedule"):
+            return
         try:
             run = self.svc.scheduler.run_now(sid)
         except ValueError as e:
             ui.notify(str(e), type="negative", multi_line=True)
             return
+        audit("schedule.run", sid, run=run.id)
         self.table_view.refresh()
-        if run is None:
-            ui.notify("A run is in progress; this schedule starts as soon as it finishes.", type="info")
+        if run.status == "queued":
+            ui.notify(f"Run {run.id} is queued; it starts when the current run finishes.", type="info")
         else:
             ui.notify(f"Run {run.id} started", type="positive")
-            self.on_watch(run.id)
+        self.on_watch(run.id)
 
     # ───── editor ─────
 
@@ -312,11 +317,14 @@ class SchedulesPanel:
             saved_id = {"id": existing.id if existing else ""}  # a test notification saves a new schedule first
 
             def save() -> Schedule | None:
+                if not guard("schedule", "save schedule"):
+                    return None
                 try:
                     schedule = svc.schedules.save(validate(collect()))
                 except (ValueError, CronError, ConflictError, OSError) as e:
                     ui.notify(f"Not saved: {e}", type="negative", multi_line=True)
                     return None
+                audit("schedule.save", schedule.id, name=schedule.name, cron=schedule.cron)
                 saved_id["id"] = schedule.id
                 return schedule
 
@@ -334,15 +342,19 @@ class SchedulesPanel:
                     ui.notify("Turn on at least one channel first.", type="warning")
                     return
                 results = svc.scheduler.send_test(schedule)
+                audit("schedule.test_notification", schedule.id)
                 for r in results:
                     ui.notify(f"{r['channel']}: " + ("sent" if r["ok"] else r["error"]),
                               type="positive" if r["ok"] else "negative", multi_line=True)
                 self.table_view.refresh()
 
             async def delete() -> None:
-                if existing and await confirm(f"Delete the schedule '{existing.name}'? Its past runs stay in "
-                                              "History.", "Delete", "negative"):
+                if not existing or not guard("schedule", "delete schedule"):
+                    return
+                if await confirm(f"Delete the schedule '{existing.name}'? Its past runs stay in History.",
+                                 "Delete", "negative"):
                     svc.schedules.delete(existing.id)
+                    audit("schedule.delete", existing.id, name=existing.name)
                     dialog.close()
                     ui.notify("Schedule deleted", type="positive")
                     self.table_view.refresh()

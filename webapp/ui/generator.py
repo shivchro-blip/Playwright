@@ -13,6 +13,7 @@ from webapp.services.json_files import ConflictError, PathError
 from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.run_manager import RunConfig
 from webapp.services.test_case_service import STEP_KINDS
+from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
@@ -141,7 +142,7 @@ class TestEditor:
                         'clearable aria-label="Search tests"').classes("flex-1")
                     icon_button("plus", "New test case", self.new_test_dialog)
                     self.draft_button = icon_button("sparkles", "Draft a test with AI",
-                                                    lambda: open_draft_dialog(self))
+                                                    lambda: guard("ai.write", "draft") and open_draft_dialog(self))
                     self.draft_button.props('data-testid="ai-draft-open"')
                     self.draft_button.set_visibility(self.svc.ai.enabled())
                     icon_button("rotate-cw", "Reload", self.reload_list)
@@ -499,13 +500,14 @@ class TestEditor:
 
     def save(self) -> None:
         tc = self._current()
-        if tc is None:
+        if tc is None or not guard("edit", "save test case", self.file or ""):
             return
         try:
             self.index, self.hash = self.svc.tests.save(self.gen.system, self.file, self.index, tc, self.hash)
         except SAVE_ERRORS as e:
             ui.notify(f"Not saved: {e}", type="negative", multi_line=True, timeout=8000)
             return
+        audit("testcase.save", f"{self.gen.system}/{self.file}", test_id=tc.get("testCaseID"))
         self._set_model(tc)
         self.validate(notify=False)
         self.list_view.refresh()
@@ -513,6 +515,8 @@ class TestEditor:
 
     async def run_this(self) -> None:
         """Run just this test case with the saved defaults (.env) for browser options."""
+        if not guard("run", "run test case"):
+            return
         if self.dirty:
             if not await confirm("Save changes before running?", "Save and run"):
                 return
@@ -536,6 +540,7 @@ class TestEditor:
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
+        audit("run.start", run.id, test_id=test_id)
         ui.notify(f"Running {test_id} ({run.id})", type="positive")
         if self.gen.on_run:
             self.gen.on_run(run.id)
@@ -547,7 +552,9 @@ class TestEditor:
         await self.open(self.file, self.index)
 
     async def delete(self) -> None:
-        if self.file is None or not await confirm(
+        if self.file is None or not guard("edit", "delete test case"):
+            return
+        if not await confirm(
                 f"Delete test case '{self.meta.get('testCaseID')}' from {self.file}?", "Delete", "negative"):
             return
         try:
@@ -555,6 +562,7 @@ class TestEditor:
         except SAVE_ERRORS as e:
             ui.notify(str(e), type="negative")
             return
+        audit("testcase.delete", f"{self.gen.system}/{self.file}", test_id=self.meta.get("testCaseID"))
         ui.notify("Deleted", type="positive")
         self.file = self.index = self.hash = None
         self.dirty = False
@@ -613,6 +621,8 @@ class TestEditor:
                           lambda tid, rel: self._create(rel, {**tc, "testCaseID": tid}))
 
     def _create(self, rel: str, tc: dict) -> None:
+        if not guard("edit", "create test case"):
+            return
         try:
             index, sha = self.svc.tests.save(self.gen.system, rel, None, tc, None)
         except SAVE_ERRORS as e:
@@ -623,6 +633,7 @@ class TestEditor:
         self._set_model(tc)
         self.validate(notify=False)
         self.list_view.refresh()
+        audit("testcase.create", f"{self.gen.system}/{rel}", test_id=tc["testCaseID"])
         ui.notify(f"Created {tc['testCaseID']} in {rel}", type="positive")
 
 
@@ -848,10 +859,13 @@ class PageEditor:
                                    lambda: self.field_dialog(row), "is-32")
                 if extra:
                     more.classes("is-active")
-                icon_button("scan-search", "Check locator on the live page",
-                            lambda: open_locator_check(self.gen.system, self._page_name(), dict(self.page), row.name,
-                                                       dict(row.cfg), on_apply=lambda c: self.set_locator(row, c)),
-                            "is-32")
+
+                def check() -> None:
+                    if guard("check", "check locator"):
+                        open_locator_check(self.gen.system, self._page_name(), dict(self.page), row.name,
+                                           dict(row.cfg), on_apply=lambda c: self.set_locator(row, c))
+
+                icon_button("scan-search", "Check locator on the live page", check, "is-32")
                 icon_button("x", "Remove field", lambda: self.remove_field(row), "is-32").classes("is-danger")
 
     def set_locator(self, row: FieldRow, locator_keys: dict) -> None:
@@ -925,7 +939,7 @@ class PageEditor:
 
     def save(self) -> None:
         data = self._current()
-        if data is None:
+        if data is None or not guard("edit", "save page", self.rel or ""):
             return
         try:
             self.hash = self.svc.pom.save(self.gen.system, self.rel, data, self.hash)
@@ -935,6 +949,7 @@ class PageEditor:
         self._set_model(data)
         self.list_view.refresh()
         self.gen.tests.load_refs()
+        audit("page.save", f"{self.gen.system}/{self.rel}")
         ui.notify(f"Saved {self.rel}", type="positive")
 
     async def revert(self) -> None:
@@ -959,8 +974,11 @@ class PageEditor:
                 name = ui.input(placeholder="loginPage").props('for="dlg-page"').classes("w-full")
 
             def ok():
+                if not guard("edit", "create page"):
+                    return
                 try:
                     rel = self.svc.pom.create(system, folder.value or "", name.value or "")
+                    audit("page.create", f"{system}/{rel}")
                     data, sha = self.svc.pom.load(system, rel)
                 except SAVE_ERRORS as e:
                     ui.notify(str(e), type="warning")
@@ -1002,7 +1020,8 @@ class GeneratorPanel:
                             .props('data-testid="recorder-switch"') \
                             .tooltip("Record tests in a real browser (Playwright codegen). Saved to .env.")
                         self.record_button = ui.button("Record", icon=icon("circle-play"), color=None,
-                                                       on_click=lambda: open_recorder(self)) \
+                                                       on_click=lambda: guard("record", "record") and
+                                                       open_recorder(self)) \
                             .props('flat unelevated no-caps data-testid="record-button"').classes("any-btn is-38")
                         self.record_button.set_visibility(bool(self.recorder_switch.value))
                     with ui.tabs().props('no-caps inline-label indicator-color="transparent" '
@@ -1032,6 +1051,10 @@ class GeneratorPanel:
         self.tests.draft_button.set_visibility(enabled)
 
     def _toggle_recorder(self, e) -> None:
+        if not guard("settings", "turn the recorder on or off"):
+            self.recorder_switch.set_value(not e.value)
+            return
+        audit("setting", "recorderEnabled", value=bool(e.value))
         try:
             self.svc.env.save({"recorderEnabled": bool(e.value)})
         except (ValueError, OSError) as err:

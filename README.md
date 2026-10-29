@@ -28,11 +28,16 @@ start.cmd
 | **History** | Past runs with details, re-run and delete; result rows open the same failure details as Control. Each test shows its recent results (flaky ones are flagged, and listed in a Flaky tests card), and **Compare** diffs a run against an earlier one: new failures, fixes, slower tests, added and removed tests. |
 | **Schedules** | Start runs on a timetable (every weekday at 06:30, every 4 hours, any cron expression) while the app is running, and notify Slack, Teams, a webhook or email when they fail. Secrets stay in `.env` (`NOTIFY_*`). |
 | **AI** (top bar) | Optional, off by default: Claude explains failures, suggests locator fixes (verified before you see them), drafts test cases from plain English and summarizes runs. It only suggests; everything is applied by a click and logged. Needs `ANTHROPIC_API_KEY`; secrets are redacted before sending. |
+| **Activity** (top bar, admins) | Audit trail: sign-ins, refused actions and every change to runs, tests, pages, schedules and settings. |
 | **Help** | Framework and app documentation (`docs/help/`). |
 
 Every finished run gets a built-in report (**Report** button, or `runs/<id>/report.html`): summary, failures with screenshots, recent results per test and the system's trend. The Allure CLI is optional; the **Allure** button appears when it is installed.
 
 For the sample, choose system `GOOGLE`, environment `dev`, and tag `GOOGLE` (all tests) or `smoke`.
+
+## Sharing the app with a team
+
+Sign-in is off on your own machine (`127.0.0.1`). For a shared server, create an admin with `python -m webapp.users add <name> --role admin` and start with `AUTOMATENY_AUTH_ENABLED=true`; sign-in is required automatically on a non-loopback `AUTOMATENY_HOST`. Roles: viewer, runner, editor, admin. Scripts use API tokens (`python -m webapp.users token <name>`). Runs started while another is in progress are queued. See Help → *Accounts, roles and the audit trail*.
 
 ## Running tests without the UI
 
