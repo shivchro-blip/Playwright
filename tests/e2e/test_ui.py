@@ -1,4 +1,4 @@
-"""UI smoke: start the web app, open every tab, start a run from the Control page and watch it pass."""
+"""UI smoke: open every tab, run from the Control page, open a test's details, check a locator in the Generator."""
 from __future__ import annotations
 
 import os
@@ -73,5 +73,17 @@ def test_every_tab_loads_and_a_run_passes(app_url: str):
         run_card = page.locator("[aria-labelledby='current-run-title']")
         expect(run_card.locator("tbody .pill-passed")).to_have_count(2)  # both smoke tests, in the results table
         expect(run_card.get_by_test_id("duration-bar")).to_be_visible()
+
+        run_card.locator("tbody tr").first.click()  # failure details dialog (a passed test still has its log)
+        details = page.get_by_role("dialog", name="Test details")
+        expect(details.get_by_text("Test log")).to_be_visible()
+        details.get_by_role("button", name="Close").click()
+
+        page.get_by_role("tab", name="Generator").click()  # live locator check on the open page's first field
+        page.get_by_role("button", name="Check locator on the live page").first.click()
+        check = page.get_by_role("dialog", name="Check locator")
+        check.get_by_role("button", name="Check").click()
+        expect(check.get_by_test_id("lc-count")).to_have_text("1 match", timeout=60_000)
+        expect(check.locator("figure img")).to_be_visible()
         browser.close()
     assert problems == []

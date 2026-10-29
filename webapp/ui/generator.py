@@ -15,6 +15,7 @@ from webapp.services.run_manager import RunConfig
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
+from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.theme import icon, svg
 
 VALUE_KINDS = {"text": "Text", "auto": "Auto", "number": "Number", "json": "JSON"}
@@ -841,7 +842,13 @@ class PageEditor:
                                    lambda: self.field_dialog(row), "is-32")
                 if extra:
                     more.classes("is-active")
+                icon_button("scan-search", "Check locator on the live page",
+                            lambda: open_locator_check(self.gen.system, self._page_name(), dict(self.page), row.name,
+                                                       dict(row.cfg)), "is-32")
                 icon_button("x", "Remove field", lambda: self.remove_field(row), "is-32").classes("is-danger")
+
+    def _page_name(self) -> str:
+        return (self.rel or "").rpartition("/")[2].removesuffix(".json") or "New page"
 
     def field_dialog(self, row: FieldRow) -> None:
         with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[36rem]"):
