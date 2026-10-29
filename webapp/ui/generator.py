@@ -14,10 +14,13 @@ from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.run_manager import RunConfig
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.state import services
+from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
+from webapp.ui.theme import icon, svg
 
 VALUE_KINDS = {"text": "Text", "auto": "Auto", "number": "Number", "json": "JSON"}
-KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "Reusable test", "API_REQUEST": "API request"}
-KIND_COLORS = {"screen": "primary", "commonAction": "teal", "testCase": "purple", "API_REQUEST": "brown"}
+KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "Reusable test",
+               "API_REQUEST": "API request"}
+KIND_TONES = {"screen": "kind-page", "commonAction": "kind-common", "testCase": "kind-reuse", "API_REQUEST": "kind-api"}
 TC_META = ("testCaseID", "system", "env", "module", "tags", "description")
 SAVE_ERRORS = (ValueError, ConflictError, PathError, OSError)
 
@@ -55,11 +58,12 @@ def parse_value(kind: str, raw: str):
 
 
 async def confirm(message: str, ok: str = "OK", color: str = "primary") -> bool:
-    with ui.dialog() as dialog, ui.card():
-        ui.label(message)
-        with ui.row().classes("w-full justify-end"):
-            ui.button("Cancel", on_click=lambda: dialog.submit(False)).props("flat")
-            ui.button(ok, color=color, on_click=lambda: dialog.submit(True))
+    with ui.dialog() as dialog, ui.card().classes("any-app any-dialog"):
+        ui.label(message).classes("any-dialog-text")
+        with ui.element("div").classes("any-dialog-actions"):
+            ui.button("Cancel", color=None, on_click=lambda: dialog.submit(False)).classes("any-btn is-38")
+            ui.button(ok, color=None, on_click=lambda: dialog.submit(True)) \
+                .classes("any-danger" if color == "negative" else "any-primary")
     result = await dialog
     dialog.delete()
     return bool(result)
@@ -127,19 +131,16 @@ class TestEditor:
         self._common: list[str] = []
         self._test_ids: list[str] = []
 
-        with ui.splitter(value=28, limits=(18, 45)).classes("w-full") as splitter:
-            with splitter.before:
-                with ui.column().classes("w-full pr-3 gap-2"):
-                    with ui.row().classes("w-full items-center gap-1 no-wrap"):
-                        self.search = ui.input(placeholder="Search tests").props("dense clearable").classes("flex-1")
-                        ui.button(icon="add", on_click=self.new_test_dialog).props("flat round dense") \
-                            .tooltip("New test case")
-                        ui.button(icon="refresh", on_click=self.reload_list).props("flat round dense") \
-                            .tooltip("Reload")
-                    self.list_view()
-            with splitter.after:
-                with ui.column().classes("w-full pl-3 gap-3"):
-                    self.editor()
+        with ui.element("div").classes("any-split"):
+            with ui.element("section").classes("any-card any-split-list").props('aria-label="Test cases"'):
+                with ui.element("div").classes("any-list-head"):
+                    self.search = ui.input(placeholder="Search tests").props(
+                        'clearable aria-label="Search tests"').classes("flex-1")
+                    icon_button("plus", "New test case", self.new_test_dialog)
+                    icon_button("rotate-cw", "Reload", self.reload_list)
+                self.list_view()
+            with ui.element("section").classes("any-card any-split-main").props('aria-label="Test case editor"'):
+                self.editor()
 
     def load_refs(self) -> None:
         """Pickers for step targets (pages, common actions, reusable test IDs)."""
@@ -154,29 +155,40 @@ class TestEditor:
     def list_view(self) -> None:
         system = self.gen.system
         if not system:
-            ui.label("Pick a system.").classes("text-sm text-grey-7")
+            ui.label("Pick a system.").classes("any-empty any-muted")
             return
         refs, errors = self.svc.tests.list_tests(system)
         for err in errors:
-            ui.label(f"Could not read {err}").classes("text-xs text-negative")
-        rows = [{"key": f"{r.file}#{r.index}", "file": r.file, "index": r.index, "test_id": r.test_id,
-                 "tags": ", ".join(r.tags), "steps": r.steps, "dup": r.duplicate} for r in refs]
-        table = ui.table(rows=rows, row_key="key", pagination=15, columns=[
-            {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
-            {"name": "file", "label": "File", "field": "file", "align": "left", "sortable": True},
-            {"name": "steps", "label": "Steps", "field": "steps"},
-        ]).classes("w-full cursor-pointer").props("dense flat")
-        table.add_slot("body-cell-test_id", r'''
-            <q-td :props="props">
-              <div class="font-medium">{{ props.value }}
-                <q-icon v-if="props.row.dup" name="content_copy" color="orange" size="xs">
-                  <q-tooltip>Duplicate test ID</q-tooltip></q-icon></div>
-              <div class="text-xs text-grey-7">{{ props.row.tags }}</div>
-            </q-td>''')
-        self.search.bind_value(table, "filter")
-        table.on("rowClick", lambda e: self.open(e.args[1]["file"], e.args[1]["index"]))
-        if not rows:
-            ui.label("No test cases for this system yet - use + to create one.").classes("text-sm text-grey-7")
+            ui.label(f"Could not read {err}").classes("any-err-line px-6")
+        rows = []
+        for r in refs:
+            name, code = split_test_id(r.test_id)
+            rows.append({"key": f"{r.file}#{r.index}", "file": r.file, "index": r.index, "test_id": r.test_id,
+                         "name": name, "code": code, "tag_list": r.tags, "tags": ", ".join(r.tags),
+                         "steps": r.steps, "dup": r.duplicate})
+        with ui.element("div").classes("any-table-wrap"):
+            table = ui.table(rows=rows, row_key="key", pagination=15, columns=[
+                {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
+                {"name": "file", "label": "File", "field": "file", "align": "left", "sortable": True},
+                {"name": "steps", "label": "Steps", "field": "steps", "align": "right"},
+            ]).classes("w-full is-clickable is-compact")
+            styled_table(table, len(rows))
+            table.add_slot("body-cell-test_id", f'''
+                <q-td :props="props">
+                  <div class="any-tc-name" :title="props.row.test_id">{{{{ props.row.name }}}}
+                    <span v-if="props.row.dup" class="any-dup" title="Duplicate test ID"
+                          aria-label="Duplicate test ID">{svg("triangle-alert")}</span></div>
+                  <div v-if="props.row.code" class="any-tc-code">{{{{ props.row.code }}}}</div>
+                  <div class="any-tags mt-1">
+                    <span v-for="t in props.row.tag_list" :key="t" class="any-tag">{{{{ t }}}}</span>
+                  </div>
+                </q-td>''')
+            table.add_slot("body-cell-file", '<q-td :props="props" class="any-num any-small">{{ props.value }}</q-td>')
+            table.add_slot("body-cell-steps", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
+            table.add_slot("no-data", '<div class="any-muted text-sm">'
+                                      'No test cases for this system yet - use + to create one.</div>')
+            self.search.bind_value(table, "filter")
+            table.on("rowClick", lambda e: self.open(e.args[1]["file"], e.args[1]["index"]))
 
     def reload_list(self) -> None:
         self.load_refs()
@@ -226,24 +238,26 @@ class TestEditor:
     @ui.refreshable_method
     def editor(self) -> None:
         if self.file is None:
-            ui.label("Select a test case on the left, or create a new one with +.").classes("text-grey-7 mt-8")
+            ui.label("Select a test case on the left, or create a new one with +.").classes("any-empty any-muted")
             return
-        with ui.row().classes("w-full items-center gap-2"):
-            ui.label(self.meta.get("testCaseID") or "(no id)").classes("text-lg font-medium")
-            ui.label(f"{self.file} #{self.index}").classes("text-xs font-mono text-grey-7")
-            self.dirty_badge = ui.badge("unsaved", color="orange")
-            self.dirty_badge.set_visibility(self.dirty)
-            ui.space()
-            ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
-                .props("dense no-caps")
-            ui.button("Check", icon="rule", on_click=lambda: self.validate(True)).props("flat no-caps")
-            ui.button("Revert", icon="undo", on_click=self.revert).props("flat no-caps")
-            ui.button("Copy", icon="content_copy", on_click=self.copy_dialog).props("flat no-caps") \
-                .tooltip("Save as a new test case")
-            ui.button(icon="delete", color="negative", on_click=self.delete).props("flat round").tooltip("Delete")
-            ui.button("Run", icon="play_arrow", on_click=self.run_this).props("outline no-caps") \
-                .tooltip("Run only this test case")
-            ui.button("Save", icon="save", on_click=self.save).props("no-caps")
+        with ui.element("div").classes("any-editor-head"):
+            with ui.element("div").classes("any-editor-title"):
+                text("h2", self.meta.get("testCaseID") or "(no id)", "any-title")
+                text("span", f"{self.file} #{self.index}", "any-tc-code")
+                self.dirty_badge = text("span", "unsaved", "any-pill pill-warn")
+                self.dirty_badge.set_visibility(self.dirty)
+            with ui.element("div").classes("any-toolbar"):
+                ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
+                    .props("no-caps unelevated").classes("any-segmented")
+                ui.button("Check", icon=icon("list-checks"), color=None, on_click=lambda: self.validate(True)) \
+                    .classes("any-btn is-38")
+                ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                ui.button("Copy", icon=icon("copy"), color=None, on_click=self.copy_dialog) \
+                    .classes("any-btn is-38").tooltip("Save as a new test case")
+                icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")
+                ui.button("Run", icon=icon("play-solid"), color=None, on_click=self.run_this) \
+                    .classes("any-btn is-38").tooltip("Run only this test case")
+                ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
         self.validation_view()
         if self.json_mode:
             self.json_editor()
@@ -254,9 +268,11 @@ class TestEditor:
     @ui.refreshable_method
     def validation_view(self) -> None:
         if self.warnings:
-            with ui.expansion(f"{len(self.warnings)} warning(s)", icon="warning").classes("w-full bg-orange-1"):
-                for w in self.warnings:
-                    ui.label(w).classes("text-sm")
+            with ui.expansion(f"{len(self.warnings)} warning(s)", icon=icon("triangle-alert")) \
+                    .classes("any-disclosure is-warn"):
+                with ui.element("ul").classes("any-warn-list"):
+                    for w in self.warnings:
+                        text("li", w)
 
     def meta_form(self) -> None:
         def bind(key):
@@ -265,30 +281,44 @@ class TestEditor:
                 self.touch()
             return handler
 
-        with ui.card().classes("w-full"):
-            with ui.row().classes("w-full gap-3"):
-                ui.input("Test case ID", value=self.meta.get("testCaseID") or "", on_change=bind("testCaseID")) \
-                    .classes("flex-1 min-w-48")
-                ui.select(self.gen.all_systems(), label="System", value=self.meta.get("system"),
-                          with_input=True, new_value_mode="add-unique", on_change=bind("system")).classes("w-36")
-                ui.input("Env", value=self.meta.get("env") or "", on_change=bind("env")).classes("w-28")
-                ui.input("Module", value=self.meta.get("module") or "", on_change=bind("module")).classes("w-36")
-            ui.input_chips("Tags", value=list(self.meta.get("tags") or []), new_value_mode="add-unique",
-                           on_change=bind("tags")).classes("w-full")
-            ui.textarea("Description", value=self.meta.get("description") or "", on_change=bind("description")) \
-                .props("autogrow").classes("w-full")
+        with ui.element("div").classes("any-form"):
+            with ui.element("div").classes("any-form-row"):
+                with labelled("Test case ID", "tc-id").classes("is-grow"):
+                    ui.input(value=self.meta.get("testCaseID") or "", on_change=bind("testCaseID")) \
+                        .props('for="tc-id"').classes("w-full mono-input")
+                with labelled("System", "tc-system"):
+                    ui.select(self.gen.all_systems(), value=self.meta.get("system"), with_input=True,
+                              new_value_mode="add-unique", on_change=bind("system")) \
+                        .props('for="tc-system"').classes("w-40")
+                with labelled("Env", "tc-env"):
+                    ui.input(value=self.meta.get("env") or "", on_change=bind("env")) \
+                        .props('for="tc-env"').classes("w-28")
+                with labelled("Module", "tc-module"):
+                    ui.input(value=self.meta.get("module") or "", on_change=bind("module")) \
+                        .props('for="tc-module"').classes("w-40")
+            with labelled("Tags", "tc-tags"):
+                ui.input_chips(value=list(self.meta.get("tags") or []), new_value_mode="add-unique",
+                               on_change=bind("tags")).props('for="tc-tags"').classes("w-full any-multi")
+            with labelled("Description", "tc-desc"):
+                ui.textarea(value=self.meta.get("description") or "", on_change=bind("description")) \
+                    .props('autogrow for="tc-desc"').classes("w-full")
 
     @ui.refreshable_method
     def steps_view(self) -> None:
-        with ui.row().classes("w-full items-center"):
-            ui.label(f"Steps ({len(self.steps)})").classes("text-md font-medium")
-            ui.space()
-            for kind, label in (("screen", "Page"), ("commonAction", "Common action"), ("testCase", "Reusable test")):
-                ui.button(f"+ {label}", on_click=lambda k=kind: self.add_step(k)).props("outline dense no-caps")
-        if not self.steps:
-            ui.label("No steps yet.").classes("text-sm text-grey-7")
-        for i, step in enumerate(self.steps):
-            self.step_card(i, step)
+        with ui.element("div").classes("any-steps"):
+            with ui.element("div").classes("any-section-head"):
+                with ui.element("div").classes("any-head-left"):
+                    text("h3", "Steps", "any-title")
+                    text("span", str(len(self.steps)), "any-count-pill mono")
+                with ui.element("div").classes("any-head-right"):
+                    for kind, label in (("screen", "Page"), ("commonAction", "Common action"),
+                                        ("testCase", "Reusable test")):
+                        ui.button(label, icon=icon("plus"), color=None, on_click=lambda k=kind: self.add_step(k)) \
+                            .classes("any-btn is-32")
+            if not self.steps:
+                ui.label("No steps yet.").classes("any-muted text-sm")
+            for i, step in enumerate(self.steps):
+                self.step_card(i, step)
 
     def step_card(self, i: int, step: StepModel) -> None:
         options = {"screen": self._screens, "commonAction": self._common, "testCase": self._test_ids}.get(step.kind, [])
@@ -300,19 +330,18 @@ class TestEditor:
             if step.kind == "screen":
                 self.steps_view.refresh()  # field picker depends on the page
 
-        with ui.card().classes("w-full").props("flat bordered"):
-            with ui.row().classes("w-full items-center gap-2 no-wrap"):
-                ui.badge(str(i + 1), color="grey-7")
-                ui.badge(KIND_LABELS.get(step.kind, step.kind), color=KIND_COLORS.get(step.kind, "grey"))
+        with ui.element("div").classes("any-step"):
+            with ui.element("div").classes("any-step-head"):
+                text("span", str(i + 1), "any-step-no")
+                text("span", KIND_LABELS.get(step.kind, step.kind), f"any-kind {KIND_TONES.get(step.kind, '')}")
                 ui.select(options, value=step.target or None, with_input=True, new_value_mode="add-unique",
-                          on_change=set_target).props("dense").classes("flex-1")
-                ui.button(icon="arrow_upward", on_click=lambda: self.move(i, -1)).props("flat round dense") \
-                    .set_enabled(i > 0)
-                ui.button(icon="arrow_downward", on_click=lambda: self.move(i, 1)).props("flat round dense") \
-                    .set_enabled(i < len(self.steps) - 1)
-                ui.button(icon="content_copy", on_click=lambda: self.duplicate(i)).props("flat round dense") \
-                    .tooltip("Duplicate step")
-                ui.button(icon="close", color="negative", on_click=lambda: self.remove(i)).props("flat round dense")
+                          on_change=set_target).props(f'aria-label="Step {i + 1} target"').classes("flex-1 min-w-0")
+                with ui.element("div").classes("any-step-tools"):
+                    icon_button("arrow-up", "Move step up", lambda: self.move(i, -1), "is-32").set_enabled(i > 0)
+                    icon_button("arrow-down", "Move step down", lambda: self.move(i, 1), "is-32") \
+                        .set_enabled(i < len(self.steps) - 1)
+                    icon_button("copy", "Duplicate step", lambda: self.duplicate(i), "is-32")
+                    icon_button("x", "Remove step", lambda: self.remove(i), "is-32").classes("is-danger")
             if step.kind == "commonAction":
                 def set_override(e):
                     if e.value:
@@ -320,11 +349,12 @@ class TestEditor:
                     else:
                         step.extra.pop("override", None)
                     self.touch()
-                ui.input("Override (screen|field|value)", value=step.extra.get("override", ""),
-                         on_change=set_override).props("dense").classes("w-full")
+                with labelled("Override (screen|field|value)", f"step-{i}-override"):
+                    ui.input(value=step.extra.get("override", ""), on_change=set_override) \
+                        .props(f'for="step-{i}-override"').classes("w-full")
             others = {k: v for k, v in step.extra.items() if k != "override"}
             if others:
-                ui.label("Other step keys (edit in JSON view): " + ", ".join(others)).classes("text-xs text-grey-7")
+                ui.label("Other step keys (edit in JSON view): " + ", ".join(others)).classes("any-muted text-xs")
             if step.kind == "screen":
                 self.form_rows(step)
 
@@ -351,29 +381,31 @@ class TestEditor:
                 r.raw = e.value or ""
                 self.touch()
 
-            with ui.row().classes("w-full items-center gap-2 no-wrap pl-8"):
+            with ui.element("div").classes("any-form-line"):
                 ui.select(key_options, value=row.key or None, with_input=True, new_value_mode="add-unique",
-                          on_change=set_key).props("dense").classes("w-64")
-                ui.select(VALUE_KINDS, value=row.kind, on_change=set_kind).props("dense").classes("w-28")
+                          on_change=set_key).props('aria-label="Field"').classes("w-64 max-w-full")
+                ui.select(VALUE_KINDS, value=row.kind, on_change=set_kind) \
+                    .props('aria-label="Value type"').classes("w-28")
                 if row.kind == "auto":
-                    ui.label("auto-generated (null)").classes("flex-1 text-sm text-grey-7 italic")
+                    ui.label("auto-generated (null)").classes("flex-1 any-muted text-sm italic")
                 else:
-                    ui.input(value=row.raw, on_change=set_raw,
-                             placeholder={"json": '{"type": "confirmtext"}', "number": "0"}.get(row.kind, "value or click")) \
-                        .props("dense").classes("flex-1")
-                ui.button(icon="close", on_click=lambda r=row: self.remove_row(step, r)).props("flat round dense")
-        with ui.row().classes("pl-8 gap-2"):
-            ui.button("+ Field", on_click=lambda: self.add_row(step)).props("flat dense no-caps")
+                    placeholder = {"json": '{"type": "confirmtext"}', "number": "0"}.get(row.kind, "value or click")
+                    ui.input(value=row.raw, on_change=set_raw, placeholder=placeholder) \
+                        .props('aria-label="Value"').classes("flex-1 min-w-40")
+                icon_button("x", "Remove field", lambda r=row: self.remove_row(step, r), "is-32")
+        with ui.element("div").classes("any-form-line is-actions"):
+            ui.button("Field", icon=icon("plus"), color=None, on_click=lambda: self.add_row(step)) \
+                .props("flat").classes("any-ghost")
             if fields:
-                ui.button(f"+ All {len(fields)} page fields", on_click=lambda: self.add_all_rows(step, fields)) \
-                    .props("flat dense no-caps")
+                ui.button(f"All {len(fields)} page fields", icon=icon("plus"), color=None,
+                          on_click=lambda: self.add_all_rows(step, fields)).props("flat").classes("any-ghost")
 
     def json_editor(self) -> None:
         try:
-            text = json.dumps(self.build(), indent=2, ensure_ascii=False)
+            source = json.dumps(self.build(), indent=2, ensure_ascii=False)
         except ValueError as e:
-            text = f"// Fix form errors first: {e}"
-        self.code = ui.codemirror(text, language="JSON", line_wrapping=True).classes("w-full h-[60vh]")
+            source = f"// Fix form errors first: {e}"
+        self.code = ui.codemirror(source, language="JSON", line_wrapping=True).classes("any-code h-[60vh]")
         self.code.on_value_change(lambda: self.touch())
 
     # ───── step / row actions ─────
@@ -525,13 +557,16 @@ class TestEditor:
     def _file_dialog(self, title: str, default_id: str, on_ok) -> None:
         files = self.svc.tests.files(self.gen.system) if self.gen.system else []
         new_label = "+ New file..."
-        with ui.dialog() as dialog, ui.card().classes("w-[28rem]"):
-            ui.label(title).classes("text-lg font-medium")
-            test_id = ui.input("Test case ID", value=default_id).classes("w-full")
-            file_sel = ui.select(files + [new_label], label="File", value=self.file if self.file in files
-                                 else (files[0] if files else new_label)).classes("w-full")
-            new_name = ui.input("New file name", placeholder="MyTests.json").classes("w-full")
-            new_name.bind_visibility_from(file_sel, "value", value=new_label)
+        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[28rem]"):
+            text("h2", title, "any-title")
+            with labelled("Test case ID", "dlg-tc-id"):
+                test_id = ui.input(value=default_id).props('for="dlg-tc-id"').classes("w-full")
+            with labelled("File", "dlg-file"):
+                file_sel = ui.select(files + [new_label], value=self.file if self.file in files
+                                     else (files[0] if files else new_label)).props('for="dlg-file"').classes("w-full")
+            with labelled("New file name", "dlg-new-file") as new_box:
+                new_name = ui.input(placeholder="MyTests.json").props('for="dlg-new-file"').classes("w-full")
+            new_box.bind_visibility_from(file_sel, "value", value=new_label)
 
             def ok():
                 tid = (test_id.value or "").strip()
@@ -547,9 +582,9 @@ class TestEditor:
                 dialog.close()
                 on_ok(tid, target)
 
-            with ui.row().classes("w-full justify-end"):
-                ui.button("Cancel", on_click=dialog.close).props("flat")
-                ui.button("Create", on_click=ok)
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ui.button("Create", color=None, on_click=ok).classes("any-primary")
         dialog.open()
 
     async def new_test_dialog(self) -> None:
@@ -604,43 +639,49 @@ class PageEditor:
         self.json_mode = False
         self.field_filter = ""
 
-        with ui.splitter(value=28, limits=(18, 45)).classes("w-full") as splitter:
-            with splitter.before:
-                with ui.column().classes("w-full pr-3 gap-2"):
-                    with ui.row().classes("w-full items-center gap-1 no-wrap"):
-                        self.search = ui.input(placeholder="Search pages").props("dense clearable").classes("flex-1")
-                        ui.button(icon="add", on_click=self.new_page_dialog).props("flat round dense") \
-                            .tooltip("New page")
-                        ui.button(icon="refresh", on_click=lambda: self.list_view.refresh()) \
-                            .props("flat round dense").tooltip("Reload")
-                    self.list_view()
-            with splitter.after:
-                with ui.column().classes("w-full pl-3 gap-3"):
-                    self.editor()
+        with ui.element("div").classes("any-split"):
+            with ui.element("section").classes("any-card any-split-list").props('aria-label="Pages"'):
+                with ui.element("div").classes("any-list-head"):
+                    self.search = ui.input(placeholder="Search pages").props(
+                        'clearable aria-label="Search pages"').classes("flex-1")
+                    icon_button("plus", "New page", self.new_page_dialog)
+                    icon_button("rotate-cw", "Reload", lambda: self.list_view.refresh())
+                self.list_view()
+            with ui.element("section").classes("any-card any-split-main").props('aria-label="Page editor"'):
+                self.editor()
 
     @ui.refreshable_method
     def list_view(self) -> None:
         system = self.gen.system
         if not system:
-            ui.label("Pick a system.").classes("text-sm text-grey-7")
+            ui.label("Pick a system.").classes("any-empty any-muted")
             return
         refs = self.svc.pom.list_pages(system)
         rows = [{"rel": r.rel, "name": r.name, "folder": r.rel.rpartition("/")[0], "fields": r.fields,
                  "dup": r.duplicate} for r in refs]
-        table = ui.table(rows=rows, row_key="rel", pagination=15, columns=[
-            {"name": "name", "label": "Page", "field": "name", "align": "left", "sortable": True},
-            {"name": "folder", "label": "Folder", "field": "folder", "align": "left", "sortable": True},
-            {"name": "fields", "label": "Fields", "field": "fields", "sortable": True},
-        ]).classes("w-full cursor-pointer").props("dense flat")
-        table.add_slot("body-cell-name", r'''
-            <q-td :props="props">{{ props.value }}
-              <q-icon v-if="props.row.dup" name="content_copy" color="orange" size="xs">
-                <q-tooltip>Another page has this name - the last one loaded wins</q-tooltip></q-icon>
-            </q-td>''')
-        self.search.bind_value(table, "filter")
-        table.on("rowClick", lambda e: self.open(e.args[1]["rel"]))
-        if not rows:
-            ui.label("No pages for this system yet - use + to create one.").classes("text-sm text-grey-7")
+        with ui.element("div").classes("any-table-wrap"):
+            table = ui.table(rows=rows, row_key="rel", pagination=15, columns=[
+                {"name": "name", "label": "Page", "field": "name", "align": "left", "sortable": True},
+                {"name": "folder", "label": "Folder", "field": "folder", "align": "left", "sortable": True},
+                {"name": "fields", "label": "Fields", "field": "fields", "align": "right", "sortable": True},
+            ]).classes("w-full is-clickable is-compact")
+            styled_table(table, len(rows))
+            table.add_slot("body-cell-name", f'''
+                <q-td :props="props"><span class="any-tc-name">{{{{ props.value }}}}</span>
+                  <span v-if="props.row.dup" class="any-dup"
+                        title="Another page has this name - the last one loaded wins"
+                        aria-label="Duplicate page name">{svg("triangle-alert")}</span>
+                </q-td>''')
+            table.add_slot("body-cell-folder", f'''
+                <q-td :props="props">
+                  <span v-if="props.value" class="any-file">{svg("folder")}{{{{ props.value }}}}</span>
+                  <span v-else class="any-muted">—</span>
+                </q-td>''')
+            table.add_slot("body-cell-fields", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
+            table.add_slot("no-data", '<div class="any-muted text-sm">'
+                                      'No pages for this system yet - use + to create one.</div>')
+            self.search.bind_value(table, "filter")
+            table.on("rowClick", lambda e: self.open(e.args[1]["rel"]))
 
     async def open(self, rel: str) -> None:
         if self.dirty and not await confirm("Discard unsaved changes to this page?", "Discard", "negative"):
@@ -681,25 +722,26 @@ class PageEditor:
     @ui.refreshable_method
     def editor(self) -> None:
         if self.rel is None:
-            ui.label("Select a page on the left, or create a new one with +.").classes("text-grey-7 mt-8")
+            ui.label("Select a page on the left, or create a new one with +.").classes("any-empty any-muted")
             return
         name = self.rel.rpartition("/")[2][:-5]
-        with ui.row().classes("w-full items-center gap-2"):
-            ui.label(name).classes("text-lg font-medium")
-            ui.label(f"Pages/{self.gen.system}/{self.rel}").classes("text-xs font-mono text-grey-7")
-            self.dirty_badge = ui.badge("unsaved", color="orange")
-            self.dirty_badge.set_visibility(self.dirty)
-            ui.space()
-            ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
-                .props("dense no-caps")
-            ui.button("Revert", icon="undo", on_click=self.revert).props("flat no-caps")
-            ui.button("Save", icon="save", on_click=self.save).props("no-caps")
+        with ui.element("div").classes("any-editor-head"):
+            with ui.element("div").classes("any-editor-title"):
+                text("h2", name, "any-title")
+                text("span", f"Pages/{self.gen.system}/{self.rel}", "any-tc-code")
+                self.dirty_badge = text("span", "unsaved", "any-pill pill-warn")
+                self.dirty_badge.set_visibility(self.dirty)
+            with ui.element("div").classes("any-toolbar"):
+                ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
+                    .props("no-caps unelevated").classes("any-segmented")
+                ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
         if self.json_mode:
             try:
-                text = json.dumps(self.build(), indent=2, ensure_ascii=False)
+                source = json.dumps(self.build(), indent=2, ensure_ascii=False)
             except ValueError as e:
-                text = f"// Fix form errors first: {e}"
-            self.code = ui.codemirror(text, language="JSON", line_wrapping=True).classes("w-full h-[65vh]")
+                source = f"// Fix form errors first: {e}"
+            self.code = ui.codemirror(source, language="JSON", line_wrapping=True).classes("any-code h-[65vh]")
             self.code.on_value_change(lambda: self.touch())
             return
         self.page_form()
@@ -712,47 +754,54 @@ class PageEditor:
                 self.touch()
             return handler
 
-        with ui.expansion("Page settings (URL, title and error checks)", icon="settings").classes("w-full") \
-                .props("dense"):
-            with ui.row().classes("w-full gap-3"):
-                ui.input("path (appended to base_url)", value=self.page.get("path") or "",
-                         on_change=bind("path")).classes("flex-1")
-                ui.input("fullpath (absolute URL)", value=self.page.get("fullpath") or "",
-                         on_change=bind("fullpath")).classes("flex-1")
-            with ui.row().classes("w-full gap-3"):
-                ui.input("titleLocator", value=self.page.get("titleLocator") or "",
-                         on_change=bind("titleLocator")).classes("flex-1")
-                ui.input("titleContains", value=self.page.get("titleContains") or "",
-                         on_change=bind("titleContains")).classes("flex-1")
-            with ui.row().classes("w-full gap-3"):
-                for key in ("errorLocators", "errorContains"):
-                    value = self.page.get(key)
-                    ui.input_chips(key, value=list(value) if isinstance(value, list) else [],
-                                   new_value_mode="add-unique", on_change=bind(key)).classes("flex-1")
-            others = [k for k in self.page if k not in PAGE_KEYS]
-            if others:
-                ui.label("Other page keys (edit in JSON view): " + ", ".join(others)).classes("text-xs text-grey-7")
+        def page_input(label: str, key: str) -> None:
+            with labelled(label, f"pg-{key}").classes("is-grow"):
+                ui.input(value=self.page.get(key) or "", on_change=bind(key)) \
+                    .props(f'for="pg-{key}"').classes("w-full mono-input")
+
+        with ui.expansion("Page settings (URL, title and error checks)", icon=icon("settings")) \
+                .classes("any-disclosure is-section"):
+            with ui.element("div").classes("any-disclosure-body"):
+                with ui.element("div").classes("any-form-row"):
+                    page_input("path (appended to base_url)", "path")
+                    page_input("fullpath (absolute URL)", "fullpath")
+                with ui.element("div").classes("any-form-row"):
+                    page_input("titleLocator", "titleLocator")
+                    page_input("titleContains", "titleContains")
+                with ui.element("div").classes("any-form-row"):
+                    for key in ("errorLocators", "errorContains"):
+                        value = self.page.get(key)
+                        with labelled(key, f"pg-{key}").classes("is-grow"):
+                            ui.input_chips(value=list(value) if isinstance(value, list) else [],
+                                           new_value_mode="add-unique", on_change=bind(key)) \
+                                .props(f'for="pg-{key}"').classes("w-full any-multi")
+                others = [k for k in self.page if k not in PAGE_KEYS]
+                if others:
+                    ui.label("Other page keys (edit in JSON view): " + ", ".join(others)) \
+                        .classes("any-muted text-xs")
 
     @ui.refreshable_method
     def fields_view(self) -> None:
         autogen = self.svc.pom.autogen_rules()
-        with ui.row().classes("w-full items-center gap-2"):
-            ui.label(f"Fields ({len(self.rows)})").classes("text-md font-medium")
-            ui.input(placeholder="Filter fields", value=self.field_filter,
-                     on_change=self._set_filter).props("dense clearable debounce=300").classes("w-56")
-            ui.space()
-            ui.button("+ Field", on_click=self.add_field).props("outline dense no-caps")
-        with ui.row().classes("w-full gap-2 no-wrap text-xs text-grey-7 pl-1"):
-            for label, width in (("Name", "w-48"), ("Type", "w-36"), ("Locator", "flex-1"), ("Index", "w-20"),
-                                 ("autoGen", "w-44"), ("", "w-20")):
-                ui.label(label).classes(width)
-        needle = (self.field_filter or "").casefold()
-        shown = [r for r in self.rows if not needle or needle in r.name.casefold()
-                 or needle in str(r.cfg.get("locator", "")).casefold()]
-        for row in shown:
-            self.field_row(row, autogen)
-        if needle and len(shown) < len(self.rows):
-            ui.label(f"{len(self.rows) - len(shown)} field(s) hidden by filter").classes("text-xs text-grey-7")
+        with ui.element("div").classes("any-steps"):
+            with ui.element("div").classes("any-section-head"):
+                with ui.element("div").classes("any-head-left"):
+                    text("h3", "Fields", "any-title")
+                    text("span", str(len(self.rows)), "any-count-pill mono")
+                    ui.input(placeholder="Filter fields", value=self.field_filter, on_change=self._set_filter) \
+                        .props('clearable debounce=300 aria-label="Filter fields"').classes("w-56")
+                ui.button("Field", icon=icon("plus"), color=None, on_click=self.add_field).classes("any-btn is-32")
+            with ui.element("div").classes("any-grid-scroll"):
+                with ui.element("div").classes("any-field-grid is-head").props('aria-hidden="true"'):
+                    for label in ("Name", "Type", "Locator", "Index", "autoGen", ""):
+                        ui.label(label)
+                needle = (self.field_filter or "").casefold()
+                shown = [r for r in self.rows if not needle or needle in r.name.casefold()
+                         or needle in str(r.cfg.get("locator", "")).casefold()]
+                for row in shown:
+                    self.field_row(row, autogen)
+            if needle and len(shown) < len(self.rows):
+                ui.label(f"{len(self.rows) - len(shown)} field(s) hidden by filter").classes("any-muted text-xs")
 
     def _set_filter(self, e) -> None:
         self.field_filter = e.value or ""
@@ -777,31 +826,30 @@ class PageEditor:
         gen_key = "autogen" if "autogen" in row.cfg and "autoGen" not in row.cfg else "autoGen"
         gens = autogen + ([row.cfg[gen_key]] if row.cfg.get(gen_key) and row.cfg[gen_key] not in autogen else [])
         extra = [k for k in row.cfg if k not in ("type", "locator", "index", gen_key)]
-        with ui.row().classes("w-full items-center gap-2 no-wrap"):
-            ui.input(value=row.name, on_change=set_name).props("dense").classes("w-48")
+        with ui.element("div").classes("any-field-grid"):
+            ui.input(value=row.name, on_change=set_name).props('aria-label="Name"').classes("mono-input")
             ui.select(types, value=row.cfg.get("type"), with_input=True, new_value_mode="add-unique",
-                      on_change=set_cfg("type")).props("dense").classes("w-36")
+                      on_change=set_cfg("type")).props('aria-label="Type"')
             ui.input(value=str(row.cfg.get("locator", "")), on_change=set_cfg("locator")) \
-                .props("dense").classes("flex-1 font-mono")
+                .props('aria-label="Locator"').classes("mono-input")
             ui.number(value=row.cfg.get("index"), precision=0, on_change=set_cfg("index", int)) \
-                .props("dense").classes("w-20")
+                .props('aria-label="Index"').classes("mono-input")
             ui.select(gens, value=row.cfg.get(gen_key), with_input=True, clearable=True,
-                      on_change=set_cfg(gen_key)).props("dense").classes("w-44")
-            with ui.row().classes("w-20 gap-0 no-wrap"):
-                more = ui.button(icon="data_object", on_click=lambda: self.field_dialog(row)) \
-                    .props("flat round dense").tooltip("All keys: " + (", ".join(extra) if extra else "none"))
+                      on_change=set_cfg(gen_key)).props('aria-label="autoGen"')
+            with ui.element("div").classes("flex items-center no-wrap"):
+                more = icon_button("braces", "All keys: " + (", ".join(extra) if extra else "none"),
+                                   lambda: self.field_dialog(row), "is-32")
                 if extra:
-                    more.props("color=primary")
-                ui.button(icon="close", color="negative", on_click=lambda: self.remove_field(row)) \
-                    .props("flat round dense")
+                    more.classes("is-active")
+                icon_button("x", "Remove field", lambda: self.remove_field(row), "is-32").classes("is-danger")
 
     def field_dialog(self, row: FieldRow) -> None:
-        with ui.dialog() as dialog, ui.card().classes("w-[36rem]"):
-            ui.label(f"Field '{row.name}' - all keys").classes("text-lg font-medium")
+        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[36rem]"):
+            text("h2", f"Field '{row.name}' - all keys", "any-title")
             ui.label("role, name, nested, tableId, waitForNewTab, focus, placeholder, label, text, contains, ...") \
-                .classes("text-xs text-grey-7")
+                .classes("any-muted text-xs")
             code = ui.codemirror(json.dumps(row.cfg, indent=2, ensure_ascii=False), language="JSON") \
-                .classes("w-full h-72")
+                .classes("any-code h-72")
 
             def apply():
                 try:
@@ -816,9 +864,9 @@ class PageEditor:
                 dialog.close()
                 self.fields_view.refresh()
 
-            with ui.row().classes("w-full justify-end"):
-                ui.button("Cancel", on_click=dialog.close).props("flat")
-                ui.button("Apply", on_click=apply)
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ui.button("Apply", color=None, on_click=apply).classes("any-primary")
         dialog.open()
 
     def add_field(self) -> None:
@@ -881,11 +929,13 @@ class PageEditor:
         if self.dirty and not await confirm("Discard unsaved changes to this page?", "Discard", "negative"):
             return
         folders = sorted({r.rel.rpartition("/")[0] for r in self.svc.pom.list_pages(system)} - {""}, key=str.casefold)
-        with ui.dialog() as dialog, ui.card().classes("w-[28rem]"):
-            ui.label(f"New page in {system}").classes("text-lg font-medium")
-            folder = ui.select(folders, label="Folder (optional - type a new one)", with_input=True,
-                               new_value_mode="add-unique", clearable=True).classes("w-full")
-            name = ui.input("Page name", placeholder="loginPage").classes("w-full")
+        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[28rem]"):
+            text("h2", f"New page in {system}", "any-title")
+            with labelled("Folder (optional - type a new one)", "dlg-folder"):
+                folder = ui.select(folders, with_input=True, new_value_mode="add-unique", clearable=True) \
+                    .props('for="dlg-folder"').classes("w-full")
+            with labelled("Page name", "dlg-page"):
+                name = ui.input(placeholder="loginPage").props('for="dlg-page"').classes("w-full")
 
             def ok():
                 try:
@@ -902,9 +952,9 @@ class PageEditor:
                 self.gen.tests.load_refs()
                 ui.notify(f"Created {rel}", type="positive")
 
-            with ui.row().classes("w-full justify-end"):
-                ui.button("Cancel", on_click=dialog.close).props("flat")
-                ui.button("Create", on_click=ok)
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ui.button("Create", color=None, on_click=ok).classes("any-primary")
         dialog.open()
 
 
@@ -917,18 +967,22 @@ class GeneratorPanel:
         systems = self.all_systems()
         default = self.svc.env.load().get("systemConfig")
         self.system: str | None = default if default in systems else (systems[0] if systems else None)
-        with ui.row().classes("w-full items-center gap-3"):
-            ui.select(systems, label="System", value=self.system, on_change=self.on_system) \
-                .props("dense").classes("w-48")
-            ui.label("Edits are saved straight to the workspace JSON files.").classes("text-xs text-grey-7")
-        with ui.tabs().props("dense align=left no-caps").classes("w-full") as tabs:
-            tests_tab = ui.tab("Test cases", icon="checklist")
-            pages_tab = ui.tab("Pages", icon="web")
-        with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
-            with ui.tab_panel(tests_tab).classes("p-0 pt-2"):
-                self.tests = TestEditor(self)
-            with ui.tab_panel(pages_tab).classes("p-0 pt-2"):
-                self.pages = PageEditor(self)
+        with ui.element("div").classes("any-page-inner is-wide"):
+            with ui.element("div").classes("any-page-head"):
+                with ui.element("div").classes("any-head-left"):
+                    with labelled("System", "gen-system"):
+                        ui.select(systems, value=self.system, on_change=self.on_system) \
+                            .props('for="gen-system"').classes("w-48")
+                    ui.label("Edits are saved straight to the workspace JSON files.").classes("any-muted text-sm")
+                with ui.tabs().props('no-caps inline-label indicator-color="transparent" '
+                                     'aria-label="Generator sections"').classes("any-subtabs") as tabs:
+                    tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
+                    pages_tab = ui.tab("Pages", icon=icon("app-window"))
+            with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
+                with ui.tab_panel(tests_tab).classes("p-0"):
+                    self.tests = TestEditor(self)
+                with ui.tab_panel(pages_tab).classes("p-0"):
+                    self.pages = PageEditor(self)
         self.tests.load_refs()
 
     def all_systems(self) -> list[str]:
