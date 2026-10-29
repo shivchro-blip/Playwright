@@ -80,6 +80,9 @@ class ControlPanel:
         self.log_pos = 0
         self.last_signature: tuple = ()
         self.show_selected_only = True
+        # Test IDs unchecked in the Tests table. Only tag-matched tests can be checked: the suite filters by tags
+        # first and by test ID second, so an empty set keeps the old behaviour (run everything the tags match).
+        self.excluded: set[str] = set()
         self.planned_runs = 0
         self._busy: bool | None = None
 
@@ -243,7 +246,9 @@ class ControlPanel:
 
     @ui.refreshable_method
     def tests_view(self) -> None:
-        selected = {id(t) for t in self.catalog.select(self.tags_select.value or [])}
+        matched, chosen = self._selection()
+        selected = {id(t) for t in matched}
+        checked = {id(t) for t in chosen}
         if self.catalog.errors or any(t.duplicate for t in self.catalog.tests):
             with ui.element("div").classes("any-notes"):
                 for err in self.catalog.errors:
@@ -256,11 +261,11 @@ class ControlPanel:
             if self.show_selected_only and id(t) not in selected:
                 continue
             name, code = split_test_id(t.test_id)
-            rows.append({"key": i, "run": id(t) in selected, "test_id": t.test_id, "name": name, "code": code,
-                         "tag_list": t.tags, "tags": ", ".join(t.tags), "file": t.file, "steps": t.steps})
-        shown = [r for r in rows]
-        all_on = bool(shown) and all(r["run"] for r in shown)
-        some_on = any(r["run"] for r in shown) and not all_on
+            rows.append({"key": i, "run": id(t) in checked, "match": id(t) in selected, "test_id": t.test_id,
+                         "name": name, "code": code, "tag_list": t.tags, "tags": ", ".join(t.tags), "file": t.file,
+                         "steps": t.steps})
+        all_on = bool(matched) and len(chosen) == len(matched)
+        some_on = bool(chosen) and not all_on
         with ui.element("div").classes("any-table-wrap"):
             table = ui.table(rows=rows, row_key="key", pagination=10, columns=[
                 {"name": "run", "label": "", "field": "run", "align": "center",
@@ -271,19 +276,22 @@ class ControlPanel:
                 {"name": "steps", "label": "Steps", "field": "steps", "align": "right", "sortable": True},
             ]).classes("w-full")
             styled_table(table, len(rows))
-            note = "Selection follows the Tags filter"
             table.add_slot("header-cell-run", f'''
                 <q-th :props="props" class="any-col-check"><span class="any-check-hit">
-                  <input type="checkbox" class="any-check" aria-label="All shown tests selected ({note.lower()})"
-                         title="{note}" aria-disabled="true" tabindex="-1" @click.prevent
-                         :checked="{str(all_on).lower()}" :indeterminate.prop="{str(some_on).lower()}">
+                  <input type="checkbox" class="any-check" aria-label="Select all tests matching the tags"
+                         title="Select all / none" {"" if matched else "disabled"}
+                         :checked="{str(all_on).lower()}" :indeterminate.prop="{str(some_on).lower()}"
+                         @change="() => $parent.$emit('toggle_all')">
                 </span></q-th>''')
-            table.add_slot("body-cell-run", f'''
+            table.add_slot("body-cell-run", '''
                 <q-td :props="props" class="any-col-check"><span class="any-check-hit">
-                  <input type="checkbox" class="any-check" title="{note}" aria-disabled="true" tabindex="-1"
-                         @click.prevent :checked="props.value"
-                         :aria-label="(props.value ? 'Selected: ' : 'Not selected: ') + props.row.test_id">
+                  <input type="checkbox" class="any-check" :checked="props.value" :disabled="!props.row.match"
+                         :title="props.row.match ? '' : 'Not matched by the selected tags'"
+                         :aria-label="(props.value ? 'Selected: ' : 'Not selected: ') + props.row.test_id"
+                         @change="() => $parent.$emit('toggle_test', props.row.test_id)">
                 </span></q-td>''')
+            table.on("toggle_test", lambda e: self._toggle_test(e.args))
+            table.on("toggle_all", lambda _: self._toggle_all())
             table.add_slot("body-cell-test_id",
                            f'<q-td :props="props">{test_case_template("!props.row.run")}</q-td>')
             table.add_slot("body-cell-tags", '''
@@ -293,7 +301,7 @@ class ControlPanel:
             table.add_slot("body-cell-file", f'''
                 <q-td :props="props"><span class="any-file">{svg("braces")}{{{{ props.value }}}}</span></q-td>''')
             table.add_slot("body-cell-steps", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
-        self._update_counts(selected=len(selected))
+        self._update_counts()
 
     def _build_run(self) -> None:
         with ui.element("section").classes("any-card").props('aria-labelledby="current-run-title"'):
@@ -464,21 +472,41 @@ class ControlPanel:
 
     # ───────────── presentation helpers ─────────────
 
-    def _update_counts(self, selected: int | None = None) -> None:
+    def _selection(self) -> tuple[list, list]:
+        """(tests the tags match, those of them still checked in the Tests table)."""
+        matched = self.catalog.select(self.tags_select.value or [])
+        return matched, [t for t in matched if t.test_id not in self.excluded]
+
+    def _toggle_test(self, test_id: str) -> None:
+        if test_id in self.excluded:
+            self.excluded.discard(test_id)
+        else:
+            self.excluded.add(test_id)
+        self.tests_view.refresh()
+
+    def _toggle_all(self) -> None:
+        matched, chosen = self._selection()
+        ids = {t.test_id for t in matched}
+        if len(chosen) == len(matched):
+            self.excluded |= ids
+        else:
+            self.excluded -= ids
+        self.tests_view.refresh()
+
+    def _update_counts(self) -> None:
         if not hasattr(self, "f_tests"):
             return
-        if selected is None:
-            selected = len(self.catalog.select(self.tags_select.value or []))
+        selected = len(self._selection()[1])
         browser_count = max(len(self.browsers_select.value or []), 1)
         self.planned_runs = selected * browser_count
         self.pill_selected.text = str(selected)
         self.pill_total.text = str(len(self.catalog.tests))
         self.f_tests.text = str(selected)
-        self.f_tests_word.text = plural(selected, "test")
+        self.f_tests_word.text = " " + plural(selected, "test")
         self.f_browsers.text = str(browser_count)
-        self.f_browsers_word.text = plural(browser_count, "browser")
+        self.f_browsers_word.text = " " + plural(browser_count, "browser")
         self.f_runs.text = str(self.planned_runs)
-        self.f_runs_word.text = plural(self.planned_runs, "run")
+        self.f_runs_word.text = " " + plural(self.planned_runs, "run")
         self.run_badge.text = str(self.planned_runs)
         if hasattr(self, "cancel_button"):  # the run card is built after the tests card
             self._update_buttons(self._run())
@@ -521,6 +549,7 @@ class ControlPanel:
     # ───────────── actions ─────────────
 
     def on_system_change(self) -> None:
+        self.excluded.clear()
         envs = self.svc.systems.environments(self.system_select.value)
         self.env_select.set_options(envs, value=envs[0] if envs else None)
         self.reload_catalog()
@@ -551,10 +580,13 @@ class ControlPanel:
     def start_run(self) -> None:
         tags = self.tags_select.value or []
         browsers = self.browsers_select.value or ["chrome"]
-        selected = self.catalog.select(tags)
+        matched, selected = self._selection()
         if not selected:
-            ui.notify("No test cases match the selected tags.", type="warning")
+            ui.notify("No test cases match the selected tags." if not matched else "No test cases are checked.",
+                      type="warning")
             return
+        # All checked -> no ID filter (same payload as before); a subset -> run only those IDs
+        test_ids = sorted({t.test_id for t in selected}) if len(selected) < len(matched) else []
         status = self.svc.credential_status(self.system_select.value, self.env_select.value)
         if status is None:
             ui.notify("No login entry in systemData.json for this system/environment.", type="negative")
@@ -565,7 +597,7 @@ class ControlPanel:
                       type="warning", timeout=8000)
         config = RunConfig(system=self.system_select.value or "", env=self.env_select.value or "",
                            tags=list(tags), browsers=list(browsers),
-                           workers=int(self.workers.value or 1), options=self._options())
+                           workers=int(self.workers.value or 1), options=self._options(), test_ids=test_ids)
         try:
             run = self.svc.runs.start(config, expected=len(selected) * len(browsers))
         except (ValueError, RuntimeError) as e:
