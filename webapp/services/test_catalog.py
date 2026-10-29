@@ -6,6 +6,8 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from webapp.services.json_files import NAME_RE
+
 
 @dataclass
 class TestCaseInfo:
@@ -43,8 +45,10 @@ class TestCatalogService:
 
     def load(self, system: str | None) -> Catalog:
         catalog = Catalog(system=system or "")
-        suite_dir = self.workspace / "Tests" / (system or "") / "MasterRegressionSuite"
-        if not system or not suite_dir.is_dir():
+        if not system or not NAME_RE.match(system) or system in (".", ".."):
+            return catalog
+        suite_dir = self.workspace / "Tests" / system / "MasterRegressionSuite"
+        if not suite_dir.is_dir():
             return catalog
 
         for path in sorted(suite_dir.rglob("*.json")):

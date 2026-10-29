@@ -9,7 +9,11 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-SECRET_PATTERN = re.compile(r"(USERNAME|PASSWORD|SECRET|TOKEN|APIKEY|API_KEY)", re.IGNORECASE)
+SECRET_PATTERN = re.compile(r"(USERNAME|PASS|PWD|SECRET|TOKEN|APIKEY|API_KEY|_KEY|KEY_|CREDENTIAL|AUTH|COOKIE|PRIVATE)",
+                            re.IGNORECASE)
+# Line breaks other than \n (\r, \v, \f, \x1c-\x1e, \x85, \u2028, \u2029) and other control characters:
+# str.splitlines() and python-dotenv would read them as new lines, i.e. new keys.
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+")
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,8 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("FormHandlerLoggerLevel", "choice", "INFO", "Logging", "Form logger", LEVELS),
 )
 FIELD_KEYS = {f.key for f in FIELDS}
+# Typed settings a run may override; the rest are set by RunManager itself for every run
+RUN_OPTION_KEYS = FIELD_KEYS - {"systemConfig", "envConfig", "runTags", "browsers", "del_allure"}
 
 _LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=(.*)$")
 
@@ -121,7 +127,10 @@ def format_value(value: object) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (list, tuple)):
-        return ",".join(str(v).strip() for v in value if str(v).strip())
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    return str(value if value is not None else "").replace("\n", " ").strip()
+        text = ",".join(str(v).strip() for v in value if str(v).strip())
+    elif isinstance(value, float) and value.is_integer():
+        text = str(int(value))
+    else:
+        text = str(value if value is not None else "")
+    # One physical line per setting, whatever the input
+    return _CONTROL_CHARS.sub(" ", text).strip()

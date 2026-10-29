@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     workspace: Path = Field(default_factory=lambda: Path(resolve_workspace_dir()))
     runs_dir: Path | None = None  # default: <workspace>/reports/runs
     host: str = "127.0.0.1"
+    # Extra host names the app may be reached by (comma-separated), e.g. a DNS name when host is not loopback
+    allowed_hosts: str = ""
     port: int = 8080
     python_exe: str = sys.executable
     allure_cmd: str = "allure"  # Allure CLI; report generation is skipped if not found

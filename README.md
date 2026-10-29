@@ -71,9 +71,12 @@ The new system appears in the web app's System dropdown. See the Help tab for th
 |---|---|---|
 | Port | `AUTOMATENY_PORT` | `8080` |
 | Host | `AUTOMATENY_HOST` | `127.0.0.1` |
+| Extra allowed host names (comma-separated; needed when the app is reached by a DNS name or through a proxy) | `AUTOMATENY_ALLOWED_HOSTS` | none |
 | Workspace folder | `AUTOMATENY_WORKSPACE` | `workspace/` |
 | Run output folder | `AUTOMATENY_RUNS_DIR` | `<workspace>/reports/runs` |
 | Allure CLI | `AUTOMATENY_ALLURE_CMD` | `allure` |
+
+The web app has no login yet. It answers only to its own host names (`127.0.0.1`, `localhost`, the configured host and `AUTOMATENY_ALLOWED_HOSTS`) and refuses browser requests from other sites. If you set `AUTOMATENY_HOST` to a non-loopback address, anyone who can reach it can edit tests and start runs.
 
 HTML reports need the [Allure command-line tool](https://allurereport.org/docs/install/) on `PATH`; without it, runs still work and the report link shows as unavailable.
 

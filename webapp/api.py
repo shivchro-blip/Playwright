@@ -164,10 +164,13 @@ def get_run_log(run_id: str, since: int = 0) -> dict:
 
 @router.post("/runs/{run_id}/rerun", status_code=201)
 def rerun(run_id: str) -> dict:
+    runs = services().runs
+    if not runs.get(run_id):
+        raise HTTPException(404, "Run not found")
     try:
-        return services().runs.rerun(run_id).to_dict()
-    except ValueError as e:
-        raise HTTPException(404, str(e)) from e
+        return runs.rerun(run_id).to_dict()
+    except ValueError as e:  # stored config no longer valid (e.g. a removed run option)
+        raise HTTPException(400, str(e)) from e
     except RuntimeError as e:
         raise HTTPException(409, str(e)) from e
 

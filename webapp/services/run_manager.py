@@ -22,7 +22,8 @@ from datetime import datetime
 from pathlib import Path
 
 from webapp.pytest_events import PREFIX
-from webapp.services.env_config import format_value, is_secret
+from webapp.services.env_config import RUN_OPTION_KEYS, format_value, is_secret
+from webapp.services.json_files import NAME_RE
 
 logger = logging.getLogger(__name__)
 
@@ -155,11 +156,17 @@ class RunManager:
         config.workers = max(1, int(config.workers or 1))
         if not config.system:
             raise ValueError("Select a system.")
+        if not NAME_RE.match(config.system) or config.system in (".", ".."):
+            raise ValueError(f"Invalid system: {config.system!r}")
         if not config.tags:
             raise ValueError("Select at least one tag - the framework runs only tagged tests.")
         bad = [k for k in config.options if is_secret(k)]
         if bad:
             raise ValueError(f"Credentials cannot be passed as run options: {', '.join(bad)}")
+        # Options become environment variables of the pytest process: only the typed framework settings
+        unknown = sorted(k for k in config.options if k not in RUN_OPTION_KEYS)
+        if unknown:
+            raise ValueError(f"Unsupported run options: {', '.join(unknown)}")
 
         with self._lock:
             active = [r for r in self._runs.values() if r.active]

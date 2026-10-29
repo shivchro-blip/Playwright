@@ -632,7 +632,11 @@ async def downloadFile(action, element, page):
         async with page.expect_download() as download_info:
            await page.locator(action.get("locator")).click()
         download = await download_info.value
-        await download.save_as("./reports/downloads/" + download.suggested_filename)
+        # The site picks suggested_filename: keep only the base name so it can't leave reports/downloads
+        filename = os.path.basename(download.suggested_filename.replace("\\", "/")) or "download"
+        if filename in (".", ".."):
+            filename = "download"
+        await download.save_as("./reports/downloads/" + filename)
 
     except Exception as e:
         logger.error(f"Failed to download - Action: {action}"),
