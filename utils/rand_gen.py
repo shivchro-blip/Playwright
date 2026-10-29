@@ -6,6 +6,8 @@ import logging
 import asyncio
 import faker
 
+from utils import code_policy
+
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -45,7 +47,22 @@ class RandGen:
 
     # Inject cwd into the function namespace
     def prepare_namespace(self):
-        self.namespace["cwd"] = self.cwd
+        self.namespace = code_policy.namespace(cwd=self.cwd)
+
+    def _run_snippet(self, kind, key, code):
+        """exec() one snippet after the code policy check; a refused or failing snippet is marked broken."""
+        try:
+            if not code_policy.unsafe_allowed():
+                code_policy.check(code)
+            exec(code, self.namespace)
+            return True
+        except code_policy.CodePolicyError as e:
+            self.broken[key] = f"blocked by the autoGen code policy ({e}); see utils/code_policy.py"
+            logger.error(" %s['%s'] was not run: %s", kind, key, self.broken[key])
+        except Exception as e:
+            self.broken[key] = f"{type(e).__name__}: {e}"
+            logger.exception(" Error executing %s['%s']", kind, key)
+        return False
 
 
 
@@ -68,23 +85,15 @@ class RandGen:
     # Dynamically create and register objects. One broken entry no longer stops the others from loading.
     def build_dynamic_objects(self):
         for key, code in self.dynamic_objects.items():
-            try:
-                exec(code, self.namespace)
+            if self._run_snippet("dynamic_objects", key, code):
                 self.namespace[key] = self.namespace.get(key)
-            except Exception as e:
-                self.broken[key] = f"{type(e).__name__}: {e}"
-                logger.exception(" build_dynamic_objects() - Error executing dynamic_objects['%s']", key)
 
 
 
     # Compile and register all functions from code into namespace (each entry on its own)
     def build_custom_functions(self):
         for key, code in self.custom_functions.items():
-            try:
-                exec(code, self.namespace)
-            except Exception as e:
-                self.broken[key] = f"{type(e).__name__}: {e}"
-                logger.exception(" build_custom_functions() - Error executing custom_functions['%s']", key)
+            self._run_snippet("custom_functions", key, code)
 
 
     # Split functionName(arg, ..., key=value) into the name, positional and keyword arguments.

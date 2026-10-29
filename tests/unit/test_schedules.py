@@ -92,7 +92,7 @@ def make(tmp_path, now):
     return store, runs, clock, Scheduler(store, runs, FakeCatalog(), notifier, clock=clock), sent
 
 
-def test_fires_once_per_matching_minute_and_waits_for_a_busy_runner(tmp_path):
+def test_fires_once_per_matching_minute_even_while_another_run_is_busy(tmp_path):
     store, runs, clock, scheduler, _ = make(tmp_path, datetime(2026, 10, 30, 6, 29, 50))
     s = store.save(validate({**BASE, "browsers": ["chromium", "firefox"]}))
     store.save(validate({**BASE, "name": "Paused", "enabled": False}))
@@ -101,33 +101,28 @@ def test_fires_once_per_matching_minute_and_waits_for_a_busy_runner(tmp_path):
     started = scheduler.tick()
     assert len(started) == 1 and runs.started == [(["smoke"], 4, f"schedule:{s.id}")]
     clock.now = datetime(2026, 10, 30, 6, 30, 40)
-    runs.runs[0].status = "passed"
     assert scheduler.tick() == []  # same minute: not again
     fresh = Scheduler(store, runs, FakeCatalog(), scheduler.notifier, clock=clock)
     assert fresh.tick() == []  # an app restart in the same minute sees the run in the history
-    # next weekday, while another run is active: queued, then started when it finishes
+    # next weekday: started although run r0 is still running (the RunManager queues it)
     clock.now = runs.now = datetime(2026, 11, 2, 6, 30)
-    runs.runs[0].status = "running"
-    assert scheduler.tick() == [] and scheduler.pending == [s.id]
-    runs.runs[0].status = "passed"
-    clock.now = runs.now = datetime(2026, 11, 2, 6, 45)
-    assert len(scheduler.tick()) == 1 and scheduler.pending == []
+    assert len(scheduler.tick()) == 1 and runs.runs[0].status == "running"
     assert scheduler.next_run(s) == datetime(2026, 11, 3, 6, 30)
     assert [r.id for r in scheduler.last_runs(s)] == ["r1", "r0"]
+    runs.runs[1].status = "queued"
+    assert scheduler.queued(s)
 
 
-def test_run_now_queues_when_busy_and_reports_start_errors(tmp_path):
+def test_run_now_and_start_errors(tmp_path):
     store, runs, clock, scheduler, _ = make(tmp_path, datetime(2026, 10, 29, 12, 0))
     s = store.save(validate(BASE))
     run = scheduler.run_now(s.id)
     assert run.trigger == f"schedule:{s.id}"
-    assert scheduler.run_now(s.id) is None and scheduler.pending == [s.id]  # the first is still running
-    runs.start = lambda *a, **k: (_ for _ in ()).throw(ValueError("Select a system."))
-    runs.runs[0].status = "passed"
-    scheduler.pending.clear()
-    with pytest.raises(ValueError, match="Select a system"):
+    assert scheduler.run_now(s.id).id == "r1"  # a second one while the first runs: queued by RunManager
+    runs.start = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("20 runs are already waiting"))
+    with pytest.raises(ValueError, match="already waiting"):
         scheduler.run_now(s.id)
-    assert scheduler.errors[s.id] == "Select a system."
+    assert scheduler.errors[s.id] == "20 runs are already waiting"
     with pytest.raises(ValueError, match="not found"):
         scheduler.run_now("nope")
 

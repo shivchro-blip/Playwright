@@ -23,7 +23,11 @@ class Settings(BaseSettings):
     python_exe: str = sys.executable
     allure_cmd: str = "allure"  # Allure CLI; report generation is skipped if not found
     max_concurrent_runs: int = 1  # local runs drive real browsers; keep to one by default
-    auth_enabled: bool = False  # reserved for the shared-server phase
+    # Login with users and roles (python -m webapp.users). Always on when host is not loopback, unless
+    # insecure_no_auth=true is set on purpose (e.g. behind a reverse proxy that does its own login).
+    auth_enabled: bool = False
+    insecure_no_auth: bool = False
+    users_file: Path | None = None  # default: <workspace>/reports/users.json
     # argv that runs the Playwright CLI for the recorder, as a JSON list (default: <python_exe> -m playwright)
     recorder_command: list[str] = Field(default_factory=list)
     # How people reach this app, for links in notifications (default http://127.0.0.1:<port>)
@@ -42,6 +46,14 @@ class Settings(BaseSettings):
     @property
     def systemdata_path(self) -> Path:
         return Path(resolve_systemdata_path(str(self.workspace)))
+
+    @property
+    def resolved_users_file(self) -> Path:
+        return self.users_file or self.resolved_runs_dir.parent / "users.json"
+
+    @property
+    def login_required(self) -> bool:
+        return self.auth_enabled or (self.host not in ("127.0.0.1", "localhost", "::1") and not self.insecure_no_auth)
 
     @property
     def resolved_public_url(self) -> str:

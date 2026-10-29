@@ -13,6 +13,7 @@ from nicegui import run, ui
 from webapp.services.ai_assist import AIError, LocatorSuggestion, Triage, draft_to_test_case, run_facts
 from webapp.services.json_files import ConflictError, PathError
 from webapp.services.locator_check import check_locator, count_on_html
+from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import copy_button, icon_button, text
 from webapp.ui.theme import icon
@@ -78,12 +79,15 @@ def open_ai_settings(on_change: Callable[[bool], None]) -> None:
                         "first. Nothing is sent until you click an AI action.", "any-callout-text")
 
         def toggle(e) -> None:
+            if not guard("settings", "turn AI assist on or off"):
+                return
             try:
                 svc.env.save({"aiAssistEnabled": bool(e.value)})
             except (ValueError, OSError) as err:
                 ui.notify(f"Could not save the setting to .env: {err}", type="negative")
                 return
             ai.audit("setting", {"aiAssistEnabled": bool(e.value)})
+            audit("setting", "aiAssistEnabled", value=bool(e.value))
             on_change(bool(e.value))
             ui.notify("AI assist on" if e.value else "AI assist off", type="info")
 
@@ -141,6 +145,8 @@ def triage_section(run_obj, row: dict, item) -> None:
         return Path(run_obj.results_dir) / att.url.rpartition("/")[2]
 
     async def explain() -> None:
+        if not guard("ai.read", "explain failure"):
+            return
         _busy(button, True)
         result.clear()
         try:
@@ -211,11 +217,14 @@ def render_triage(container, triage: Triage, usage, run_obj, dom: str, evidence:
                          "any-muted text-sm")
 
                 def apply_to_page(s: LocatorSuggestion) -> None:
+                    if not guard("ai.write", "apply locator"):
+                        return
                     try:
                         new = apply_locator(run_obj.config.system, rel, triage.field, s.config())
                     except (ConflictError, PathError, ValueError, OSError) as e:
                         ui.notify(f"Not applied: {e}", type="negative")
                         return
+                    audit("page.save", f"{run_obj.config.system}/{rel}", field=triage.field, source="ai suggestion")
                     ui.notify(f"{page_name}.{triage.field} is now {describe(new)}", type="positive")
 
                 render_suggestions(fix_box, suggestions.suggestions, counts, f"Apply to {page_name}",
@@ -273,6 +282,8 @@ def live_suggestions(container, *, field: str, cfg: dict, problem: str, url: str
         out = ui.element("div").classes("any-ai-body")
 
     async def suggest() -> None:
+        if not guard("ai.read", "suggest locators"):
+            return
         _busy(btn, True)
         out.clear()
         try:

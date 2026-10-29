@@ -1,7 +1,7 @@
 """Scheduled runs: definitions in <workspace>/Data/schedules.json, fired by a background thread.
 
 Schedules only fire while the web app is running; a time missed while it was stopped is not caught up.
-When a run is already in progress, a due schedule waits for it and starts as soon as it finishes.
+When a run is already in progress, a due schedule's run waits in the RunManager's queue.
 A schedule's last runs are its runs in the history (trigger "schedule:<id>"), so no extra state is stored.
 """
 from __future__ import annotations
@@ -151,7 +151,6 @@ class Scheduler:
     def __init__(self, store: ScheduleStore, runs: RunManager, catalog: TestCatalogService, notifier: Notifier,
                  clock: Callable[[], datetime] = datetime.now):
         self.store, self.runs, self.catalog, self.notifier, self.clock = store, runs, catalog, notifier, clock
-        self.pending: list[str] = []  # schedule ids waiting for the current run to finish
         self.errors: dict[str, str] = {}  # schedule id -> why its last start failed
         self._fired: dict[str, str] = {}  # schedule id -> minute it last fired ("YYYY-MM-DDTHH:MM")
         self._lock = threading.Lock()
@@ -193,26 +192,17 @@ class Scheduler:
                 self._fired[schedule.id] = minute
                 if any(r.trigger == schedule.trigger and r.created_at[:16] == minute for r in self.runs.list()):
                     continue  # already fired this minute (e.g. the app restarted)
-                if schedule.id not in self.pending:
-                    self.pending.append(schedule.id)
-            while self.pending and not any(r.active for r in self.runs.list()):
-                schedule = self.store.get(self.pending.pop(0))
-                if schedule:
-                    run = self._start(schedule)
-                    if run:
-                        started.append(run)
+                run = self._start(schedule)  # queued by the RunManager when another run is in progress
+                if run:
+                    started.append(run)
         return started
 
-    def run_now(self, sid: str) -> Run | None:
-        """Start a schedule now; if a run is in progress, queue it and return None."""
+    def run_now(self, sid: str) -> Run:
+        """Start a schedule now (it waits in the run queue if another run is in progress)."""
         schedule = self.store.get(sid)
         if not schedule:
             raise ValueError("Schedule not found.")
         with self._lock:
-            if any(r.active for r in self.runs.list()):
-                if sid not in self.pending:
-                    self.pending.append(sid)
-                return None
             run = self._start(schedule)
         if run is None:
             raise ValueError(self.errors.get(sid, "The run could not be started."))
@@ -243,6 +233,9 @@ class Scheduler:
 
     def last_runs(self, schedule: Schedule, limit: int = 10) -> list[Run]:
         return [r for r in self.runs.list() if r.trigger == schedule.trigger][:limit]
+
+    def queued(self, schedule: Schedule) -> bool:
+        return any(r.status == "queued" for r in self.last_runs(schedule, 3))
 
     # ───── notifications ─────
 

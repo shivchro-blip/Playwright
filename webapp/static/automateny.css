@@ -639,7 +639,7 @@
 .any-nav .any-nav-btn.q-btn:hover { color: var(--nav-fg-active); }
 .any-nav .any-nav-btn .q-btn__content { gap: 6px; flex-wrap: nowrap; }
 .any-nav .any-nav-btn .q-icon { font-size: 15px; margin: 0; }
-.any-nav-btn + .any-api { margin-left: 12px; }
+.any-nav-btn + .any-api, .any-user + .any-api { margin-left: 12px; }
 .any-ai { border: 1px solid var(--accent-light); background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
 .any-ai-head { display: flex; align-items: center; gap: 8px; }
 .any-ai-head > .q-icon { font-size: 16px; color: var(--accent-deep); }
@@ -656,3 +656,10 @@
 .any-ai-suggestion-head .q-btn { margin-left: auto; }
 .any-callout-text.is-error { color: var(--fail); }
 .any-dialog > .any-details-head { align-self: stretch; }
+
+/* Signed-in user (header) */
+.any-nav .any-nav-btn.is-next { margin-left: 4px; }
+.any-user { display: flex; align-items: center; gap: 8px; margin-left: 12px; color: var(--nav-fg-active); font-size: 13.5px; }
+.any-user .any-tag { background: var(--con-btn); color: var(--nav-fg); }
+.any-signout { color: var(--nav-fg); text-decoration: none; font-size: 13.5px; }
+.any-signout:hover { color: var(--nav-fg-active); text-decoration: underline; }

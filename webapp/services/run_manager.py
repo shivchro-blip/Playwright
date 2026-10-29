@@ -32,6 +32,7 @@ from webapp.services.run_insights import build_report
 logger = logging.getLogger(__name__)
 
 MAX_LOG_LINES = 20_000
+MAX_QUEUED = 20  # runs waiting for a free slot
 SUITE = "tests/dynamic_test_suite.py"
 ACTIVE = ("queued", "running")
 
@@ -143,6 +144,7 @@ class RunManager:
         self.allure_cmd = allure_cmd
         self.max_concurrent = max_concurrent
         self._runs: dict[str, Run] = {}
+        self._queue: list[Run] = []  # FIFO: runs waiting for one of max_concurrent slots
         self._lock = threading.Lock()
         # Called with each run once it has finished and its reports are written (e.g. notifications)
         self.listeners: list[Callable[[Run], None]] = []
@@ -181,22 +183,47 @@ class RunManager:
             raise ValueError(f"Unsupported run options: {', '.join(unknown)}")
 
         with self._lock:
-            active = [r for r in self._runs.values() if r.active]
-            if len(active) >= self.max_concurrent:
-                raise RuntimeError(f"Run {active[0].id} is still in progress.")
+            if len(self._queue) >= MAX_QUEUED:
+                raise RuntimeError(f"{MAX_QUEUED} runs are already waiting; try again when some have finished.")
             run_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(2)
             run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger)
             run.dir.mkdir(parents=True)
             self._runs[run_id] = run
-
-        thread = threading.Thread(target=self._execute, args=(run,), name=f"run-{run_id}", daemon=True)
-        thread.start()
+            self._queue.append(run)
+        self._save(run)
+        self._dispatch()
         return run
+
+    def queue_position(self, run_id: str) -> int | None:
+        """1 = next to start; None when the run is not waiting."""
+        with self._lock:
+            ids = [r.id for r in self._queue]
+        return ids.index(run_id) + 1 if run_id in ids else None
+
+    def _dispatch(self) -> None:
+        """Start queued runs while slots are free."""
+        while True:
+            with self._lock:
+                running = sum(1 for r in self._runs.values() if r.status == "running")
+                if running >= self.max_concurrent or not self._queue:
+                    return
+                run = self._queue.pop(0)
+                run.status = "running"  # claim the slot before the thread starts
+            threading.Thread(target=self._execute, args=(run,), name=f"run-{run.id}", daemon=True).start()
 
     def cancel(self, run_id: str) -> bool:
         run = self._runs.get(run_id)
         if not run or not run.active:
             return False
+        with self._lock:
+            waiting = run in self._queue
+            if waiting:
+                self._queue.remove(run)
+        if waiting:
+            run.status, run.finished_at, run._cancelled = "cancelled", _now(), True
+            self._append(run, "[webapp] Cancelled before it started.")
+            self._save(run)
+            return True
         run._cancelled = True
         proc = run._proc
         if proc and proc.poll() is None:
@@ -326,6 +353,7 @@ class RunManager:
                 listener(run)
             except Exception:  # a listener must never break the run thread
                 logger.exception("Run listener failed for %s", run.id)
+        self._dispatch()
 
     def _final_status(self, run: Run) -> str:
         if run._cancelled:

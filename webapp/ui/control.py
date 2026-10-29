@@ -6,6 +6,7 @@ import re
 from nicegui import ui
 
 from webapp.services.run_manager import Run, RunConfig
+from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import (
     RESULT_COLUMNS, copy_button, eyebrow, field, fmt_seconds, icon_button, placeholder, plural, result_slots,
@@ -583,6 +584,8 @@ class ControlPanel:
         }
 
     def start_run(self) -> None:
+        if not guard("run", "start run"):
+            return
         tags = self.tags_select.value or []
         browsers = self.browsers_select.value or ["chrome"]
         matched, selected = self._selection()
@@ -608,15 +611,23 @@ class ControlPanel:
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
-        ui.notify(f"Run {run.id} started", type="positive")
+        audit("run.start", run.id, system=config.system, env=config.env, tags=config.tags)
+        position = self.svc.runs.queue_position(run.id)
+        ui.notify(f"Run {run.id} queued (#{position}); it starts when a slot is free" if position
+                  else f"Run {run.id} started", type="info" if position else "positive")
         self.view_run(run.id)
         self.history.refresh()
 
     def cancel_run(self) -> None:
+        if not guard("run", "cancel run"):
+            return
         if self.run_id and self.svc.runs.cancel(self.run_id):
+            audit("run.cancel", self.run_id)
             ui.notify("Cancelling run...", type="info")
 
     def save_defaults(self) -> None:
+        if not guard("settings", "save defaults"):
+            return
         values = {
             "systemConfig": self.system_select.value or "",
             "envConfig": self.env_select.value or "",
@@ -629,6 +640,7 @@ class ControlPanel:
         except (ValueError, OSError) as e:
             ui.notify(f"Could not save .env: {e}", type="negative")
             return
+        audit("config.save", ", ".join(sorted(values)))
         ui.notify("Saved as defaults in .env", type="positive")
 
     def open_summary(self) -> None:
@@ -700,13 +712,13 @@ class ControlPanel:
 
     def _update_buttons(self, run: Run | None) -> None:
         busy = any(r.active for r in self.svc.runs.list())
-        self.run_button.set_enabled(not busy and self.planned_runs > 0)
-        self.run_helper.set_visibility(not busy and self.planned_runs == 0)
+        # While a run is in progress, Run adds the new one to the queue
+        self.run_button.set_enabled(self.planned_runs > 0)
+        self.run_helper.set_visibility(self.planned_runs == 0)
         if busy != self._busy:
             self._busy = busy
-            self.run_icon.name = icon("loader-circle" if busy else "play-solid")
-            self.run_label.text = "Running…" if busy else "Run"
-            self.run_button.classes(add="is-busy") if busy else self.run_button.classes(remove="is-busy")
+            self.run_icon.name = icon("list-plus" if busy else "play-solid")
+            self.run_label.text = "Queue" if busy else "Run"
         # Cancel only does something while the viewed run is active
         self.cancel_button.set_visibility(bool(run and run.active))
         self.live_badge.set_visibility(bool(run and run.active))

@@ -7,6 +7,7 @@ from typing import Callable
 from nicegui import ui
 
 from webapp.services.run_manager import Run
+from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.services.run_insights import flaky_tests
 from webapp.services.schedules import TRIGGER
@@ -201,15 +202,14 @@ class HistoryPanel:
                                   on_click=lambda: self.on_watch(run.id)) \
                             .props("flat unelevated no-caps").classes("any-btn is-38")
                     ui.button("Re-run", icon=icon("rotate-cw"), color=None, on_click=lambda: self.rerun(run.id)) \
-                        .props("unelevated no-caps").classes("any-primary") \
-                        .set_enabled(not any(r.active for r in self.svc.runs.list()))
+                        .props("unelevated no-caps").classes("any-primary")
                     ui.button("Report", icon=icon("chart-column"), color=None,
                               on_click=lambda: self.open_summary(run.id)) \
                         .props('flat unelevated no-caps data-testid="run-report"').classes("any-btn is-38") \
                         .set_enabled(not run.active)
                     if self.svc.ai.enabled():
                         ui.button("AI summary", icon=icon("sparkles"), color=None,
-                                  on_click=lambda: open_run_summary(run)) \
+                                  on_click=lambda: guard("ai.read", "summarize") and open_run_summary(run)) \
                             .props('flat unelevated no-caps data-testid="ai-summary"').classes("any-btn is-38") \
                             .set_enabled(not run.active)
                     ui.button("Compare", icon=icon("list-checks"), color=None,
@@ -275,18 +275,26 @@ class HistoryPanel:
             ui.notify("The report could not be written (see the server log).", type="negative")
 
     def rerun(self, run_id: str) -> None:
+        if not guard("run", "re-run"):
+            return
         try:
             run = self.svc.runs.rerun(run_id)
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
-        ui.notify(f"Run {run.id} started", type="positive")
+        audit("run.rerun", run.id, of=run_id)
+        position = self.svc.runs.queue_position(run.id)
+        ui.notify(f"Run {run.id} queued (#{position})" if position else f"Run {run.id} started",
+                  type="info" if position else "positive")
         self.on_watch(run.id)
 
     async def delete(self, run_id: str) -> None:
+        if not guard("delete", "delete run"):
+            return
         if not await confirm(f"Delete run {run_id} and its files?", "Delete", "negative"):
             return
         if self.svc.runs.delete(run_id):
+            audit("run.delete", run_id)
             ui.notify("Run deleted", type="positive")
             self.selected = None
             self.refresh()

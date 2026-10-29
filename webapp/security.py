@@ -1,4 +1,4 @@
-"""Request checks for the web app, which has no login yet (see Settings.auth_enabled).
+"""Request checks for the web app (sign-in and roles are in webapp/auth.py).
 
 - Host allowlist: blocks DNS rebinding, where a web page on another domain resolves to 127.0.0.1
   and calls the API as if it were same-origin.
@@ -99,9 +99,9 @@ class RunArtifactHeadersMiddleware:
 def install_security(app, settings: Settings) -> None:
     """Add the middleware to the FastAPI/NiceGUI app. Call before the app starts."""
     hosts = allowed_hosts(settings)
-    if settings.host not in LOOPBACK_HOSTS:
-        logger.warning("Listening on %r: the web app has no login, so anyone who can reach this address can "
-                       "edit tests and start runs. Allowed hosts: %s", settings.host, ", ".join(hosts))
+    if settings.host not in LOOPBACK_HOSTS and not settings.login_required:
+        logger.warning("Listening on %r WITHOUT login (AUTOMATENY_INSECURE_NO_AUTH): anyone who can reach this "
+                       "address can edit tests and start runs. Allowed hosts: %s", settings.host, ", ".join(hosts))
     # Added last = runs first: reject foreign hosts before anything else
     app.add_middleware(RunArtifactHeadersMiddleware)
     app.add_middleware(OriginCheckMiddleware, hosts=extra_hosts(settings))

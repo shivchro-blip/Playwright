@@ -1,6 +1,7 @@
 """UI smoke: every tab, a run from Control, a test's details, the built-in report, a Generator locator check."""
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -18,8 +19,8 @@ from tests.e2e.fixtures.ai import fake_anthropic
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-@pytest.fixture
-def app_url(workspace: Path, tmp_path: Path):
+@contextlib.contextmanager
+def running_app(tmp_path: Path, **extra_env: str):
     env_file = tmp_path / "ui.env"
     env_file.write_text("systemConfig=SMOKE\nenvConfig=dev\nrunTags=smoke\nbrowsers=chromium\nheadlessMode=true\n",
                         encoding="utf-8")
@@ -32,7 +33,7 @@ def app_url(workspace: Path, tmp_path: Path):
     env = {**base_env, "AUTOMATENY_PORT": str(port), "AUTOMATENY_RUNS_DIR": str(tmp_path / "runs"),
            "AUTOMATENY_DOTENV_PATH": str(env_file), "PYTHONUNBUFFERED": "1",
            "AUTOMATENY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)]),
-           "ANTHROPIC_BASE_URL": ai_url, "ANTHROPIC_API_KEY": "sk-ant-test-not-a-real-key"}
+           "ANTHROPIC_BASE_URL": ai_url, "ANTHROPIC_API_KEY": "sk-ant-test-not-a-real-key", **extra_env}
     log = (tmp_path / "webapp.log").open("w", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, "-m", "webapp"], cwd=REPO_ROOT, env=env, stdout=log,
                             stderr=subprocess.STDOUT)
@@ -40,7 +41,7 @@ def app_url(workspace: Path, tmp_path: Path):
     try:
         for _ in range(120):
             try:
-                urllib.request.urlopen(url + "api/systems", timeout=2)
+                urllib.request.urlopen(url + "login", timeout=2)  # public, with or without sign-in
                 break
             except OSError:
                 if proc.poll() is not None:
@@ -59,6 +60,12 @@ def app_url(workspace: Path, tmp_path: Path):
         log.close()
         server_log = (tmp_path / "webapp.log").read_text(encoding="utf-8")
         assert "Traceback" not in server_log, server_log
+
+
+@pytest.fixture
+def app_url(workspace: Path, tmp_path: Path):
+    with running_app(tmp_path) as url:
+        yield url
 
 
 def test_every_tab_loads_and_a_run_passes(app_url: str):
@@ -212,4 +219,45 @@ def test_ai_assist_is_opt_in_and_only_suggests(app_url: str, tmp_path: Path):
         page.get_by_role("button", name="Create", exact=True).click()  # the usual file dialog: nothing saved before
         expect(page.get_by_role("region", name="Test cases").get_by_text("TC-SMOKE-AI-Search").first).to_be_visible()
         browser.close()
+    assert problems == []
+
+
+def test_sign_in_roles_and_activity(workspace: Path, tmp_path: Path):
+    from webapp.services.users import UserStore
+    users = UserStore(tmp_path / "users.json")
+    users.add("ann", "admin password 1", "admin")
+    users.add("vic", "viewer password 1", "viewer")
+    problems: list[str] = []
+    with running_app(tmp_path, AUTOMATENY_AUTH_ENABLED="true", AUTOMATENY_USERS_FILE=str(users.path)) as url:
+        assert urllib.request.urlopen(url + "login").status == 200
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.on("pageerror", lambda e: problems.append(str(e)))
+            page.goto(url + "history")
+            expect(page).to_have_url(url + "login?next=/history")
+            page.get_by_label("User name").fill("vic")
+            page.get_by_label("Password").fill("wrong password")
+            page.get_by_role("button", name="Sign in").click()
+            expect(page.get_by_role("alert")).to_have_text("User name or password is wrong.")
+            page.get_by_label("User name").fill("vic")
+            page.get_by_label("Password").fill("viewer password 1")
+            page.get_by_role("button", name="Sign in").click()
+            page.goto(url)
+            expect(page.get_by_test_id("signed-in")).to_contain_text("vic")
+            expect(page.get_by_test_id("activity")).to_have_count(0)  # admins only
+            page.get_by_test_id("run-button").click()  # viewers can look, not run
+            expect(page.get_by_text("Your role (viewer) can't start or cancel runs.")).to_be_visible()
+            page.get_by_text("Sign out").click()
+            expect(page).to_have_url(url + "login")
+
+            page.get_by_label("User name").fill("ann")
+            page.get_by_label("Password").fill("admin password 1")
+            page.get_by_role("button", name="Sign in").click()
+            expect(page.get_by_test_id("signed-in")).to_contain_text("admin")
+            page.get_by_test_id("activity").click()
+            activity = page.get_by_role("dialog", name="Activity")
+            expect(activity.get_by_test_id("activity-table")).to_contain_text("login.failed")
+            expect(activity.get_by_test_id("activity-table")).to_contain_text("denied")
+            browser.close()
     assert problems == []

@@ -9,6 +9,7 @@ from nicegui import ui
 
 from webapp.services.json_files import ConflictError, PathError
 from webapp.services.recorder import Recording, RecorderError, save_recording, suggest_page_name
+from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled
 from webapp.ui.components import icon_button, text
@@ -166,6 +167,8 @@ def open_recorder(gen: GeneratorPanel) -> None:
                     tags = ui.input(value=f"{system}, recorded").props('for="rec-tags"').classes("w-full")
 
             async def save() -> None:
+                if not guard("record", "save recording"):
+                    return
                 try:
                     rel = svc.tests.normalize_file_name(new_name.value or "") if file_sel.value == NEW_FILE \
                         else file_sel.value
@@ -177,6 +180,8 @@ def open_recorder(gen: GeneratorPanel) -> None:
                 except SAVE_ERRORS as e:
                     ui.notify(f"Not saved: {e}", type="negative", multi_line=True)
                     return
+                audit("recording.save", f"{system}/{saved.page_rel}", test_file=saved.test_file,
+                      test_id=test_id.value)
                 timer.deactivate()
                 dialog.close()
                 verb = "created" if saved.page_created else "updated"

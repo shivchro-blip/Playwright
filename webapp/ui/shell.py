@@ -3,12 +3,16 @@ from __future__ import annotations
 
 from nicegui import ui
 
+from webapp.auth import guard, ui_user
+from webapp.ui.activity import open_activity
 from webapp.ui.ai_panels import open_ai_settings
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
 from webapp.ui.history import HistoryPanel
 from webapp.ui.schedules import SchedulesPanel
+from webapp.state import services
+from webapp.ui.components import text
 from webapp.ui.theme import add_head, apply_brand, icon, register_assets
 
 
@@ -33,10 +37,20 @@ def register() -> None:
             with ui.tabs().props('inline-label no-caps indicator-color="transparent" '
                                  'aria-label="Main sections"') as tabs:
                 tab_elems = {name: ui.tab(name, icon=icon(ico)) for name, ico in tab_defs}
+            user = ui_user()
             ui.button("AI", icon=icon("sparkles"), color=None,
-                      on_click=lambda: open_ai_settings(on_ai_change)) \
+                      on_click=lambda: guard("settings", "ai settings") and open_ai_settings(on_ai_change)) \
                 .props('flat unelevated no-caps aria-label="AI assist settings" data-testid="ai-settings"') \
                 .classes("any-nav-btn")
+            if user and user.can("users"):
+                ui.button("Activity", icon=icon("history"), color=None, on_click=open_activity) \
+                    .props('flat unelevated no-caps data-testid="activity"').classes("any-nav-btn is-next")
+            if services().settings.login_required and user:
+                with ui.element("div").classes("any-user").props('data-testid="signed-in"'):
+                    text("span", user.username, "any-user-name")
+                    text("span", user.role, "any-tag")
+                    with ui.element("a").classes("any-signout").props('href="/logout"'):
+                        ui.label("Sign out")
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
