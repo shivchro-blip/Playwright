@@ -1,7 +1,6 @@
 import warnings
 import pytest
 import logging
-import utils.dynamic_form_handler
 import allure
 import os
 from datetime import datetime
