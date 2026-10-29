@@ -12,7 +12,6 @@ data/session.json
 
 .env
 
-pytest.ini
 
 ## GENERAL PYTHON IGNORES -- double check
 
