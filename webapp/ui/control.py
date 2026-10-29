@@ -8,8 +8,8 @@ from nicegui import ui
 from webapp.services.run_manager import Run, RunConfig
 from webapp.state import services
 from webapp.ui.components import (
-    copy_button, eyebrow, field, fmt_seconds, icon_button, plural, split_test_id, status_pill_template,
-    styled_table, test_case_template, text, tone,
+    copy_button, eyebrow, field, fmt_seconds, icon_button, placeholder, plural, split_test_id, status_pill_template,
+    result_slots, styled_table, test_case_template, text, tone,
 )
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.theme import icon, svg
@@ -61,7 +61,8 @@ def _chip_slot(kind: str) -> str:
     return (f'<span class="any-chip{mono}">{leading}<span>{{{{ props.opt.label ?? props.opt }}}}</span>'
             f'<button type="button" class="any-chip-x" tabindex="0" '
             f':aria-label="\'Remove {kind} \' + (props.opt.label ?? props.opt)" '
-            f'@click.stop="props.removeAtIndex(props.index)" '
+            # QSelect opens its menu on mousedown and re-renders the chips; keep mousedown off the control
+            f'@mousedown.stop.prevent @touchstart.stop @click.stop="props.removeAtIndex(props.index)" '
             f'@keydown.enter.stop.prevent="props.removeAtIndex(props.index)">'
             f'{svg("x")}</button></span>')
 
@@ -138,9 +139,9 @@ class ControlPanel:
                     self.browsers_select = self._select(
                         BROWSERS + [b for b in browsers if b not in BROWSERS], browsers, "sel-browsers",
                         multiple=True, on_change=self._on_browsers_change,
-                    ).classes("any-multi").props('data-placeholder="Select a browser"')
+                    ).classes("any-multi")
                     self.browsers_select.add_slot("selected-item", _chip_slot("browser"))
-                    self._mark_empty(self.browsers_select)
+                    placeholder(self.browsers_select, "Select a browser")
                 with field("Parallel workers", "num-workers", hint="pytest-xdist"):
                     with ui.element("div").classes("any-stepper"):
                         self.workers_minus = ui.button(icon=icon("minus"), color=None,
@@ -333,25 +334,7 @@ class ControlPanel:
                     {"name": "message", "label": "Message", "field": "message", "align": "left"},
                 ]).classes("w-full")
                 styled_table(self.results_table, 0, wide=True)
-                self.results_table.add_slot("body-cell-outcome",
-                                            f'<q-td :props="props">{status_pill_template()}</q-td>')
-                self.results_table.add_slot("body-cell-test_id",
-                                            f'<q-td :props="props">{test_case_template()}</q-td>')
-                self.results_table.add_slot("body-cell-browser", f'''
-                    <q-td :props="props">
-                      <span class="any-browser">{svg("globe")}{{{{ props.value || '—' }}}}</span>
-                    </q-td>''')
-                self.results_table.add_slot("body-cell-duration", '''
-                    <q-td :props="props" class="any-num">{{
-                      props.row.outcome === 'running' || !props.value ? '—' : props.value.toFixed(2) + ' s'
-                    }}</q-td>''')
-                self.results_table.add_slot("body-cell-message", '''
-                    <q-td :props="props">
-                      <span v-if="props.value"
-                            :class="['any-msg', ['failed', 'error'].includes(props.row.outcome) ? 'is-fail' : '']"
-                      >{{ props.value }}</span>
-                      <span v-else class="any-msg">—</span>
-                    </q-td>''')
+                result_slots(self.results_table)
             with ui.element("div").classes("any-console").props('aria-label="Console output"'):
                 with ui.element("div").classes("any-console-head"):
                     with ui.element("div").classes("any-console-title"):
@@ -503,15 +486,7 @@ class ControlPanel:
         self.tests_view.refresh()
 
     def _on_browsers_change(self) -> None:
-        self._mark_empty(self.browsers_select)
         self.tests_view.refresh()
-
-    @staticmethod
-    def _mark_empty(select: ui.select) -> None:
-        if select.value:
-            select.classes(remove="is-empty")
-        else:
-            select.classes(add="is-empty")
 
     def _step(self, delta: int) -> None:
         current = int(self.workers.value or WORKERS_MIN)

@@ -6,10 +6,11 @@ from nicegui.element import Element
 
 class ConsoleView(Element, component="console_view.js"):
 
-    def __init__(self, max_lines: int) -> None:
+    def __init__(self, max_lines: int, lines: list[str] | None = None) -> None:
+        """lines: initial content (sent with the element itself, e.g. when built inside a refresh)."""
         super().__init__()
         self.max_lines = max_lines
-        self._props["lines"] = []
+        self._props["lines"] = list(lines or [])[-max_lines:]
         self._props["maxLines"] = max_lines
         self._props["active"] = False
 

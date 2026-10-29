@@ -99,15 +99,18 @@ def pager_template(total: int) -> str:
     options = "".join(f'<option value="{n}">{n or "All"}</option>' for n in (5, 7, 10, 15, 20, 25, 50, 0))
     rpp = "props.pagination.rowsPerPage"
     page = "props.pagination.page"
-    first = f"({total} ? (({rpp} ? ({page} - 1) * {rpp} : 0) + 1) : 0)"
-    last = f"({rpp} ? Math.min({page} * {rpp}, {total}) : {total})"
+    # q-table's own (filtered) row count; the server-side count until q-table is reachable
+    qtable = "(($parent.$refs && $parent.$refs.qRef) || $parent)"
+    n = f"({qtable}.computedRowsNumber ?? {total})"
+    first = f"({n} ? (({rpp} ? ({page} - 1) * {rpp} : 0) + 1) : 0)"
+    last = f"({rpp} ? Math.min({page} * {rpp}, {n}) : {n})"
     return f'''
       <div class="any-pager">
-        <div>Showing <b>{{{{ {first} }}}}–{{{{ {last} }}}}</b> of <b>{total}</b></div>
+        <div>Showing <b>{{{{ {first} }}}}–{{{{ {last} }}}}</b> of <b>{{{{ {n} }}}}</b></div>
         <div class="any-pager-right">
           <label class="any-muted">Rows per page
             <select class="any-pager-select" :value="{rpp}"
-                    @change="e => $parent.$refs.qRef.setPagination({{rowsPerPage: +e.target.value, page: 1}})">
+                    @change="e => {qtable}.setPagination({{rowsPerPage: +e.target.value, page: 1}})">
               {options}
             </select>
           </label>
@@ -130,3 +133,39 @@ def text(tag: str, content: str, cls: str = "") -> TextElement:
     """A text-only element with any tag (span, b, code, h2, ...); content is always rendered as text."""
     el = TextElement(tag=tag, text=content)
     return el.classes(cls) if cls else el
+
+
+def result_slots(table: ui.table) -> None:
+    """Cells for a per-test results table (rows: outcome, name, code, test_id, browser, duration, message)."""
+    table.add_slot("body-cell-outcome", f'<q-td :props="props">{status_pill_template()}</q-td>')
+    table.add_slot("body-cell-test_id", f'<q-td :props="props">{test_case_template()}</q-td>')
+    table.add_slot("body-cell-browser", f'''
+        <q-td :props="props">
+          <span class="any-browser">{svg("globe")}{{{{ props.value || '—' }}}}</span>
+        </q-td>''')
+    table.add_slot("body-cell-duration", '''
+        <q-td :props="props" class="any-num">{{
+          props.row.outcome === 'running' || !props.value ? '—' : props.value.toFixed(2) + ' s'
+        }}</q-td>''')
+    table.add_slot("body-cell-message", '''
+        <q-td :props="props">
+          <span v-if="props.value"
+                :class="['any-msg', ['failed', 'error'].includes(props.row.outcome) ? 'is-fail' : '']"
+          >{{ props.value }}</span>
+          <span v-else class="any-msg">—</span>
+        </q-td>''')
+
+
+def placeholder(select: ui.select, hint: str) -> ui.select:
+    """Placeholder text for an empty select (Quasar only shows `placeholder` on selects with text input)."""
+    select.style(f'--any-ph: "{hint}"')
+
+    def sync() -> None:
+        if select.value in (None, "", []):
+            select.classes(add="is-empty")
+        else:
+            select.classes(remove="is-empty")
+
+    select.on_value_change(lambda _: sync())
+    sync()
+    return select

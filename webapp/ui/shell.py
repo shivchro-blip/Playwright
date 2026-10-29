@@ -7,20 +7,8 @@ from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
 from webapp.ui.history import HistoryPanel
-from webapp.ui.theme import add_head, icon, register_assets
+from webapp.ui.theme import add_head, apply_brand, icon, register_assets
 
-CSS = """
-.help-doc h1 { font-size: 1.75rem; line-height: 2.2rem; font-weight: 500; margin: 0 0 0.75rem; }
-.help-doc h2 { font-size: 1.3rem; line-height: 1.8rem; font-weight: 500; margin: 1.5rem 0 0.5rem; }
-.help-doc h3 { font-size: 1.05rem; font-weight: 600; margin: 1.1rem 0 0.4rem; }
-.help-doc p, .help-doc li { line-height: 1.55; }
-.help-doc table { border-collapse: collapse; margin: 0.5rem 0; }
-.help-doc th, .help-doc td { border: 1px solid #ddd; padding: 4px 8px; text-align: left; vertical-align: top; }
-.help-doc th { background: #f5f5f5; }
-.help-doc pre { background: #f6f8fa; padding: 8px 12px; border-radius: 4px; overflow-x: auto; }
-.help-doc code { background: #f2f2f2; padding: 0 3px; border-radius: 3px; }
-.help-doc pre code { background: transparent; padding: 0; }
-"""
 
 
 def register() -> None:
@@ -30,7 +18,7 @@ def register() -> None:
     def index() -> None:
         ui.page_title("AutomateNY")
         add_head()
-        ui.add_css(CSS)
+        apply_brand()
         # Panels own their padding (the Control tab is full-bleed)
         ui.query(".nicegui-content").classes("any-content")
         tab_defs = [("Control", "circle-play"), ("Generator", "list-plus"), ("History", "history"),

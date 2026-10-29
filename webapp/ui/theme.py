@@ -23,9 +23,28 @@ CSS_URL = f"{ASSETS_URL}/automateny.css?v={_version('automateny.css')}"
 SPRITE_URL = f"{ASSETS_URL}/icons.svg?v={_version('icons.svg')}"
 
 
+# Quasar brand palette = the CSS tokens (accent, failed, passed, warning). Mirrors automateny.css :root.
+BRAND = {
+    "primary": "#2851E6", "secondary": "#344054", "accent": "#2851E6", "dark": "#0E1525",
+    "positive": "#157043", "negative": "#B42318", "info": "#1F3EAB", "warning": "#B25E00",
+}
+
+
 def register_assets() -> None:
-    """Serve webapp/static once per app (call before the first page is built)."""
+    """Serve webapp/static and set app-wide component defaults (call before the first page is built)."""
     app.add_static_files(ASSETS_URL, STATIC_DIR, max_cache_age=3600)
+    select_props = (f'outlined dense options-dense dropdown-icon="{icon("chevron-down")}" '
+                    f'clear-icon="{icon("circle-x")}" popup-content-class="any-menu"')
+    ui.select.default_props(select_props)
+    for element in (ui.input, ui.number, ui.textarea, ui.input_chips):
+        element.default_props(f'outlined dense clear-icon="{icon("circle-x")}"')
+    ui.button.default_props("unelevated no-caps")
+    ui.expansion.default_props(f'expand-icon="{icon("chevron-down")}"')
+
+
+def apply_brand() -> None:
+    """Per page: Quasar colour palette from the tokens."""
+    ui.colors(**BRAND)
 
 
 def add_head() -> None:
