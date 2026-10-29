@@ -45,7 +45,7 @@ The formData key is not a field of that page. Add the field in **Generator → P
 
 Do not set `NODE_TLS_REJECT_UNAUTHORIZED=0`: it switches certificate checking off for everything that process downloads. `setup.ps1` is safe to re-run; it skips what is already installed.
 
-The same fix applies if `pip install` fails with a certificate error: set `$env:PIP_CERT = "C:\path\to\company-root.pem"` (or `pip config set global.cert ...`).
+If `pip install` fails with a certificate error, `setup.ps1` retries with `--trusted-host pypi.org --trusted-host files.pythonhosted.org`; this is safe there because every package in `requirements-lock.txt` is checked against its hash. You can also set `$env:PIP_CERT = "C:\path\to\company-root.pem"` (or `pip config set global.cert ...`). `--trusted-host` only affects pip; it does not help the Chromium download, which is why that step has its own fix above.
 
 ## Google (or another public site) shows a captcha
 

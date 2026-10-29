@@ -38,7 +38,14 @@ Write-Host "`n[2/4] Installing Python packages..."
 & $venvPython -m pip install --upgrade pip --quiet
 # requirements-lock.txt pins every package (with hashes) so all machines get the same tested versions
 & $venvPython -m pip install --require-hashes -r requirements-lock.txt --quiet
-if (-not $?) { Write-Error "pip install failed (requirements-lock.txt)."; exit 1 }
+if (-not $?) {
+    # Behind a proxy that re-signs HTTPS traffic, older pip can fail certificate checks. Retry the way many
+    # company machines do it (--trusted-host). The lock file's hashes still verify every downloaded package.
+    Write-Host "`npip install failed. Retrying with --trusted-host pypi.org / files.pythonhosted.org (hashes still checked)..."
+    & $venvPython -m pip install --require-hashes -r requirements-lock.txt --quiet --timeout 120 `
+        --trusted-host pypi.org --trusted-host files.pythonhosted.org
+    if (-not $?) { Write-Error "pip install failed (requirements-lock.txt)."; exit 1 }
+}
 
 Write-Host "`n[3/4] Installing Playwright Chromium..."
 & $venvPython -m playwright install chromium
