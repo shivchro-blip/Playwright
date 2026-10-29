@@ -12,6 +12,7 @@ from webapp.ui.components import (
     field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table, text,
 )
 from webapp.ui.console_view import ConsoleView
+from webapp.ui.test_details import details_for, has_details, open_test_details
 from webapp.ui.generator import confirm
 from webapp.ui.theme import icon
 
@@ -179,10 +180,12 @@ class HistoryPanel:
                         text("dt", label, "any-eyebrow")
                         text("dd", value)
             rows = []
+            details = details_for(run)
             for r in list(run.results.values()):
                 name, code = split_test_id(r.test_id)
                 rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name,
-                             "code": code, "browser": r.browser, "duration": r.duration, "message": r.message})
+                             "code": code, "browser": r.browser, "duration": r.duration, "message": r.message,
+                             "has_details": has_details(details, r.test_id, r.browser)})
             with ui.element("div").classes("any-table-wrap"):
                 table = ui.table(rows=rows, row_key="nodeid", pagination=10, columns=[
                     {"name": "outcome", "label": "Status", "field": "outcome", "align": "left", "sortable": True,
@@ -195,6 +198,7 @@ class HistoryPanel:
                 ]).classes("w-full")
                 styled_table(table, len(rows), wide=True)
                 result_slots(table)
+                table.on("rowClick", lambda e, run=run: open_test_details(run, e.args[1]))
             with ui.expansion("Console output (last 300 lines)", icon=icon("terminal")) \
                     .props(f'expand-icon="{icon("chevron-down")}"').classes("any-disclosure is-console"):
                 with ui.element("div").classes("any-console is-inline"):

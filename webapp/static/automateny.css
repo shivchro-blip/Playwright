@@ -563,3 +563,47 @@
 .any-app .q-chip { height: 28px; border-radius: var(--r-chip); background: var(--chip-bg); color: var(--ink); font: 500 12.5px var(--font-mono); margin: 0 6px 0 0; padding: 0 4px 0 10px; }
 .any-app .q-chip__icon--remove { font-size: 15px; color: var(--ink-2); opacity: .7; }
 .any-app .q-chip__icon--remove:hover { opacity: 1; }
+
+/* Failure details (results tables + dialog) */
+.any-msg-cell { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.any-details-chip { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; height: 22px; padding: 0 8px; border-radius: var(--r-chip); background: var(--accent-soft); color: var(--accent-deep); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.any-details-chip svg { width: 12px; height: 12px; }
+.any-dialog.any-details { width: min(1100px, 96vw); max-width: 96vw; max-height: 92vh; overflow: auto; gap: 18px; }
+.any-details-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.any-details-name { font-size: 20px; overflow-wrap: anywhere; }
+.any-error-box { border: 1px solid var(--fail-border); background: var(--fail-hover); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.any-error-box .any-eyebrow { color: var(--fail); }
+.any-pre { margin: 0; font: 12.5px/1.6 var(--font-mono); color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
+.any-pre.is-error { color: var(--fail); max-height: 220px; }
+.any-app .any-disclosure .any-pre { padding: 12px 14px; }
+.any-shots, .any-artifacts { display: flex; flex-direction: column; gap: 8px; }
+.any-shot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px; }
+.any-shot { margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface-subtle); }
+.any-shot img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; object-position: top; background: var(--surface); }
+.any-shot figcaption { padding: 6px 10px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--border); }
+.any-video { width: 100%; max-height: 420px; border-radius: 10px; background: var(--con-bg); }
+.any-artifact-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.any-artifact-link { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border: 1px solid var(--border-control); border-radius: var(--r-ctl); color: var(--ink-2); text-decoration: none; font-size: 13.5px; font-weight: 500; background: var(--surface); }
+.any-artifact-link:hover { background: var(--surface-subtle); border-color: var(--border-control-hover); }
+.any-artifact-link .q-icon { font-size: 15px; }
+.any-details .any-disclosure.is-console { margin: 0; }
+/* NiceGUI cards are flex columns (align-items: flex-start): stretch children and stop them shrinking in the scroller */
+.any-dialog.any-details > * { align-self: stretch; flex-shrink: 0; }
+
+/* Locator check (Generator field rows) */
+.any-dialog-actions.is-start { justify-content: flex-start; align-items: center; gap: 12px; }
+.any-cfg { background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; max-height: 120px; }
+.any-lc-result { display: flex; flex-direction: column; gap: 12px; }
+.any-lc-result:empty { display: none; }
+.any-lc-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.any-lc-desc { font: 12.5px var(--font-mono); color: var(--ink-2); overflow-wrap: anywhere; min-width: 0; }
+.any-lc-page { overflow-wrap: anywhere; }
+.any-callout.is-inline { margin: 0; padding: 10px 14px; align-items: center; }
+.any-lc-matches { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; counter-reset: lc; }
+.any-lc-matches li { counter-increment: lc; display: flex; align-items: center; gap: 10px; padding: 7px 12px; font-size: 13px; border-top: 1px solid var(--border); }
+.any-lc-matches li:first-child { border-top: 0; }
+.any-lc-matches li::before { content: counter(lc, decimal) "."; min-width: 2ch; color: var(--muted); font: 12px var(--font-mono); }
+.any-lc-matches li.is-selected { background: var(--fail-hover); }
+.any-lc-matches code { font: 12px var(--font-mono); color: var(--accent-deep); flex-shrink: 0; }
+.any-lc-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.any-tag.is-hidden { background: var(--idle-bg); color: var(--idle-ink); }

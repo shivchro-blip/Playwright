@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import Run, RunConfig, RunManager
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -51,3 +52,15 @@ def test_unknown_autogen_rule_fails_with_a_clear_message(workspace, tmp_path):
     result = next(iter(run.results.values()))
     assert result.test_id == "TC-SMOKE-003-BadAutoGen" and result.outcome in ("failed", "error")
     assert "Unknown autoGen rule 'doesNotExist'" in result.message + "\n".join(run.log)
+    details = RunArtifacts().details(run.id, run.results_dir)[("TC-SMOKE-003-BadAutoGen", "chromium")]
+    assert "doesNotExist" in details.message and details.log, details
+    assert details.has_artifacts
+
+
+def test_failure_details_include_screenshot_and_dom_snapshot(workspace, tmp_path):
+    run = run_and_wait(workspace, tmp_path, tags=["missing"])
+    assert run.status == "failed", "\n".join(run.log[-80:])
+    details = RunArtifacts().details(run.id, run.results_dir)[("TC-SMOKE-004-MissingElement", "chromium")]
+    assert details.message and details.by_kind("image") and details.by_kind("html"), details
+    shot = details.by_kind("image")[0]
+    assert (run.results_dir / shot.url.rpartition("/")[2]).read_bytes().startswith(b"\x89PNG")

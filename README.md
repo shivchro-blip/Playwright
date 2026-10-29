@@ -23,9 +23,9 @@ start.cmd
 
 | Tab | What it does |
 |---|---|
-| **Control** | Pick system, environment, tags and browsers; run and watch live progress, results and console output. |
-| **Generator** | Edit test cases and page objects (form or raw JSON), validate them, and run a single test. |
-| **History** | Past runs with details, re-run and delete. |
+| **Control** | Pick system, environment, tags and browsers; run and watch live progress, results and console output. Click a result row for its failure details: error, traceback, screenshots, DOM snapshot, trace, video and log. |
+| **Generator** | Edit test cases and page objects (form or raw JSON), validate them, and run a single test. The scan button on a page field opens the page in headless Chromium and shows what its locator matches (0, 1 or many, with a highlighted screenshot), using the unsaved config. |
+| **History** | Past runs with details, re-run and delete; result rows open the same failure details as Control. |
 | **Help** | Framework and app documentation (`docs/help/`). |
 
 For the sample, choose system `GOOGLE`, environment `dev`, and tag `GOOGLE` (all tests) or `smoke`.

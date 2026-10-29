@@ -4,6 +4,7 @@
     "searchBox": { "locator": "#q", "type": "text" },
     "notes": { "locator": "#notes", "type": "text" },
     "phone": { "locator": "#phone", "type": "text", "autoGen": "phone" },
-    "badAutoGen": { "locator": "#phone", "type": "text", "autoGen": "doesNotExist" }
+    "badAutoGen": { "locator": "#phone", "type": "text", "autoGen": "doesNotExist" },
+    "missing": { "locator": "#does-not-exist", "type": "text" }
   }
 }

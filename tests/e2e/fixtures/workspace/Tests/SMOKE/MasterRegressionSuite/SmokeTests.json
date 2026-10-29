@@ -20,6 +20,13 @@
       "system": "SMOKE", "module": "smoke", "environment": ["dev"],
       "tags": ["E2E", "fail"],
       "steps": [{ "screen": "SmokeHome", "formData": { "badAutoGen": null } }]
+    },
+    {
+      "testCaseID": "TC-SMOKE-004-MissingElement",
+      "description": "Must fail on a locator that matches nothing, with a screenshot and DOM snapshot attached.",
+      "system": "SMOKE", "module": "smoke", "environment": ["dev"],
+      "tags": ["E2E", "missing"],
+      "steps": [{ "screen": "SmokeHome", "formData": { "missing": "x" } }]
     }
   ]
 }

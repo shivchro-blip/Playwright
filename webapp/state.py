@@ -8,6 +8,7 @@ from functools import lru_cache
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
 from webapp.services.pom_service import PomService
+from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
 from webapp.services.system_data import SystemDataService
 from webapp.services.test_case_service import TestCaseService
@@ -25,6 +26,7 @@ class Services:
     pom: PomService
     tests: TestCaseService
     help: HelpService
+    artifacts: RunArtifacts
 
     def credential_status(self, system: str | None, env: str | None) -> list[dict] | None:
         """Which credential env vars a system/env needs and whether each is set. Never returns values.
@@ -47,6 +49,7 @@ def services() -> Services:
         pom=pom,
         tests=TestCaseService(s.workspace, pom),
         help=HelpService(s.repo_root / "docs" / "help"),
+        artifacts=RunArtifacts("/runs"),
         settings=s,
         env=EnvConfigService(s.dotenv_path),
         systems=SystemDataService(s.systemdata_path),
