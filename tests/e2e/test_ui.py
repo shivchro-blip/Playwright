@@ -147,6 +147,36 @@ def test_recorder_is_off_by_default_and_records_a_test(app_url: str, tmp_path: P
     assert problems == []
 
 
+def test_wizard_recording_saves_a_page_per_screen(workspace: Path, tmp_path: Path):
+    fake = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake_codegen_wizard.py"
+    command = json.dumps([sys.executable, str(fake)])
+    with running_app(tmp_path, AUTOMATENY_RECORDER_COMMAND=command) as url, sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(url, wait_until="networkidle")
+        page.get_by_role("tab", name="Generator").click()
+        page.get_by_test_id("recorder-switch").click()
+        page.get_by_test_id("record-button").click()
+        dialog = page.get_by_role("dialog", name="Record a test")
+        dialog.get_by_text("Multi-screen flows and site ids").click()
+        dialog.get_by_test_id("rec-wizard").click()
+        dialog.get_by_label("ID attribute (optional)").fill("data-attribute-id")
+        dialog.get_by_label("Remove this prefix from field names").fill("LSI_DEMO_")
+        dialog.get_by_test_id("rec-start").click()
+        expect(dialog.get_by_text("3 screens")).to_be_visible(timeout=30_000)
+        expect(dialog.get_by_text("Screen2: 3 fields")).to_be_visible()
+        for i in (1, 2, 3):
+            expect(dialog.get_by_test_id(f"rec-screen-{i}")).to_be_visible()
+        dialog.get_by_test_id("rec-screen-1").fill("Wiz_Business")
+        dialog.get_by_label("Test case ID").fill("TC-SMOKE-WIZ-UI")
+        dialog.get_by_test_id("rec-save").click()
+        expect(dialog).to_be_hidden()
+        expect(page.get_by_text("TC-SMOKE-WIZ-UI").first).to_be_visible()
+        browser.close()
+    pages = sorted(f.name for f in (workspace / "Pages" / "SMOKE").glob("*.json"))
+    assert "Wiz_Business.json" in pages and "Home_Screen2.json" in pages and "Home_Screen3.json" in pages, pages
+
+
 def test_schedule_is_created_and_runs_now(app_url: str):
     problems: list[str] = []
     with sync_playwright() as p:

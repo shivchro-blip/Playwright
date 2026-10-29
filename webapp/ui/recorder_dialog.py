@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING
 from nicegui import ui
 
 from webapp.services.json_files import ConflictError, PathError
-from webapp.services.recorder import Recording, RecorderError, save_recording, suggest_page_name
+from webapp.services.recorder import (
+    DEFAULT_BREAKS, RecordOptions, Recording, RecorderError, save_recording, save_wizard, suggest_page_name,
+)
 from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled
@@ -45,7 +47,8 @@ def open_recorder(gen: GeneratorPanel) -> None:
         return login.base_url if login else ""
 
     session_file = svc.settings.workspace / "Data" / "session.json"
-    state: dict = {"recording": None, "env": env_default}
+    state: dict = {"recording": None, "env": env_default, "wizard": False, "breaks": ", ".join(DEFAULT_BREAKS),
+                   "id_attr": "", "id_prefix": ""}
 
     with ui.dialog().props("persistent") as dialog, ui.card().classes("any-app any-dialog any-details").props(
             'role="dialog" aria-label="Record a test"'):
@@ -87,11 +90,33 @@ def open_recorder(gen: GeneratorPanel) -> None:
                     url = ui.input(value=base_url(state["env"])).props('for="rec-url"').classes("w-full mono-input")
             use_session = ui.switch("Start logged in (saved session, Data/session.json)", value=True) \
                 if session_file.is_file() else None
+            with ui.expansion("Multi-screen flows and site ids", icon=icon("list-checks")).classes("any-disclosure"):
+                with ui.element("div").classes("any-disclosure-body"):
+                    ui.switch("Split into one page per screen (wizard mode)", value=state["wizard"],
+                              on_change=lambda e: state.update(wizard=e.value)).props('data-testid="rec-wizard"')
+                    with labelled("A screen ends when one of these buttons is clicked", "rec-breaks"):
+                        ui.input(value=state["breaks"], on_change=lambda e: state.update(breaks=e.value or "")) \
+                            .props('for="rec-breaks"').classes("w-full")
+                    with ui.element("div").classes("any-form-row"):
+                        with labelled("ID attribute (optional)", "rec-id-attr").classes("is-grow"):
+                            ui.input(value=state["id_attr"], placeholder="data-attribute-id",
+                                     on_change=lambda e: state.update(id_attr=(e.value or "").strip())) \
+                                .props('for="rec-id-attr"').classes("w-full mono-input")
+                        with labelled("Remove this prefix from field names", "rec-id-prefix").classes("is-grow"):
+                            ui.input(value=state["id_prefix"], placeholder="LSI_APP_",
+                                     on_change=lambda e: state.update(id_prefix=(e.value or "").strip())) \
+                                .props('for="rec-id-prefix"').classes("w-full mono-input")
+                    ui.label("Elements that carry the ID attribute are located by it and named after it "
+                             "(LSI_APP_TaxNotPaid becomes TaxNotPaid).").classes("any-muted text-xs")
             with ui.element("div").classes("any-dialog-actions is-start"):
                 def start() -> None:
                     storage = session_file if use_session is not None and use_session.value else None
+                    options = RecordOptions(
+                        break_on=tuple(b.strip() for b in state["breaks"].split(",") if b.strip())
+                        if state["wizard"] else (),
+                        id_attribute=state["id_attr"], id_prefix=state["id_prefix"])
                     try:
-                        svc.recorder.start((url.value or "").strip(), storage)
+                        svc.recorder.start((url.value or "").strip(), storage, options)
                     except RecorderError as e:
                         ui.notify(str(e), type="warning", multi_line=True)
                         return
@@ -113,7 +138,8 @@ def open_recorder(gen: GeneratorPanel) -> None:
 
         def review(rec: Recording) -> None:
             with ui.element("div").classes("any-lc-summary"):
-                for label, n in (("fields", len(rec.fields)), ("actions", rec.actions)):
+                counts = (("screens", len(rec.screens)),) if rec.screens else ()
+                for label, n in (*counts, ("fields", rec.field_count), ("actions", rec.actions)):
                     with ui.element("span").classes("any-pill pill-running"):
                         ui.element("span").classes("dot").props('aria-hidden="true"')
                         text("span", f"{n} {label}")
@@ -123,20 +149,26 @@ def open_recorder(gen: GeneratorPanel) -> None:
                 with ui.element("div").classes("any-callout is-inline").props('role="status"'):
                     ui.icon(icon("triangle-alert")).props('aria-hidden="true"')
                     text("div", warning, "any-callout-text")
-            if rec.fields:
+            groups = [(s.name, s.fields) for s in rec.screens] if rec.screens else [("", rec.fields)]
+            for screen_name, fields in groups:
+                if not fields:
+                    continue
+                if screen_name:
+                    text("h3", f"{screen_name}: {len(fields)} field{'' if len(fields) == 1 else 's'}", "any-eyebrow")
                 with ui.element("div").classes("any-table-wrap"):
                     rows = [{"name": n, "type": c.get("type", ""), "locator": _describe(c)}
-                            for n, c in rec.fields.items()]
+                            for n, c in fields.items()]
                     ui.table(rows=rows, row_key="name", pagination=0, columns=[
                         {"name": "name", "label": "Field", "field": "name", "align": "left"},
                         {"name": "type", "label": "Type", "field": "type", "align": "left"},
                         {"name": "locator", "label": "Locator", "field": "locator", "align": "left"},
                     ]).props("flat square hide-bottom").classes("w-full any-table is-compact")
+            steps_json = {s.name: s.steps[0] for s in rec.screens} if rec.screens else rec.steps
             with ui.expansion("Steps (formData)", icon=icon("braces")).classes("any-disclosure"):
-                text("pre", json.dumps(rec.steps, indent=2, ensure_ascii=False), "any-pre")
+                text("pre", json.dumps(steps_json, indent=2, ensure_ascii=False), "any-pre")
             with ui.expansion("Recorded code (credentials masked)", icon=icon("terminal")).classes("any-disclosure"):
                 text("pre", rec.source, "any-pre")
-            if not rec.fields:
+            if not rec.field_count:
                 with ui.element("div").classes("any-dialog-actions is-start"):
                     ui.button("Record again", icon=icon("rotate-cw"), color=None,
                               on_click=lambda: (state.update(recording=None), body.refresh())) \
@@ -147,13 +179,26 @@ def open_recorder(gen: GeneratorPanel) -> None:
         def save_form(rec: Recording) -> None:
             suggested = suggest_page_name(rec.start_url)
             pages = sorted(set(svc.pom.screen_index(system)) | {suggested}, key=str.casefold)
+            wizard = bool(rec.screens)
+            screen_inputs: list = []
             files = svc.tests.files(system)
             stamp = datetime.now().strftime("%Y%m%d-%H%M")
             text("h3", "Save as", "any-eyebrow")
             with ui.element("div").classes("any-form-row"):
-                with labelled("Page (new, or an existing one to add fields to)", "rec-page").classes("is-grow"):
-                    page = ui.select(pages, value=suggested, with_input=True,
-                                     new_value_mode="add-unique").props('for="rec-page"').classes("w-full")
+                if wizard:
+                    stem = suggested.removesuffix("Page")
+                    with ui.element("div").classes("is-grow flex flex-col gap-2"):
+                        text("div", "One page per screen (new, or an existing page to add fields to)", "any-label")
+                        for i, screen in enumerate(rec.screens, 1):
+                            n = len(screen.fields)
+                            screen_inputs.append(
+                                ui.input(value=f"{stem}_{screen.name}",
+                                         label=f"Screen {i}: {n} field{'' if n == 1 else 's'}")
+                                .props(f'data-testid="rec-screen-{i}"').classes("w-full mono-input"))
+                else:
+                    with labelled("Page (new, or an existing one to add fields to)", "rec-page").classes("is-grow"):
+                        page = ui.select(pages, value=suggested, with_input=True,
+                                         new_value_mode="add-unique").props('for="rec-page"').classes("w-full")
                 with labelled("Test case ID", "rec-tc").classes("is-grow"):
                     test_id = ui.input(value=f"TC-{system}-REC-{stamp}").props('for="rec-tc"').classes("w-full")
             with ui.element("div").classes("any-form-row"):
@@ -172,21 +217,32 @@ def open_recorder(gen: GeneratorPanel) -> None:
                 try:
                     rel = svc.tests.normalize_file_name(new_name.value or "") if file_sel.value == NEW_FILE \
                         else file_sel.value
-                    saved = save_recording(
-                        svc.pom, svc.tests, system, rec, page_name=str(page.value or ""),
-                        base_url=base_url(state["env"]), test_id=test_id.value or "", test_file=rel,
-                        env=state["env"] or "", tags=[t.strip() for t in (tags.value or "").split(",") if t.strip()],
-                        description=f"Recorded {datetime.now():%Y-%m-%d %H:%M} from {rec.start_url}")
+                    common = dict(base_url=base_url(state["env"]), test_id=test_id.value or "", test_file=rel,
+                                  env=state["env"] or "",
+                                  tags=[t.strip() for t in (tags.value or "").split(",") if t.strip()],
+                                  description=f"Recorded {datetime.now():%Y-%m-%d %H:%M} from {rec.start_url}")
+                    if wizard:
+                        saved = save_wizard(svc.pom, svc.tests, system, rec,
+                                            page_names=[str(i.value or "") for i in screen_inputs], **common)
+                    else:
+                        saved = save_recording(svc.pom, svc.tests, system, rec, page_name=str(page.value or ""),
+                                               **common)
                 except SAVE_ERRORS as e:
                     ui.notify(f"Not saved: {e}", type="negative", multi_line=True)
                     return
-                audit("recording.save", f"{system}/{saved.page_rel}", test_file=saved.test_file,
-                      test_id=test_id.value)
+                if wizard:
+                    audit("recording.save", f"{system}/{test_id.value}", test_file=saved.test_file,
+                          pages=[p[0] for p in saved.pages], test_id=test_id.value)
+                    message = (f"{len(saved.pages)} pages saved; test case {test_id.value} added to "
+                               f"{saved.test_file}")
+                else:
+                    audit("recording.save", f"{system}/{saved.page_rel}", test_file=saved.test_file,
+                          test_id=test_id.value)
+                    verb = "created" if saved.page_created else "updated"
+                    message = f"Page {page.value} {verb}; test case {test_id.value} added to {saved.test_file}"
                 timer.deactivate()
                 dialog.close()
-                verb = "created" if saved.page_created else "updated"
-                ui.notify(f"Page {page.value} {verb}; test case {test_id.value} added to {saved.test_file}",
-                          type="positive", multi_line=True)
+                ui.notify(message, type="positive", multi_line=True)
                 gen.tests.reload_list()
                 gen.pages.list_view.refresh()
                 gen.sections.set_value(gen.tests_tab)

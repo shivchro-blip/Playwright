@@ -45,7 +45,16 @@ Record a test by clicking through the site instead of writing locators by hand. 
 2. A Chromium window opens on this computer (Playwright codegen). Click and type through the flow, then close the window.
 3. Review what was recorded: the fields (locators), the step's form data and any warnings, then pick a page (a new one, or an existing page to add fields to; fields with the same locator are reused) and a test file, and **Save page and test case**.
 
-The whole recording becomes one page step; a field used again gets a pipe suffix (`q|`). Not converted: assertions (`expect`), actions inside iframes, and later navigations (they are reported as warnings). Values typed into fields that look like passwords or codes are **not saved**; use `ENV.<KEY>` values instead.
+The whole recording becomes one page step; a field used again gets a pipe suffix (`q|`).
+
+### Multi-screen flows (wizard mode)
+
+For a long flow with a "Save & Continue" button on every screen, open **Multi-screen flows and site ids** in the Record dialog:
+
+- **Split into one page per screen** - a click on one of the listed buttons (default: `Save & Continue`, `Save and Continue`, `Next`, `Continue`, `Submit`) ends the screen. Each screen becomes its own page and its own `screen` step, so the report names the screen that failed and each page stays small. Only the first page navigates (it gets the start URL); the others pick up where the previous screen left off. Button names are matched exactly (case-insensitive), so a `Next month` button does not end a screen. Name each page in the review before saving; names that already exist get the new fields merged in.
+- **ID attribute** - if your site marks elements with an attribute such as `data-attribute-id`, enter it. The recorder passes it to Playwright codegen, writes locators like `[data-attribute-id='LSI_APP_TaxNotPaid'] button:text-is('No')`, and names the field `TaxNotPaid` (set **Remove this prefix** to `LSI_APP_`). It works without wizard mode too.
+
+Check the fields and locators in the review: the recorder can only turn into fields what codegen writes. Not converted: assertions (`expect`), actions inside iframes, and later navigations (they are reported as warnings). Values typed into fields that look like passwords or codes are **not saved**; use `ENV.<KEY>` values instead.
 
 The recorder only works when the web app listens on this machine (`AUTOMATENY_HOST=127.0.0.1`), because the browser opens where the app runs.
 

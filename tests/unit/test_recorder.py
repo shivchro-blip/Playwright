@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -11,7 +12,8 @@ import pytest
 from webapp.services.env_config import FIELDS, RUN_OPTION_KEYS, EnvConfigService
 from webapp.services.pom_service import PomService
 from webapp.services.recorder import (
-    Recorder, RecorderError, field_config, merge_fields, parse_codegen, save_recording, suggest_page_name,
+    RecordOptions, Recorder, RecorderError, field_config, merge_fields, parse_codegen, save_recording, save_wizard,
+    suggest_page_name,
 )
 from webapp.services.test_case_service import TestCaseService as CaseService  # pytest collects Test* names
 
@@ -198,3 +200,84 @@ def test_cancel_ends_the_codegen_process_and_discards_the_recording(tmp_path):
     while session.workdir.exists() and time.monotonic() < deadline:
         time.sleep(0.1)
     assert session.status == "cancelled" and session.recording is None and not session.workdir.exists()
+
+
+# ───────────── wizard mode ─────────────
+
+def services(root: Path):
+    pom = PomService(root, root)
+    return pom, CaseService(root, pom)
+
+WIZARD = RecordOptions(break_on=("Save & Continue", "Next"), id_attribute="data-attribute-id", id_prefix="LSI_DTF17_")
+
+
+def wizard_recording():
+    return parse_codegen(codegen(
+        'page.get_by_test_id("LSI_DTF17_BusAct").locator("textarea").click()',
+        'page.get_by_test_id("LSI_DTF17_BusAct").locator("textarea").fill("describe it")',
+        'page.get_by_test_id("LSI_DTF17_HomeBased").get_by_role("button", name="No").click()',
+        'page.get_by_role("button", name="Save & Continue").click()',
+        'page.get_by_test_id("LSI_DTF17_TaxCrime").get_by_role("button", name="No", exact=True).click()',
+        'page.get_by_role("button", name="Next month").click()',
+        'page.get_by_role("button", name="Save & Continue").click()',
+        'page.get_by_role("button", name="Submit Application").click()'), WIZARD)
+
+
+def test_wizard_splits_at_navigation_buttons():
+    rec = wizard_recording()
+    assert [s.name for s in rec.screens] == ["Screen1", "Screen2", "Screen3"]
+    first, second, third = rec.screens
+    assert first.steps == [{"BusAct": "describe it", "HomeBased": "click", "saveContinueButton": "click"}]
+    assert second.steps == [{"TaxCrime": "click", "nextMonthButton": "click", "saveContinueButton": "click"}]
+    assert third.steps == [{"submitApplicationButton": "click"}]  # "Next month" did not end screen 2
+    assert rec.field_count == 7 and rec.fields == {} and rec.steps == []
+
+
+def test_wizard_uses_the_site_id_for_locators_and_names():
+    first = wizard_recording().screens[0]
+    assert first.fields["BusAct"] == {"locator": "[data-attribute-id='LSI_DTF17_BusAct'] textarea", "type": "text"}
+    assert first.fields["HomeBased"]["locator"] == "[data-attribute-id='LSI_DTF17_HomeBased'] button:has-text('No')"
+    exact = wizard_recording().screens[1].fields["TaxCrime"]["locator"]
+    assert exact == "[data-attribute-id='LSI_DTF17_TaxCrime'] button:text-is('No')"
+
+
+def test_id_attribute_without_wizard_mode_keeps_one_page():
+    rec = parse_codegen(codegen('page.get_by_test_id("LSI_DTF17_Zip").locator("input").fill("12206")',
+                                'page.get_by_role("button", name="Save & Continue").click()'),
+                        RecordOptions(id_attribute="data-attribute-id", id_prefix="LSI_DTF17_"))
+    assert rec.screens == [] and list(rec.fields) == ["Zip", "saveContinueButton"]
+
+
+def test_save_wizard_writes_a_page_per_screen_and_one_step_each(tmp_path: Path):
+    pom, tests = services(tmp_path)
+    names = ["DTF17_Business", "DTF17_Tax", "DTF17_Submit"]
+    saved = save_wizard(pom, tests, "NYBE2", wizard_recording(), page_names=names,
+                        base_url="https://shop.test", test_id="TC_DTF17_REC", test_file="Rec.json", env="dev")
+    assert [p[0] for p in saved.pages] == names
+    page1, _ = pom.load("NYBE2", saved.pages[0][1])
+    page2, _ = pom.load("NYBE2", saved.pages[1][1])
+    assert page1["path"] == "/login" and "path" not in page2  # only the first screen navigates
+    case, _ = tests.get("NYBE2", "Rec.json", saved.test_index)
+    assert [s["screen"] for s in case["steps"]] == names
+    assert case["steps"][0]["formData"]["BusAct"] == "describe it"
+
+
+def test_save_wizard_checks_names_before_writing(tmp_path: Path):
+    pom, tests = services(tmp_path)
+    for names in (["A", "a", "C"], ["A", "", "C"], ["A", "B"]):
+        with pytest.raises(RecorderError):
+            save_wizard(pom, tests, "NYBE2", wizard_recording(), page_names=names, base_url="", test_id="T",
+                        test_file="Rec.json")
+    assert pom.screen_index("NYBE2") == {}
+
+
+def test_recorder_passes_the_id_attribute_to_codegen():
+    seen = Path(tempfile.mkdtemp()) / "argv.txt"
+    fake = Path(tempfile.mkdtemp()) / "fake.py"
+    fake.write_text(f"import sys\nopen({str(seen)!r}, 'w').write(' '.join(sys.argv[1:]))\n", encoding="utf-8")
+    recorder = Recorder(command=[sys.executable, str(fake)])
+    recorder.start("http://127.0.0.1:1/", options=RecordOptions(id_attribute="data-attribute-id"))
+    deadline = time.monotonic() + 15
+    while recorder.active and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert "--test-id-attribute data-attribute-id" in seen.read_text()
