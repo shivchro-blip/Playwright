@@ -9,8 +9,9 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-SECRET_PATTERN = re.compile(r"(USERNAME|PASS|PWD|SECRET|TOKEN|APIKEY|API_KEY|_KEY|KEY_|CREDENTIAL|AUTH|COOKIE|PRIVATE)",
-                            re.IGNORECASE)
+# NOTIFY_*: notification webhook URLs and SMTP settings (a webhook URL is a credential)
+SECRET_PATTERN = re.compile(r"(USERNAME|PASS|PWD|SECRET|TOKEN|APIKEY|API_KEY|_KEY|KEY_|CREDENTIAL|AUTH|COOKIE|PRIVATE"
+                            r"|^NOTIFY_)", re.IGNORECASE)
 # Line breaks other than \n (\r, \v, \f, \x1c-\x1e, \x85, \u2028, \u2029) and other control characters:
 # str.splitlines() and python-dotenv would read them as new lines, i.e. new keys.
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+")

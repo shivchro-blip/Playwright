@@ -621,3 +621,15 @@
 .any-rec-live { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border: 1px solid var(--fail-border); background: var(--fail-hover); border-radius: 10px; }
 .any-rec-dot { width: 12px; height: 12px; margin-top: 4px; border-radius: 50%; background: var(--fail); flex-shrink: 0; animation: any-pulse 1.4s ease-in-out infinite; }
 .any-rec-title { font-weight: 600; color: var(--fail); }
+
+/* Schedules */
+.any-dialog.any-schedule { width: min(860px, 96vw); }
+.any-switch-row { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.any-channels { display: flex; flex-direction: column; gap: 8px; }
+.any-channel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-height: 40px; }
+.any-channel > .q-toggle { min-width: 190px; }
+.any-channel-cfg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.any-channel-status { font-size: 12.5px; }
+.any-channel-status.is-ok { color: var(--pass-ink); }
+.any-channel-status.is-missing { color: var(--warn-body); }
+.any-app .any-muted.is-invalid { color: var(--fail); }

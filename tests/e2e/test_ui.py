@@ -128,3 +128,32 @@ def test_recorder_is_off_by_default_and_records_a_test(app_url: str, tmp_path: P
         browser.close()
     assert "recorderEnabled=false" in (tmp_path / "ui.env").read_text(encoding="utf-8")
     assert problems == []
+
+
+def test_schedule_is_created_and_runs_now(app_url: str):
+    problems: list[str] = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("pageerror", lambda e: problems.append(str(e)))
+        page.goto(app_url, wait_until="networkidle")
+        page.get_by_role("tab", name="Schedules").click()
+        page.get_by_test_id("new-schedule").click()
+        dialog = page.get_by_role("dialog", name="New schedule")
+        dialog.get_by_label("Name").fill("UI smoke")
+        dialog.locator("#sch-tags").click()
+        page.keyboard.type("smoke")
+        page.keyboard.press("Enter")
+        page.keyboard.press("Escape")
+        expect(dialog.get_by_text("2 test cases match these tags.")).to_be_visible()
+        expect(dialog.get_by_test_id("sch-next")).to_contain_text("On weekdays at 06:30")
+        dialog.get_by_test_id("sch-save").click()
+        expect(dialog).to_be_hidden()
+        row = page.get_by_role("region", name="Schedules").locator("tbody tr").filter(has_text="UI smoke")
+        expect(row).to_contain_text("On weekdays at 06:30")
+        row.get_by_role("button", name="Run UI smoke now").click()
+        expect(page.locator(".any-headline")).to_have_text("Passed", timeout=180_000)
+        page.get_by_role("tab", name="History").click()
+        expect(page.get_by_role("region", name="Runs").get_by_text("scheduled").first).to_be_visible()
+        browser.close()
+    assert problems == []

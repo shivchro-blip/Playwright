@@ -9,6 +9,7 @@ from nicegui import ui
 from webapp.services.run_manager import Run
 from webapp.state import services
 from webapp.services.run_insights import flaky_tests
+from webapp.services.schedules import TRIGGER
 from webapp.ui.components import (
     RESULT_COLUMNS, field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table,
     text,
@@ -135,6 +136,7 @@ class HistoryPanel:
             "status": r.status, "target": f"{r.config.system}/{r.config.env}", "tags": ", ".join(r.config.tags),
             "tests": ", ".join(r.config.test_ids), "browsers": ", ".join(r.config.browsers),
             "result": " ".join(f"{k}:{v}" for k, v in sorted(r.counts().items())),
+            "scheduled": r.trigger.startswith(TRIGGER),
         } for r in self._runs()]
         self.count_pill.text = f"{len(rows)} {'run' if len(rows) == 1 else 'runs'}"
         with ui.element("div").classes("any-table-wrap"):
@@ -149,7 +151,9 @@ class HistoryPanel:
                 {"name": "result", "label": "Result", "field": "result", "align": "left"},
             ], on_select=lambda e: self._select(e.selection)).classes("w-full is-clickable")
             styled_table(table, len(rows), wide=True)
-            table.add_slot("body-cell-status", f'<q-td :props="props">{status_pill_template()}</q-td>')
+            table.add_slot("body-cell-status", f'''<q-td :props="props">{status_pill_template()}
+                <span v-if="props.row.scheduled" class="any-tag" title="Started by a schedule">scheduled</span>
+                </q-td>''')
             for col in ("started", "duration", "result"):
                 table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
             table.add_slot("no-data", '<div class="any-muted text-sm">No runs match.</div>')
@@ -228,7 +232,8 @@ class HistoryPanel:
                 for label, value in (("System", cfg.system), ("Environment", cfg.env or "-"),
                                      ("Tags", ", ".join(cfg.tags)), ("Browsers", ", ".join(cfg.browsers)),
                                      ("Workers", str(cfg.workers)), ("Only tests", ", ".join(cfg.test_ids) or "-"),
-                                     ("Exit code", str(run.exit_code)), ("Options", options)):
+                                     ("Exit code", str(run.exit_code)), ("Started by", self._started_by(run)),
+                                     ("Options", options)):
                     with ui.element("div").classes("any-fact" + (" is-wide" if label == "Options" else "")):
                         text("dt", label, "any-eyebrow")
                         text("dd", value)
@@ -242,6 +247,12 @@ class HistoryPanel:
                     .props(f'expand-icon="{icon("chevron-down")}"').classes("any-disclosure is-console"):
                 with ui.element("div").classes("any-console is-inline"):
                     ConsoleView(max_lines=300, lines=run.log[-300:] or ["(empty)"])
+
+    def _started_by(self, run: Run) -> str:
+        if not run.trigger.startswith(TRIGGER):
+            return "A person"
+        schedule = self.svc.schedules.get(run.trigger[len(TRIGGER):])
+        return f"Schedule: {schedule.name}" if schedule else "A schedule (since deleted)"
 
     @staticmethod
     def _pill(status: str) -> None:

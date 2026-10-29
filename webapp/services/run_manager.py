@@ -21,6 +21,7 @@ import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 
 from webapp.pytest_events import PREFIX
 from webapp.services.env_config import RUN_OPTION_KEYS, format_value, is_secret
@@ -77,6 +78,7 @@ class Run:
     collected: int | None = None
     report_status: str = ""  # "" | generating | ready | unavailable | failed
     report_message: str = ""
+    trigger: str = ""  # "" = started by a person; "schedule:<id>" = started by a schedule
     results: dict[str, TestResult] = field(default_factory=dict)
     log: list[str] = field(default_factory=list, repr=False)
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
@@ -126,6 +128,7 @@ class Run:
             "counts": self.counts(),
             "report_status": self.report_status,
             "report_message": self.report_message,
+            "trigger": self.trigger,
             "results": [asdict(r) for r in list(self.results.values())],
         }
 
@@ -141,6 +144,8 @@ class RunManager:
         self.max_concurrent = max_concurrent
         self._runs: dict[str, Run] = {}
         self._lock = threading.Lock()
+        # Called with each run once it has finished and its reports are written (e.g. notifications)
+        self.listeners: list[Callable[[Run], None]] = []
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self._load_history()
 
@@ -157,7 +162,7 @@ class RunManager:
 
     # ───────────── commands ─────────────
 
-    def start(self, config: RunConfig, expected: int = 0) -> Run:
+    def start(self, config: RunConfig, expected: int = 0, trigger: str = "") -> Run:
         config.tags = [t.strip() for t in config.tags if t and t.strip()]
         config.browsers = [b.strip().lower() for b in config.browsers if b and b.strip()] or ["chrome"]
         config.workers = max(1, int(config.workers or 1))
@@ -180,7 +185,7 @@ class RunManager:
             if len(active) >= self.max_concurrent:
                 raise RuntimeError(f"Run {active[0].id} is still in progress.")
             run_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(2)
-            run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected)
+            run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger)
             run.dir.mkdir(parents=True)
             self._runs[run_id] = run
 
@@ -316,6 +321,11 @@ class RunManager:
         self.write_summary(run)
         self._generate_report(run)
         self._save(run)
+        for listener in list(self.listeners):
+            try:
+                listener(run)
+            except Exception:  # a listener must never break the run thread
+                logger.exception("Run listener failed for %s", run.id)
 
     def _final_status(self, run: Run) -> str:
         if run._cancelled:
@@ -436,6 +446,7 @@ class RunManager:
                     finished_at=data.get("finished_at", ""), exit_code=data.get("exit_code"),
                     error=data.get("error", ""), collected=data.get("collected"),
                     report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
+                    trigger=data.get("trigger", ""),
                     results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
                 )
             except (OSError, ValueError, KeyError, TypeError):

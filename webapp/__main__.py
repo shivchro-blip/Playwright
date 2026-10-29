@@ -21,6 +21,8 @@ def main() -> None:
     # Per-run folders: allure-report/index.html, console.log, raw allure-results
     app.add_static_files("/runs", s.resolved_runs_dir, max_cache_age=0)
     shell.register()
+    if s.scheduler_enabled:
+        svc.scheduler.start()
 
     logging.getLogger("webapp").info(
         "workspace=%s dotenv=%s runs=%s allure=%s",
