@@ -16,6 +16,7 @@ from webapp.services.test_case_service import STEP_KINDS
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.locator_dialog import open_locator_check
+from webapp.ui.recorder_dialog import open_recorder
 from webapp.ui.theme import icon, svg
 
 VALUE_KINDS = {"text": "Text", "auto": "Auto", "number": "Number", "json": "JSON"}
@@ -981,11 +982,21 @@ class GeneratorPanel:
                         ui.select(systems, value=self.system, on_change=self.on_system) \
                             .props('for="gen-system"').classes("w-48")
                     ui.label("Edits are saved straight to the workspace JSON files.").classes("any-muted text-sm")
-                with ui.tabs().props('no-caps inline-label indicator-color="transparent" '
-                                     'aria-label="Generator sections"').classes("any-subtabs") as tabs:
-                    tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
-                    pages_tab = ui.tab("Pages", icon=icon("app-window"))
-                self.sections, self.pages_tab = tabs, pages_tab
+                with ui.element("div").classes("any-head-right"):
+                    with ui.element("div").classes("any-recorder"):
+                        self.recorder_switch = ui.switch("Recorder", value=self.svc.recorder_enabled(),
+                                                         on_change=self._toggle_recorder) \
+                            .props('data-testid="recorder-switch"') \
+                            .tooltip("Record tests in a real browser (Playwright codegen). Saved to .env.")
+                        self.record_button = ui.button("Record", icon=icon("circle-play"), color=None,
+                                                       on_click=lambda: open_recorder(self)) \
+                            .props('flat unelevated no-caps data-testid="record-button"').classes("any-btn is-38")
+                        self.record_button.set_visibility(bool(self.recorder_switch.value))
+                    with ui.tabs().props('no-caps inline-label indicator-color="transparent" '
+                                         'aria-label="Generator sections"').classes("any-subtabs") as tabs:
+                        tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
+                        pages_tab = ui.tab("Pages", icon=icon("app-window"))
+                self.sections, self.pages_tab, self.tests_tab = tabs, pages_tab, tests_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
                     self.tests = TestEditor(self)
@@ -1003,6 +1014,15 @@ class GeneratorPanel:
         if refs:
             self.pages.json_mode = False
             await self.pages.open(refs[0].rel)
+
+    def _toggle_recorder(self, e) -> None:
+        try:
+            self.svc.env.save({"recorderEnabled": bool(e.value)})
+        except (ValueError, OSError) as err:
+            ui.notify(f"Could not save the setting to .env: {err}", type="negative")
+            return
+        self.record_button.set_visibility(bool(e.value))
+        ui.notify("Recorder on: use Record to capture a test" if e.value else "Recorder off", type="info")
 
     def all_systems(self) -> list[str]:
         return sorted(set(self.svc.pom.systems()) | set(self.svc.tests.systems()) | set(self.svc.systems.systems()))

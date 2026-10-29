@@ -1,6 +1,7 @@
 """UI smoke: every tab, a run from Control, a test's details, the built-in report, a Generator locator check."""
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -24,8 +25,10 @@ def app_url(workspace: Path, tmp_path: Path):
     port = free_port()
     # Drop PYTEST_* variables: NiceGUI treats them as its own screen-test mode
     base_env = {k: v for k, v in os.environ.items() if not k.startswith("PYTEST_")}
+    fake_codegen = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake_codegen.py"
     env = {**base_env, "AUTOMATENY_PORT": str(port), "AUTOMATENY_RUNS_DIR": str(tmp_path / "runs"),
-           "AUTOMATENY_DOTENV_PATH": str(env_file), "PYTHONUNBUFFERED": "1"}
+           "AUTOMATENY_DOTENV_PATH": str(env_file), "PYTHONUNBUFFERED": "1",
+           "AUTOMATENY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)])}
     log = (tmp_path / "webapp.log").open("w", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, "-m", "webapp"], cwd=REPO_ROOT, env=env, stdout=log,
                             stderr=subprocess.STDOUT)
@@ -91,4 +94,37 @@ def test_every_tab_loads_and_a_run_passes(app_url: str):
         expect(check.get_by_test_id("lc-count")).to_have_text("1 match", timeout=60_000)
         expect(check.locator("figure img")).to_be_visible()
         browser.close()
+    assert problems == []
+
+
+def test_recorder_is_off_by_default_and_records_a_test(app_url: str, tmp_path: Path):
+    problems: list[str] = []
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.on("pageerror", lambda e: problems.append(str(e)))
+        page.goto(app_url, wait_until="networkidle")
+        page.get_by_role("tab", name="Generator").click()
+        switch = page.get_by_test_id("recorder-switch")
+        expect(switch).to_have_attribute("aria-checked", "false")
+        expect(page.get_by_test_id("record-button")).to_be_hidden()
+
+        switch.click()
+        expect(page.get_by_test_id("record-button")).to_be_visible()
+        assert "recorderEnabled=true" in (tmp_path / "ui.env").read_text(encoding="utf-8")
+
+        page.get_by_test_id("record-button").click()
+        dialog = page.get_by_role("dialog", name="Record a test")
+        dialog.get_by_test_id("rec-start").click()  # the fake codegen records three fields and exits
+        expect(dialog.get_by_text("3 fields")).to_be_visible(timeout=30_000)
+        dialog.get_by_label("Test case ID").fill("TC-SMOKE-REC-UI")
+        dialog.get_by_test_id("rec-save").click()
+        expect(dialog).to_be_hidden()
+        expect(page.get_by_role("tab", name="Test cases")).to_have_attribute("aria-selected", "true")
+        expect(page.get_by_text("TC-SMOKE-REC-UI").first).to_be_visible()
+
+        switch.click()  # and off again
+        expect(page.get_by_test_id("record-button")).to_be_hidden()
+        browser.close()
+    assert "recorderEnabled=false" in (tmp_path / "ui.env").read_text(encoding="utf-8")
     assert problems == []

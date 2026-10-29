@@ -8,6 +8,7 @@ from functools import lru_cache
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
 from webapp.services.pom_service import PomService
+from webapp.services.recorder import Recorder
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
 from webapp.services.system_data import SystemDataService
@@ -27,6 +28,19 @@ class Services:
     tests: TestCaseService
     help: HelpService
     artifacts: RunArtifacts
+    recorder: Recorder
+
+    def recorder_enabled(self) -> bool:
+        return self.env.load().get("recorderEnabled", "false").strip().lower() in ("1", "true", "yes", "on")
+
+    def recorder_blocker(self) -> str:
+        """Why the recorder can't start right now ("" = it can)."""
+        if not self.recorder_enabled():
+            return "The test recorder is turned off. Turn it on with the Recorder switch in the Generator."
+        if self.settings.host not in ("127.0.0.1", "localhost", "::1"):
+            return ("The recorder opens a browser on the machine running the app, so it only works when the app "
+                    "listens on this machine only (AUTOMATENY_HOST=127.0.0.1).")
+        return ""
 
     def credential_status(self, system: str | None, env: str | None) -> list[dict] | None:
         """Which credential env vars a system/env needs and whether each is set. Never returns values.
@@ -50,6 +64,7 @@ def services() -> Services:
         tests=TestCaseService(s.workspace, pom),
         help=HelpService(s.repo_root / "docs" / "help"),
         artifacts=RunArtifacts("/runs"),
+        recorder=Recorder(s.python_exe, s.recorder_command or None),
         settings=s,
         env=EnvConfigService(s.dotenv_path),
         systems=SystemDataService(s.systemdata_path),
