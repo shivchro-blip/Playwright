@@ -63,6 +63,5 @@ build/
 /errors/
 # Generated / local-only
 graphify-out/
-.claude/
 workspace/Data/Documents/*
 !workspace/Data/Documents/.gitkeep
