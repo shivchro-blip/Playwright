@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -59,6 +60,10 @@ def running_app(tmp_path: Path, **extra_env: str):
             proc.kill()
         log.close()
         server_log = (tmp_path / "webapp.log").read_text(encoding="utf-8")
+        # Windows' proactor loop logs this when the browser closes a socket first; it is not an app error
+        server_log = re.sub(
+            r"ERROR asyncio: Exception in callback _ProactorBasePipeTransport\._call_connection_lost\(\).*?"
+            r"ConnectionResetError: \[WinError 10054\][^\n]*\n?", "", server_log, flags=re.S)
         assert "Traceback" not in server_log, server_log
 
 
@@ -261,3 +266,34 @@ def test_sign_in_roles_and_activity(workspace: Path, tmp_path: Path):
             expect(activity.get_by_test_id("activity-table")).to_contain_text("denied")
             browser.close()
     assert problems == []
+
+
+def test_tags_follow_the_selected_system(workspace: Path, tmp_path: Path):
+    """The saved tag (smoke) belongs to SMOKE; picking another system must not keep it selected."""
+    (workspace / "Tests" / "OTHER" / "MasterRegressionSuite").mkdir(parents=True)
+    (workspace / "Tests" / "OTHER" / "MasterRegressionSuite" / "Other.json").write_text(json.dumps({"testCases": [
+        {"testCaseID": "TC-OTHER-001", "system": "OTHER", "tags": ["OTHER", "wcb"],
+         "steps": [{"screen": "SmokeHome", "formData": {}}]}]}), encoding="utf-8")
+    data = json.loads((workspace / "Data" / "systemData.json").read_text(encoding="utf-8"))
+    data["systems"]["OTHER"] = {"dev": {"base_url": "http://127.0.0.1:1", "logged_in_check": "h1"}}
+    (workspace / "Data" / "systemData.json").write_text(json.dumps(data), encoding="utf-8")
+    with running_app(tmp_path) as url:
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={"width": 1440, "height": 900})
+            page.goto(url, wait_until="networkidle")
+            tags = page.locator(".q-field", has=page.locator("#sel-tags"))
+            expect(tags).to_contain_text("smoke")  # from .env: runTags=smoke
+
+            def pick(system: str) -> None:
+                page.locator("#sel-system").click()
+                page.locator(".any-menu .q-item", has_text=system).first.click()
+
+            pick("OTHER")
+            expect(tags).to_contain_text("OTHER")
+            expect(tags).not_to_contain_text("smoke")
+            expect(page.get_by_test_id("run-formula")).to_contain_text("1 test")
+            pick("SMOKE")
+            expect(tags).to_contain_text("smoke")
+            expect(tags).not_to_contain_text("OTHER")
+            browser.close()
