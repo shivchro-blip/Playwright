@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.txt
+      - name: Web app and tests (full lint)
+        run: ruff check --select E,F,W --line-length 120 webapp tests/unit tests/e2e
+      - name: Framework (syntax errors and undefined names)
+        run: ruff check --select E9,F63,F7,F82 utils pages tests/dynamic_test_suite.py conftest.py
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements-dev.txt
+      - name: pip-audit (known vulnerabilities in the locked versions)
+        run: pip-audit -r requirements-lock.txt --require-hashes --disable-pip
+
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: ubuntu-latest
+            python: "3.14"
+          - os: windows-latest
+            python: "3.14"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements-lock.txt
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            python -m playwright install --with-deps chromium
+          else
+            python -m playwright install chromium
+          fi
+      - name: Unit tests
+        run: python -m pytest tests/unit -p no:cacheprovider
+      - name: End-to-end tests (real runs against a local page)
+        run: python -m pytest tests/e2e -p no:cacheprovider --basetemp="${{ runner.temp }}/e2e"
+      - name: Upload e2e run folders
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.os }}-py${{ matrix.python }}
+          path: ${{ runner.temp }}/e2e
+          retention-days: 7
+          if-no-files-found: ignore

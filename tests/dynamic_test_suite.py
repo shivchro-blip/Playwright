@@ -170,7 +170,7 @@ reusableTestCases = {}
 screen_config_cache = {}
 commonActions = {}
 
-reusableTestCasesLoaded = load_all_test_cases(f"{workspaceDir}\\Tests\\", "all", ["applications"], ["dev"])
+reusableTestCasesLoaded = load_all_test_cases(os.path.join(workspaceDir, "Tests"), "all", ["applications"], ["dev"])
 for reusableTestCase in reusableTestCasesLoaded:
     logger.debug("Loaded Reusable Test Case: %s - Steps: %d", reusableTestCase['testCaseID'], len(reusableTestCase['steps']))
     reusableTestCases[reusableTestCase["testCaseID"]] = reusableTestCase
@@ -293,7 +293,7 @@ async def write_allure_environment(results_dir, system, env):
         logger.error(f"Failed to write Allure environment to {results_dir}: {e}")
 
 def build_screen_cache(systemConfig):
-    for dirpath, dirnames, filenames in os.walk(f"{workspaceDir}\\Pages\\{systemConfig}"):
+    for dirpath, dirnames, filenames in os.walk(os.path.join(workspaceDir, "Pages", systemConfig)):
         for filename in filenames:
             if filename.endswith(".json"):
                 screen_name = filename[:-5]  # remove '.json'
@@ -301,7 +301,7 @@ def build_screen_cache(systemConfig):
 
 def load_common_actions():
     global commonActions
-    for dirpath, dirnames, filenames in os.walk(f"{workspaceDir}\\Tests\\com"):
+    for dirpath, dirnames, filenames in os.walk(os.path.join(workspaceDir, "Tests", "com")):
         for filename in filenames:
             if filename.endswith(".json"):
                 filepath = os.path.join(dirpath, filename)

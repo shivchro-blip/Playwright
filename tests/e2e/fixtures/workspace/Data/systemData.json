@@ -1,0 +1,10 @@
+{
+  "systems": {
+    "SMOKE": {
+      "dev": {
+        "base_url": "http://127.0.0.1:{PORT}",
+        "logged_in_check": "h1"
+      }
+    }
+  }
+}

@@ -65,3 +65,7 @@ build/
 graphify-out/
 workspace/Data/Documents/*
 !workspace/Data/Documents/.gitkeep
+
+# Test outputs (CI workflows, pytest-playwright)
+allure-results/
+test-results/

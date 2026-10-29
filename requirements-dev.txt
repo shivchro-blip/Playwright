@@ -1,0 +1,6 @@
+# Developer and CI tools (not needed to run the app). Install after requirements-lock.txt.
+# Regenerate the lock after changing requirements.txt / requirements-web.txt:
+#   uv pip compile requirements-web.txt --universal --python-version 3.12 --generate-hashes --no-header --annotation-style line -o requirements-lock.txt
+ruff==0.17.3
+pip-audit==2.10.1
+uv==0.13.6

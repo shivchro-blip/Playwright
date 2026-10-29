@@ -101,3 +101,19 @@ def test_download_stays_in_downloads_folder(suggested, expected):
 
     asyncio.run(executables.downloadFile({"locator": "a"}, None, Page()))
     assert saved == ["./reports/downloads/" + expected]
+
+
+def test_wait_action_with_a_bad_value_logs_and_continues():
+    # Used to raise NameError ('page' undefined) from the error handler
+    asyncio.run(executables.waitAction({"value": "not-a-number"}))
+
+
+def test_wait_action_cancellation_propagates():
+    async def cancel_during_wait():
+        task = asyncio.create_task(executables.waitAction({"value": "5"}))
+        await asyncio.sleep(0.05)
+        task.cancel()
+        await task
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(cancel_during_wait())

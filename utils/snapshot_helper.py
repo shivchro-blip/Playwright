@@ -13,7 +13,6 @@ import pytest
 from playwright.async_api import  Page,expect, async_playwright, Playwright
 from playwright.async_api import Error as PlaywrightError
 import warnings
-from pywinauto import Application
 import os
 
 # Main logger

@@ -444,9 +444,9 @@ async def waitAction(action):
         wait = int(action.get("value"))
         await asyncio.sleep(wait)
         logger.info("Wait completed")
-    except:
+    except (TypeError, ValueError):  # bad wait value: log and carry on (cancellation must still propagate)
         logger.error(f"Failed to wait - Action: {action}")
-        await attach_allure_failure_details(page, action=action, name="Wait Action Failure")
+        await attach_allure_failure_details(page=None, action=action, name="Wait Action Failure")
         #await addFail(f"Failed to wait - Action:{action}")   - Should we fail here?
 
 async def keyboardAction(action, page):

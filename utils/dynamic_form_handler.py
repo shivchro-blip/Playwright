@@ -37,7 +37,7 @@ logging.getLogger('asyncio').setLevel(logging.INFO)
 
 # Initialize the processor with the JSON configuration file
 randgen_config_path = os.path.join(workspaceDir, "Data", "rand_gen_rules.json")
-# rand_gen_rules functions build paths like f'{cwd}\\data\\Documents\\...', so cwd = workspace
+# rand_gen_rules functions build paths like os.path.join(cwd, 'Data', 'Documents', ...), so cwd = workspace
 processor = RandGen(randgen_config_path, workspaceDir)
 
 dictionary = Dictionary()
