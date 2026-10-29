@@ -4,6 +4,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -59,6 +60,10 @@ def running_app(tmp_path: Path, **extra_env: str):
             proc.kill()
         log.close()
         server_log = (tmp_path / "webapp.log").read_text(encoding="utf-8")
+        # Windows' proactor loop logs this when the browser closes a socket first; it is not an app error
+        server_log = re.sub(
+            r"ERROR asyncio: Exception in callback _ProactorBasePipeTransport\._call_connection_lost\(\).*?"
+            r"ConnectionResetError: \[WinError 10054\][^\n]*\n?", "", server_log, flags=re.S)
         assert "Traceback" not in server_log, server_log
 
 
@@ -310,7 +315,7 @@ def test_login_credentials_can_be_typed_when_not_in_env(workspace: Path, tmp_pat
         box.fill("typed-secret-1")
         page.get_by_test_id("run-button").click()
         expect(page.get_by_text("Missing credentials")).to_have_count(0)
-        expect(page.locator(".any-headline")).to_have_text(__import__("re").compile("Passed|Failed|Running|Queued"),
+        expect(page.locator(".any-headline")).to_have_text(re.compile("Passed|Failed|Running|Queued"),
                                                          timeout=180_000)
         expect(page.get_by_text("typed-secret-1")).to_have_count(0)  # never echoed back
         browser.close()

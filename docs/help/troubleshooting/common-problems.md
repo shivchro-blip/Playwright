@@ -28,6 +28,25 @@ The formData key is not a field of that page. Add the field in **Generator → P
 
 `confirmtext` reads the expected text from the page object field's `contains` key. Check it in the field's **{ }** editor.
 
+## Setup fails: "unable to get local issuer certificate"
+
+`setup.ps1` stops at *Installing Playwright Chromium* with `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Your network (usually a company proxy) re-signs HTTPS traffic with its own root certificate. Windows trusts it, so your browser works, but the Node program that downloads Chromium does not.
+
+`setup.ps1` now retries automatically using the Windows certificate store. If it still fails:
+
+1. Ask IT for the company root certificate (a `.pem` or `.crt` file) and run, in the same PowerShell window:
+
+   ```
+   $env:NODE_EXTRA_CA_CERTS = "C:\path\to\company-root.pem"
+   .\setup.ps1
+   ```
+
+2. If the error is a timeout or "connection refused" instead, the host `cdn.playwright.dev` is blocked: ask IT to allow it, or set `$env:HTTPS_PROXY = "http://proxy-host:port"` and re-run.
+
+Do not set `NODE_TLS_REJECT_UNAUTHORIZED=0`: it switches certificate checking off for everything that process downloads. `setup.ps1` is safe to re-run; it skips what is already installed.
+
+If `pip install` fails with a certificate error, `setup.ps1` retries with `--trusted-host pypi.org --trusted-host files.pythonhosted.org`; this is safe there because every package in `requirements-lock.txt` is checked against its hash. You can also set `$env:PIP_CERT = "C:\path\to\company-root.pem"` (or `pip config set global.cert ...`). `--trusted-host` only affects pip; it does not help the Chromium download, which is why that step has its own fix above.
+
 ## Google (or another public site) shows a captcha
 
 Search engines answer automated searches with a captcha page (`/sorry/`). Test forms and pages without submitting searches.
