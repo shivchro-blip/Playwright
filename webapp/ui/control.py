@@ -12,6 +12,7 @@ from webapp.ui.components import (
     result_slots, styled_table, test_case_template, text, tone,
 )
 from webapp.ui.console_view import ConsoleView
+from webapp.ui.test_details import details_for, has_details, open_test_details
 from webapp.ui.theme import icon, svg
 
 BROWSERS = ["chrome", "msedge", "chromium", "firefox", "webkit"]
@@ -344,6 +345,7 @@ class ControlPanel:
                 ]).classes("w-full")
                 styled_table(self.results_table, 0, wide=True)
                 result_slots(self.results_table)
+                self.results_table.on("rowClick", lambda e: self._open_details(e.args[1]))
             with ui.element("div").classes("any-console").props('aria-label="Console output"'):
                 with ui.element("div").classes("any-console-head"):
                     with ui.element("div").classes("any-console-title"):
@@ -534,6 +536,11 @@ class ControlPanel:
         self.workers_minus.set_enabled(value > WORKERS_MIN)
         self.workers_plus.set_enabled(value < WORKERS_MAX)
 
+    def _open_details(self, row: dict) -> None:
+        run = self._run()
+        if run:
+            open_test_details(run, row)
+
     def _copy_run_id(self) -> None:
         if self.run_id:
             ui.clipboard.write(self.run_id)
@@ -679,10 +686,12 @@ class ControlPanel:
         report_problem = run.report_message if run.report_status in ("unavailable", "failed") else ""
         self.message_view.refresh(run.error or report_problem)
         rows = []
+        details = details_for(run)
         for r in list(run.results.values()):
             name, code = split_test_id(r.test_id)
             rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name, "code": code,
-                         "browser": r.browser, "duration": r.duration, "message": r.message})
+                         "browser": r.browser, "duration": r.duration, "message": r.message,
+                         "has_details": has_details(details, r.test_id, r.browser)})
         self.results_table.rows = rows
         styled_table(self.results_table, len(rows), wide=True)
         self.results_table.update()

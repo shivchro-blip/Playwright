@@ -147,13 +147,18 @@ def result_slots(table: ui.table) -> None:
         <q-td :props="props" class="any-num">{{
           props.row.outcome === 'running' || !props.value ? '—' : props.value.toFixed(2) + ' s'
         }}</q-td>''')
-    table.add_slot("body-cell-message", '''
+    table.add_slot("body-cell-message", f'''
         <q-td :props="props">
-          <span v-if="props.value"
-                :class="['any-msg', ['failed', 'error'].includes(props.row.outcome) ? 'is-fail' : '']"
-          >{{ props.value }}</span>
-          <span v-else class="any-msg">—</span>
+          <div class="any-msg-cell">
+            <span v-if="props.value"
+                  :class="['any-msg', ['failed', 'error'].includes(props.row.outcome) ? 'is-fail' : '']"
+            >{{{{ props.value }}}}</span>
+            <span v-else class="any-msg">—</span>
+            <span v-if="props.row.has_details" class="any-details-chip"
+                  title="Click the row for failure details">{svg("file-text")}Details</span>
+          </div>
         </q-td>''')
+    table.classes("is-clickable")
 
 
 def placeholder(select: ui.select, hint: str) -> ui.select:
