@@ -1,0 +1,10 @@
+{
+  "fullpath": "https://about.google/",
+  "fields": {
+    "pageBody": {
+      "locator": "body",
+      "type": "text",
+      "contains": "Google"
+    }
+  }
+}

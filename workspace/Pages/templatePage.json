@@ -1,0 +1,21 @@
+{
+  "path": "/exampleOptionalUrlRoute",
+  "fields": {
+
+    "fieldOneName": {
+      "locator": "fieldOneLocator",
+      "type": "fieldOneType"
+    },
+
+    "fieldTwoName": {
+      "locator": "fieldTwoLocator",
+      "type": "fieldTwoType"
+    },
+
+    "fieldThreeName": {
+      "locator": "fieldThreeLocator",
+      "type": "fieldThreeType"
+    }
+  }
+
+}

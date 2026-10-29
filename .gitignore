@@ -1,0 +1,69 @@
+# Project Specific
+*.spec
+PROJECT_OVERVIEW.md
+OLDENV.txt
+workspace/.env
+workspace/Data/session.json
+workspace/reports/
+workspace/logs/
+
+.pytest_cache/
+data/session.json
+
+.env
+
+pytest.ini
+
+## GENERAL PYTHON IGNORES -- double check
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.sublime-workspace
+
+# macOS system files
+.DS_Store
+
+# Log files
+logs/
+*.log
+
+# Test coverage reports
+.coverage
+htmlcov/
+*.cover
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+/.vs
+/.env
+/.env
+/.env
+/data/session.json
+/reports/test_report.html
+/tracer
+/videos
+/reports/
+/reports*
+/errors/
+# Generated / local-only
+graphify-out/
+.claude/
+workspace/Data/Documents/*
+!workspace/Data/Documents/.gitkeep

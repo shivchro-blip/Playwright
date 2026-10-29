@@ -1,0 +1,10 @@
+{
+  "systems": {
+    "GOOGLE": {
+      "dev": {
+        "base_url": "https://www.google.com",
+        "logged_in_check": "textarea[name='q']"
+      }
+    }
+  }
+}

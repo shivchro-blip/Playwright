@@ -1,0 +1,13 @@
+[
+  {"id": "getting-started", "category": "Using the web app", "title": "Getting started", "path": "web/getting-started.md", "tags": ["setup", "start", "workspace"]},
+  {"id": "control-tab", "category": "Using the web app", "title": "Control tab", "path": "web/control-tab.md", "tags": ["run", "tags", "browsers", "credentials"]},
+  {"id": "generator-tab", "category": "Using the web app", "title": "Generator tab", "path": "web/generator-tab.md", "tags": ["edit", "test case", "page", "pom"]},
+  {"id": "history-and-reports", "category": "Using the web app", "title": "History and reports", "path": "web/history-and-reports.md", "tags": ["allure", "report", "history", "video", "trace"]},
+  {"id": "framework-overview", "category": "Test framework", "title": "Framework overview", "path": "framework/overview.md", "tags": ["engine", "steps", "pytest"]},
+  {"id": "form-data", "category": "Test framework", "title": "Form data and page mapping", "path": "framework/form-data.md", "tags": ["formData", "locator", "loop", "DICT", "ENV"]},
+  {"id": "system-data", "category": "Test framework", "title": "Systems, environments and login", "path": "framework/system-data.md", "tags": ["systemData", "login", "base_url"]},
+  {"id": "common-actions", "category": "Test framework", "title": "Common actions and reusable tests", "path": "framework/common-actions.md", "tags": ["commonAction", "reuse"]},
+  {"id": "custom-fields", "category": "Test framework", "title": "Custom fields (CUSTOMFIELD_*)", "path": "framework/custom-fields.md", "tags": ["customfield", "random data"]},
+  {"id": "executables", "category": "Test framework", "title": "Action types (executables)", "path": "framework/executables.md", "tags": ["action", "click", "fill", "confirmtext"]},
+  {"id": "common-problems", "category": "Troubleshooting", "title": "Common problems", "path": "troubleshooting/common-problems.md", "tags": ["error", "login", "captcha", "conflict"]}
+]

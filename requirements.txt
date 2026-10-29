@@ -1,0 +1,13 @@
+# Test framework (direct dependencies only). Tested on Python 3.14.
+allure-pytest>=2.16
+Faker>=40
+playwright>=1.64
+pytest>=9.2
+pytest-asyncio>=1.4
+pytest-playwright>=0.10
+pytest-rerunfailures>=16
+pytest-xdist>=3.8
+python-dotenv>=1.2
+PyYAML>=6.0
+pywinauto>=0.6.9
+requests>=2.34
