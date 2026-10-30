@@ -4,19 +4,20 @@ from dotenv import load_dotenv
 from utils.workspace import resolve_workspace_dir, resolve_systemdata_path
 import time
 import logging
+from utils.log_level import from_env as _log_level
 
 load_dotenv()  # Loads variables from .env
 
 workspaceDir = resolve_workspace_dir()
 
 logging.basicConfig(
-    level=logging.INFO,  # Ignore INFO logs
+    level=_log_level(),
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
 # Main logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(_log_level())
 
 # Suppress third-party noisy loggers
 logging.getLogger('playwright').setLevel(logging.INFO)

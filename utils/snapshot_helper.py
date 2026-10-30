@@ -7,6 +7,7 @@ import utils.action_helper as ActionHelper
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 import asyncio
 import logging
+from utils.log_level import from_env as _log_level
 import re
 import json
 import pytest
@@ -17,7 +18,7 @@ import os
 
 # Main logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(_log_level())
 
 # Suppress third-party noisy loggers
 logging.getLogger('playwright').setLevel(logging.INFO)

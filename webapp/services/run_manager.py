@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Callable
 
 from webapp.pytest_events import PREFIX
-from webapp.services.env_config import RUN_OPTION_KEYS, format_value, is_secret
+from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.json_files import NAME_RE
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_insights import build_report
@@ -199,6 +199,10 @@ class RunManager:
         if unknown:
             raise ValueError(f"Unsupported run options: {', '.join(unknown)}")
 
+        level = config.options.get("LOG_LEVEL")
+        if level is not None and level not in LEVELS:
+            raise ValueError(f"Log level must be one of {', '.join(LEVELS)}.")
+
         with self._lock:
             if len(self._queue) >= MAX_QUEUED:
                 raise RuntimeError(f"{MAX_QUEUED} runs are already waiting; try again when some have finished.")
@@ -281,7 +285,7 @@ class RunManager:
             # every machine has - and set what the web app relies on explicitly.
             "-o", "addopts=",
             "-o", "log_cli=true",
-            "-o", "log_cli_level=INFO",
+            "-o", f"log_cli_level={cfg.options.get('LOG_LEVEL') or 'INFO'}",
             "-v",
             f"--rootdir={self.repo_root}",
             f"--alluredir={run.results_dir}",
@@ -298,6 +302,9 @@ class RunManager:
         env = dict(os.environ)
         # The suite loads .env with override=False, so these per-run values win
         env.update({k: format_value(v) for k, v in cfg.options.items()})
+        level = cfg.options.get("LOG_LEVEL")
+        if level:  # one choice for every framework logger, ahead of any per-module level in .env
+            env.update({k: str(level) for k in ("TestSuiteLoggerLevel", "PageLoggerLevel", "FormHandlerLoggerLevel")})
         for key, value in run._secrets.items():
             env.setdefault(key, value)  # never override what the environment already has
         env.update({
