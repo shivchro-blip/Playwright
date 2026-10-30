@@ -1,6 +1,7 @@
 ﻿import os
 import json
 import logging
+from utils.log_level import from_env as _log_level
 import os
 import allure
 from playwright.async_api import expect, TimeoutError as PlaywrightTimeoutError
@@ -13,13 +14,13 @@ from utils.workspace import resolve_workspace_dir
 workspaceDir = resolve_workspace_dir()
 
 logging.basicConfig(
-    level=logging.INFO,  # Ignore INFO logs
+    level=_log_level(),
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
 # Main logger
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(_log_level())
 
 # Suppress third-party noisy loggers
 logging.getLogger('playwright').setLevel(logging.INFO)

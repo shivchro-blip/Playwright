@@ -5,6 +5,7 @@ import re
 
 from nicegui import ui
 
+from webapp.services.env_config import LEVELS
 from webapp.services.run_manager import Run, RunConfig
 from webapp.auth import audit, guard
 from webapp.state import services
@@ -21,6 +22,8 @@ LOG_LINES_SHOWN = 1500
 LOG_LINES_PER_TICK = 400
 ACTIVE = ("queued", "running")
 WORKERS_MIN, WORKERS_MAX = 1, 8
+LOG_LEVEL_LABELS = {"ERROR": "Errors only", "WARNING": "Warnings and errors", "INFO": "Info (default)",
+                    "DEBUG": "Debug (everything)"}
 DENSE_BAR_RUNS = 12  # above this, duration-bar segments drop their labels (tooltips stay)
 
 # Run status -> (tile tone, tile icon, headline)
@@ -162,6 +165,10 @@ class ControlPanel:
                                                       on_click=lambda: self._step(1)) \
                             .props('flat unelevated aria-label="More workers"').classes("any-step-btn")
                     self._on_workers_change()
+
+                with field("Console log level", "sel-loglevel", hint="what the run prints"):
+                    level = cfg["LOG_LEVEL"] if cfg["LOG_LEVEL"] in LEVELS else "INFO"
+                    self.log_level = self._select(LOG_LEVEL_LABELS, level, "sel-loglevel")
 
                 with ui.expansion("Browser & artifacts", icon=icon("sliders-horizontal")) \
                         .props(f'expand-icon="{icon("chevron-down")}" dense-toggle switch-toggle-side=false') \
@@ -596,6 +603,7 @@ class ControlPanel:
             "recording": bool(self.recording.value),
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
+            "LOG_LEVEL": self.log_level.value or "INFO",
         }
 
     def start_run(self) -> None:

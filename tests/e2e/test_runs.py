@@ -66,3 +66,15 @@ def test_failure_details_include_screenshot_and_dom_snapshot(workspace, tmp_path
     assert (run.results_dir / shot.url.rpartition("/")[2]).read_bytes().startswith(b"\x89PNG")
     report = run.summary_file.read_text(encoding="utf-8")  # built-in report, written when the run finished
     assert "TC-SMOKE-004-MissingElement" in report and f'src="allure-results/{shot.url.rpartition("/")[2]}"' in report
+
+
+def test_log_level_decides_which_lines_the_console_gets(workspace, tmp_path):
+    quiet = run_and_wait(workspace, tmp_path, tags=["smoke"], options={"headlessMode": True, "LOG_LEVEL": "WARNING"})
+    assert quiet.status == "passed", "\n".join(quiet.log[-60:])
+    assert not [line for line in quiet.log if " INFO " in line], "\n".join(quiet.log[:60])
+    assert any("PASSED" in line for line in quiet.log)  # pytest's own result lines are not log records
+
+    chatty = run_and_wait(workspace, tmp_path / "again", tags=["smoke"],
+                          options={"headlessMode": True, "LOG_LEVEL": "INFO"})
+    assert chatty.status == "passed"
+    assert [line for line in chatty.log if " INFO " in line]
