@@ -38,6 +38,19 @@ The files keep the same JSON as before; the menu is only a clearer way to write 
 
 **Occurrence (index)** appears on page steps whose page has fields marked `indexed`. It lets one set of fields serve a repeated section: the second row, the second principal. See *Form Data and Page Mapping* for how to set it up.
 
+### Run from a step
+
+For a long flow, debugging step 90 should not mean repeating steps 1 to 89. **From step...** (next to **Run**) runs part of the test case, starting the browser in a saved state:
+
+- **From step / To step** pick the range. Steps are the top-level steps of the test case (a common action is one step).
+- **Saved state after step N-1** starts the browser as it was after the step before: cookies, local and session storage and the page address. It signs in only if that session has expired, opens the saved address, and runs from step N. The option appears once an earlier run saved that state.
+- **Sign in, then open this URL** (prefilled from the step's page) and **Sign in only** start fresh when no state is saved.
+- **Save the state after each step I run** makes the run write those states, so the next run can resume from any step it passed. Run the whole test once with this ticked (From step 1) to create them.
+
+The state is what the portal keeps in the browser or on its own server (a session, a saved draft). It cannot restore text typed into a form that the portal has not saved yet, so a flow whose progress lives only in the page cannot be resumed this way: start the step from a URL instead, or split the flow so each step ends where the portal saves.
+
+Saved states contain session cookies. They stay in the run's folder, are never served by the web app, and are deleted with the run (History > Delete). The newest run's state is used for each step. Under the hood these are the run options `runFromStep`, `runToStep`, `resumeCheckpoint`, `startUrl` and `saveCheckpoints` (one test case only), so the API and `python -m webapp.cli_run` runs can use them too.
+
 ### Check (validation)
 
 Warnings do not block saving:

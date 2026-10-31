@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>AutomateNY steps page</title></head>
+<body>
+  <h1>Three-step flow</h1>
+  <section id="s1" hidden><button id="next1" type="button">Next</button></section>
+  <section id="s2" hidden>
+    <label>City <input id="city"></label>
+    <button id="next2" type="button">Next</button>
+  </section>
+  <section id="s3" hidden>
+    <button id="finish" type="button" disabled>Finish</button>
+    <p id="lost" hidden>session lost</p>
+  </section>
+  <section id="s4" hidden><p id="done">Done</p></section>
+  <script>
+    // Progress lives in localStorage and a token in sessionStorage: what a saved browser state restores
+    const show = () => {
+      const step = Number(localStorage.getItem('step') || 1);
+      ['s1', 's2', 's3', 's4'].forEach((id, i) => { document.getElementById(id).hidden = i + 1 !== step; });
+      const ok = sessionStorage.getItem('token') === 't-123';
+      document.getElementById('finish').disabled = !ok;
+      document.getElementById('lost').hidden = ok || step !== 3;
+    };
+    const go = (n) => { localStorage.setItem('step', String(n)); show(); };
+    document.getElementById('next1').addEventListener('click', () => { sessionStorage.setItem('token', 't-123'); go(2); });
+    document.getElementById('next2').addEventListener('click', () => go(3));
+    document.getElementById('finish').addEventListener('click', () => go(4));
+    show();
+  </script>
+</body>
+</html>

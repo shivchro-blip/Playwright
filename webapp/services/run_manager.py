@@ -23,6 +23,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlsplit
 
 from webapp.pytest_events import PREFIX
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
@@ -202,6 +203,7 @@ class RunManager:
         level = config.options.get("LOG_LEVEL")
         if level is not None and level not in LEVELS:
             raise ValueError(f"Log level must be one of {', '.join(LEVELS)}.")
+        self._check_step_options(config)
 
         with self._lock:
             if len(self._queue) >= MAX_QUEUED:
@@ -215,6 +217,33 @@ class RunManager:
         self._save(run)
         self._dispatch()
         return run
+
+    def _check_step_options(self, config: RunConfig) -> None:
+        """Running from a step is for one test case, with whole-number steps and a saved state or URL that is ours."""
+        o = config.options
+        steps = {}
+        for key in ("runFromStep", "runToStep"):
+            try:
+                steps[key] = int(o.get(key) or 0)
+            except (TypeError, ValueError):
+                raise ValueError(f"{key} must be a whole number.") from None
+            if steps[key] < 0:
+                raise ValueError(f"{key} must not be negative.")
+        if steps["runFromStep"] and steps["runToStep"] and steps["runToStep"] < steps["runFromStep"]:
+            raise ValueError("The last step comes before the first step.")
+        url, resume = str(o.get("startUrl") or "").strip(), str(o.get("resumeCheckpoint") or "").strip()
+        if url:
+            parts = urlsplit(url)
+            if parts.scheme not in ("http", "https") or not parts.netloc:
+                raise ValueError("The start URL must be a full http(s) URL.")
+        if resume:
+            path = Path(resume).resolve()
+            ok = (path.suffix == ".json" and path.parent.parent.name == "checkpoints" and path.is_file()
+                  and self.runs_dir.resolve() in path.parents)
+            if not ok:
+                raise ValueError("The saved state is not one of this app's checkpoints.")
+        if (steps["runFromStep"] or steps["runToStep"] or url or resume) and len(set(config.test_ids)) != 1:
+            raise ValueError("Running from a step needs exactly one test case.")
 
     def queue_position(self, run_id: str) -> int | None:
         """1 = next to start; None when the run is not waiting."""
@@ -305,6 +334,7 @@ class RunManager:
         level = cfg.options.get("LOG_LEVEL")
         if level:  # one choice for every framework logger, ahead of any per-module level in .env
             env.update({k: str(level) for k in ("TestSuiteLoggerLevel", "PageLoggerLevel", "FormHandlerLoggerLevel")})
+        env["checkpointsDir"] = str(run.dir / "checkpoints")  # used when saveCheckpoints is on
         for key, value in run._secrets.items():
             env.setdefault(key, value)  # never override what the environment already has
         env.update({
