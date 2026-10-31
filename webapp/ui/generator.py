@@ -10,6 +10,9 @@ from nicegui import ui
 
 from webapp.services.env_config import FIELDS as ENV_FIELDS
 from webapp.services.json_files import ConflictError, PathError
+from webapp.services.refactor import Plan, Refactor, RefactorError, apply_plan
+from webapp.services.tidy import analyze as tidy_analyze, build_plan as tidy_plan
+from webapp.services.usage import Usage, UsageIndex
 from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.run_manager import RunConfig
 from webapp.services.test_case_service import STEP_KINDS
@@ -767,6 +770,8 @@ class PageEditor:
         self.dirty = False
         self.json_mode = False
         self.field_filter = ""
+        self.usage: Usage | None = None  # who uses this page's fields (tests, common actions)
+        self.orig_names: list[str] = []
 
         with ui.element("div").classes("any-split"):
             with ui.element("section").classes("any-card any-split-list").props('aria-label="Pages"'):
@@ -786,14 +791,22 @@ class PageEditor:
             ui.label("Pick a system.").classes("any-empty any-muted")
             return
         refs = self.svc.pom.list_pages(system)
+        try:
+            usage = UsageIndex(self.svc.tests).scan(system)
+        except (OSError, ValueError):
+            usage = Usage()
         rows = [{"rel": r.rel, "name": r.name, "folder": r.rel.rpartition("/")[0], "fields": r.fields,
-                 "dup": r.duplicate} for r in refs]
+                 "used": usage.page_count(r.name), "dup": r.duplicate} for r in refs]
+        has_folders = any(r["folder"] for r in rows)
+        columns = [{"name": "name", "label": "Page", "field": "name", "align": "left", "sortable": True}]
+        if has_folders:  # the column is only worth its width when some page is in a folder
+            columns.append({"name": "folder", "label": "Folder", "field": "folder", "align": "left",
+                            "sortable": True})
+        columns += [{"name": "fields", "label": "Fields", "field": "fields", "align": "right", "sortable": True},
+                    {"name": "used", "label": "Used by", "field": "used", "align": "right", "sortable": True}]
         with ui.element("div").classes("any-table-wrap"):
-            table = ui.table(rows=rows, row_key="rel", pagination=15, columns=[
-                {"name": "name", "label": "Page", "field": "name", "align": "left", "sortable": True},
-                {"name": "folder", "label": "Folder", "field": "folder", "align": "left", "sortable": True},
-                {"name": "fields", "label": "Fields", "field": "fields", "align": "right", "sortable": True},
-            ]).classes("w-full is-clickable is-compact")
+            table = ui.table(rows=rows, row_key="rel", pagination=15, columns=columns) \
+                .classes("w-full is-clickable is-compact")
             styled_table(table, len(rows))
             table.add_slot("body-cell-name", f'''
                 <q-td :props="props"><span class="any-tc-name">{{{{ props.value }}}}</span>
@@ -807,6 +820,11 @@ class PageEditor:
                   <span v-else class="any-muted">—</span>
                 </q-td>''')
             table.add_slot("body-cell-fields", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
+            table.add_slot("body-cell-used", '''
+                <q-td :props="props" class="any-num">
+                  <span v-if="props.value">{{ props.value }}</span>
+                  <span v-else class="any-muted" title="No test or common action uses this page">unused</span>
+                </q-td>''')
             table.add_slot("no-data", '<div class="any-muted text-sm">'
                                       'No pages for this system yet - use + to create one.</div>')
             self.search.bind_value(table, "filter")
@@ -828,7 +846,15 @@ class PageEditor:
         self.rows = [FieldRow(k, copy.deepcopy(v) if isinstance(v, dict) else {"locator": str(v)})
                      for k, v in (data.get("fields") or {}).items()]
         self.dirty = False
+        self.orig_names = list((data.get("fields") or {}).keys())
+        self.refresh_usage()
         self.editor.refresh()
+
+    def refresh_usage(self) -> None:
+        try:
+            self.usage = UsageIndex(self.svc.tests).scan(self.gen.system) if self.gen.system else None
+        except (OSError, ValueError):
+            self.usage = None
 
     def build(self) -> dict:
         fields = {}
@@ -863,8 +889,15 @@ class PageEditor:
             with ui.element("div").classes("any-toolbar"):
                 ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
                     .props("no-caps unelevated").classes("any-segmented")
+                with ui.button("Maintain", icon=icon("list-checks"), color=None).classes("any-btn is-38") \
+                        .props('data-testid="page-maintain"').tooltip("Rename and tidy this page"):
+                    with ui.menu():
+                        ui.menu_item("Rename page...", on_click=self.rename_page_dialog)
+                        ui.menu_item("Rename a field...", on_click=self.rename_field_dialog)
+                        ui.menu_item("Tidy up this page...", on_click=self.tidy_dialog)
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
+        self.usage_view()
         if self.json_mode:
             try:
                 source = json.dumps(self.build(), indent=2, ensure_ascii=False)
@@ -956,7 +989,12 @@ class PageEditor:
         gens = autogen + ([row.cfg[gen_key]] if row.cfg.get(gen_key) and row.cfg[gen_key] not in autogen else [])
         extra = [k for k in row.cfg if k not in ("type", "locator", "index", gen_key)]
         with ui.element("div").classes("any-field-grid"):
-            ui.input(value=row.name, on_change=set_name).props('aria-label="Name"').classes("mono-input")
+            uses = self.usage.field_uses(self._page_name(), row.name) if self.usage and row.name else None
+            name_box = ui.input(value=row.name, on_change=set_name).props('aria-label="Name"').classes("mono-input")
+            if uses is not None:
+                name_box.classes("is-unused" if not uses else "")
+                name_box.tooltip("Not used by any test or common action" if not uses else
+                                 f"Used in {len(uses)} step{'' if len(uses) == 1 else 's'}")
             ui.select(types, value=row.cfg.get("type"), with_input=True, new_value_mode="add-unique",
                       on_change=set_cfg("type")).props('aria-label="Type"')
             ui.input(value=str(row.cfg.get("locator", "")), on_change=set_cfg("locator")) \
@@ -988,6 +1026,187 @@ class PageEditor:
 
     def _page_name(self) -> str:
         return (self.rel or "").rpartition("/")[2].removesuffix(".json") or "New page"
+
+    @ui.refreshable_method
+    def usage_view(self) -> None:
+        if self.rel is None or self.usage is None:
+            return
+        owners: dict[tuple[str, str], object] = {}
+        for use in self.usage.page_uses(self._page_name()):
+            owners.setdefault((use.file, use.owner), use)
+        if not owners:
+            with ui.element("div").classes("any-form-row"):
+                text("span", "Not used by any test or common action", "any-pill pill-warn")
+            return
+        n = len(owners)
+        with ui.expansion(f"Used by {n} test{'' if n == 1 else 's'} / common action{'' if n == 1 else 's'}",
+                          icon=icon("book-open")).classes("any-disclosure").props('data-testid="page-used-by"'):
+            with ui.element("div").classes("any-disclosure-body"):
+                for (file, owner), use in sorted(owners.items(), key=lambda kv: (kv[0][0].casefold(), kv[0][1])):
+                    if use.source == "test" and use.folder == self.gen.system:
+                        ui.button(f"{owner}  -  {file}", color=None,
+                                  on_click=lambda u=use: self.gen.open_test(u.rel, u.index)) \
+                            .props("flat no-caps align=left").classes("any-ghost")
+                    else:
+                        text("div", f"{owner}  -  {file}", "any-muted text-sm")
+
+    # ───── maintenance: rename, tidy (all-or-nothing, previewed) ─────
+
+    def _ready_for_refactor(self) -> bool:
+        if not guard("edit", "change pages and tests"):
+            return False
+        if self.dirty or self.gen.tests.dirty:
+            ui.notify("Save or revert your unsaved edits first: this changes several files.", type="warning")
+            return False
+        return True
+
+    def refactor_dialog(self, title: str, intro: str, build_inputs: Callable[[], None],
+                        make_plan: Callable[[], Plan], audit_action: str, audit_target: str,
+                        reopen: Callable[[], str | None] = lambda: None, apply_label: str = "Apply") -> None:
+        """Inputs, then Preview (what would change, nothing written), then Apply (all files or none)."""
+        state: dict = {"plan": None}
+        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]"):
+            text("h2", title, "any-title")
+            ui.label(intro).classes("any-muted text-sm")
+            build_inputs()
+            result = ui.element("div").classes("flex flex-col gap-1 w-full")
+
+            def preview() -> None:
+                result.clear()
+                state["plan"] = None
+                try:
+                    plan = make_plan()
+                except (RefactorError, OSError, ValueError) as e:
+                    with result:
+                        ui.label(str(e)).classes("any-err-line")
+                    apply_button.set_enabled(False)
+                    return
+                with result:
+                    if plan.empty:
+                        ui.label("Nothing to change.").classes("any-muted text-sm")
+                    else:
+                        text("div", "These files will change:", "any-eyebrow")
+                        for line in plan.summary():
+                            text("div", line, "any-small")
+                state["plan"] = None if plan.empty else plan
+                apply_button.set_enabled(not plan.empty)
+
+            async def apply() -> None:
+                plan = state["plan"]
+                if plan is None or not guard("edit", audit_action, audit_target):
+                    return
+                try:
+                    apply_plan(plan)
+                except (ConflictError, OSError, ValueError) as e:
+                    ui.notify(f"Nothing was changed: {e}", type="negative", multi_line=True, timeout=8000)
+                    return
+                audit(audit_action, audit_target, files=len(plan.docs) + len(plan.renames))
+                dialog.close()
+                ui.notify(f"Done: {len(plan.docs)} file(s) updated"
+                          + (f", {len(plan.renames)} renamed" if plan.renames else ""), type="positive")
+                await self.after_refactor(reopen())
+
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ui.button("Preview", icon=icon("search"), color=None, on_click=preview) \
+                    .props('data-testid="refactor-preview"').classes("any-btn is-38")
+                apply_button = ui.button(apply_label, color=None, on_click=apply) \
+                    .props('data-testid="refactor-apply"').classes("any-primary")
+                apply_button.set_enabled(False)
+        dialog.open()
+
+    async def after_refactor(self, new_rel: str | None) -> None:
+        """Reload what the change touched: this page, the page list, the tests and the open test."""
+        rel = new_rel or self.rel
+        self.dirty = False
+        if rel:
+            await self.open(rel)
+        self.list_view.refresh()
+        self.gen.tests.load_refs()
+        self.gen.tests.reload_list()
+        if self.gen.tests.file is not None:
+            await self.gen.tests.open(self.gen.tests.file, self.gen.tests.index or 0)
+
+    def rename_page_dialog(self) -> None:
+        if not self._ready_for_refactor():
+            return
+        system, old = self.gen.system, self._page_name()
+        holder: dict = {}
+
+        def inputs() -> None:
+            with labelled("New page name", "rn-page"):
+                holder["name"] = ui.input(value=old).props('for="rn-page" data-testid="rename-new"') \
+                    .classes("w-full mono-input")
+
+        def make_plan() -> Plan:
+            r = Refactor(self.svc.pom, self.svc.tests)
+            r.rename_page(system, old, str(holder["name"].value or ""))
+            return r.plan()
+
+        def reopen() -> str:
+            new = str(holder["name"].value).strip().removesuffix(".json")
+            folder = self.rel.rpartition("/")[0] if self.rel and "/" in self.rel else ""
+            return f"{folder}/{new}.json" if folder else f"{new}.json"
+
+        self.refactor_dialog(f"Rename page {old}", "The file is renamed and every step that uses the page, in "
+                             "tests and common actions, is updated.", inputs, make_plan, "page.rename",
+                             f"{system}/{old}", reopen, "Rename")
+
+    def rename_field_dialog(self) -> None:
+        if not self._ready_for_refactor():
+            return
+        system, page = self.gen.system, self._page_name()
+        names = [r.name for r in self.rows if r.name in self.orig_names]
+        if not names:
+            ui.notify("This page has no saved fields to rename.", type="warning")
+            return
+        holder: dict = {}
+
+        def inputs() -> None:
+            with ui.element("div").classes("any-form-row"):
+                with labelled("Field", "rf-old").classes("is-grow"):
+                    holder["old"] = ui.select(names, value=names[0]).props('for="rf-old"').classes("w-full")
+                with labelled("New name", "rf-new").classes("is-grow"):
+                    holder["new"] = ui.input().props('for="rf-new" data-testid="rename-new"') \
+                        .classes("w-full mono-input")
+
+        def make_plan() -> Plan:
+            r = Refactor(self.svc.pom, self.svc.tests)
+            r.rename_field(system, page, str(holder["old"].value), str(holder["new"].value or ""))
+            return r.plan()
+
+        self.refactor_dialog(f"Rename a field on {page}", "The field is renamed on the page and in every step "
+                             "that uses it, in tests and common actions.", inputs, make_plan, "field.rename",
+                             f"{system}/{page}", apply_label="Rename")
+
+    def tidy_dialog(self) -> None:
+        if not self._ready_for_refactor():
+            return
+        system, page = self.gen.system, self._page_name()
+        findings = tidy_analyze(self.svc.pom, self.svc.tests, system, page)
+        boxes: dict[str, object] = {}
+
+        def inputs() -> None:
+            if not findings:
+                ui.label("Nothing to tidy: no duplicates, unused fields or redundant settings.") \
+                    .classes("any-muted text-sm")
+            for f in findings:
+                with ui.element("div").classes("flex flex-col gap-1 w-full"):
+                    if f.fixable:
+                        boxes[f.id] = ui.checkbox(f.title, value=f.default).props(f'data-testid="tidy-{f.kind}"')
+                    else:
+                        text("div", f.title, "any-warn-line")
+                    text("div", f.detail, "any-muted text-xs")
+
+        def make_plan() -> Plan:
+            chosen = [f for f in findings if f.id in boxes and boxes[f.id].value]
+            if not chosen:
+                raise RefactorError("Tick at least one change.")
+            return tidy_plan(self.svc.pom, self.svc.tests, system, page, chosen)
+
+        self.refactor_dialog(f"Tidy up {page}", "Pick the changes, preview them, then apply. Nothing is written "
+                             "until you apply, and a failure leaves every file as it was.", inputs, make_plan,
+                             "page.tidy", f"{system}/{page}", apply_label="Apply changes")
 
     def field_dialog(self, row: FieldRow) -> None:
         with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[36rem]"):
@@ -1055,9 +1274,16 @@ class PageEditor:
         if dirty:
             self.touch()
 
-    def save(self) -> None:
+    async def save(self) -> None:
         data = self._current()
         if data is None or not guard("edit", "save page", self.rel or ""):
+            return
+        gone = [n for n in self.orig_names if n not in (data.get("fields") or {})]
+        broken = [n for n in gone if self.usage and self.usage.field_uses(self._page_name(), n)]
+        if broken and not await confirm(
+                f"{', '.join(broken)} {'is' if len(broken) == 1 else 'are'} used by tests but no longer on this page. "
+                "Renaming or removing a field here does not update those tests (use Maintain > Rename a field). "
+                "Save anyway?", "Save anyway", "negative"):
             return
         try:
             self.hash = self.svc.pom.save(self.gen.system, self.rel, data, self.hash)
@@ -1162,6 +1388,11 @@ class GeneratorPanel:
             return
         self.sections.set_value(self.pages_tab)
         await self.pages.open(rel)
+
+    async def open_test(self, rel: str, index: int) -> None:
+        """Jump to a test case in the Test cases tab (from a page's used-by list)."""
+        self.sections.set_value(self.tests_tab)
+        await self.tests.open(rel, index)
 
     async def show_default(self) -> None:
         """Default view when the Generator tab is opened: Pages, with the first page open in Form view.

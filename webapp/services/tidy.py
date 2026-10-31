@@ -23,6 +23,10 @@ class Finding:
     canonical: str = ""  # duplicate groups: the field the others are merged into
 
 
+def _fields(n: int) -> str:
+    return f"{n} field{'' if n == 1 else 's'}"
+
+
 def _same(cfg: dict) -> str:
     return json.dumps(cfg, sort_keys=True, ensure_ascii=False)
 
@@ -36,7 +40,7 @@ def analyze(pom: PomService, tests: TestCaseService, system: str, page: str) -> 
                  and str(c.get("autoGen", "")).strip().lower() == "click"]
     if redundant:
         findings.append(Finding(
-            "autogen", "autogen", f"{len(redundant)} fields have a redundant autoGen \"click\"",
+            "autogen", "autogen", f"{_fields(len(redundant))} {'has' if len(redundant) == 1 else 'have'} a redundant autoGen \"click\"",
             "Buttons, links, checkboxes and radios click by default, so autoGen \"click\" changes nothing.",
             redundant, True, True))
 
@@ -52,7 +56,7 @@ def analyze(pom: PomService, tests: TestCaseService, system: str, page: str) -> 
     unused = [n for n in configs if not usage.field_uses(page, n)]
     if unused:
         findings.append(Finding(
-            "unused", "unused", f"{len(unused)} fields are not used by any test or common action",
+            "unused", "unused", f"{_fields(len(unused))} {'is' if len(unused) == 1 else 'are'} not used by any test or common action",
             "Removing them cannot change a run. Fields used only by tests in another system's folder that point "
             "at this page are counted, but check before removing if you keep tests elsewhere.", unused, True, False))
 

@@ -525,6 +525,7 @@
 .any-app .any-disclosure.is-section { width: 100%; }
 .any-grid-scroll { overflow-x: auto; display: flex; flex-direction: column; gap: 8px; }
 .any-field-grid { display: grid; grid-template-columns: minmax(150px, 1.1fr) minmax(130px, .9fr) minmax(220px, 2fr) 84px minmax(140px, 1fr) 72px; gap: 8px; align-items: center; min-width: 860px; }
+.any-field-grid .is-unused .q-field__native { color: var(--muted); font-style: italic; }
 .any-field-grid.is-head { font-size: 12px; font-weight: 500; color: var(--muted); padding: 0 2px; }
 .any-code { width: 100%; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .any-code .cm-editor { font-family: var(--font-mono); font-size: 13px; }
