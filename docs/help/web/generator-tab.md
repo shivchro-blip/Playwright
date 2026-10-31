@@ -84,13 +84,14 @@ Page names must be unique within a system; the list marks duplicates (the last o
 
 ### Maintain: rename and tidy
 
-The **Maintain** menu changes a page and every test that uses it, together:
+The **Maintain** menu works on the whole page and the tests that use it:
 
 - **Rename page...** renames the file and updates every `screen` (and `override`) that names it, in tests and common actions.
 - **Rename a field...** renames it on the page and in every step that uses it, keeping pipe suffixes.
 - **Tidy up this page...** finds fields that are exactly the same (merged into one, with `name`, `name|`, `name||` in the steps that used several), fields no test uses (removed), redundant `autoGen: "click"` on buttons, links, checkboxes and radios, and fields that differ only by `index` (a hint to use `indexed` and a step index).
+- **Check all locators on the live page...** opens the page once in headless Chromium and resolves every field the way a run does: *found*, *not found*, *hidden*, *several matches* (set `index`), *index too high*, or *not checked* (fields whose option comes from the test, table cells, nested chains, `DICT.`/`ENV.` values). Problems are listed first; **Problems only** can be turned off. It checks what is in the editor, saved or not. After a site change it turns "the nightly run failed somewhere" into a short list. A page you reach by clicking through earlier screens shows its later fields as not found or hidden: that describes the page as loaded, not always a broken locator.
 
-Each one asks you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
+Rename and Tidy each ask you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
 
 ### From page: add fields by scanning
 

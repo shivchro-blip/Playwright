@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 RESULT_NAME_RE = re.compile(r"^(?P<test_id>.*) \[(?P<browser>[^\]]+)\]$")
 # Attachment file names allure-pytest generates; anything else in a result file is ignored (never served)
 SOURCE_RE = re.compile(r"^[0-9A-Fa-f-]{8,64}-attachment(\.[A-Za-z0-9]{1,8})?$")
+FAILED = ("failed", "broken")
+SCREEN_RE = re.compile(r"^-\s*(?:\[LOGIN\]\s*)?Screen:\s*(?P<name>.+?)\s*-$")
+COMMON_RE = re.compile(r"^-\s*Common Action:\s*(?P<name>.+?)\s*-$")
+REUSE_RE = re.compile(r"^\*\*\s*Reusing Test Case:\s*(?P<name>.+?)\s*\*\*$")
+ACTION_RE = re.compile(r"^(?P<n>\d+)\)\s+(?P<action>\S+)\s+-\s+(?P<field>.+)$")
 TEXT_LIMIT = 64 * 1024
 LOG_LIMIT = 256 * 1024
 
@@ -31,6 +36,41 @@ class Attachment:
 
 
 @dataclass
+class FailurePoint:
+    """Where in the test the first failure happened, read from the failing chain of Allure steps."""
+    common_action: str = ""
+    reused_test: str = ""
+    screen: str = ""
+    step_no: int | None = None  # the action's number within its screen
+    action: str = ""  # FILL, CLICK, ...
+    field_name: str = ""
+    attachments: list[Attachment] = field(default_factory=list)  # screenshot, DOM snapshot, action JSON
+
+    @property
+    def crumbs(self) -> list[str]:
+        out = []
+        if self.reused_test:
+            out.append(f"Reused test {self.reused_test}")
+        if self.common_action:
+            out.append(f"Common action {self.common_action}")
+        if self.screen:
+            out.append(f"Screen {self.screen}")
+        if self.field_name:
+            out.append(f"{self.action.upper()} {self.field_name}".strip() + (f" (action {self.step_no})"
+                                                                         if self.step_no else ""))
+        return out
+
+    @property
+    def short(self) -> str:
+        where = f"{self.field_name} ({self.action})" if self.field_name else ""
+        return " > ".join(c for c in (self.screen, where) if c)
+
+    @property
+    def screenshot(self) -> Attachment | None:
+        return next((a for a in self.attachments if a.kind == "image"), None)
+
+
+@dataclass
 class TestDetails:
     test_id: str
     browser: str
@@ -39,6 +79,7 @@ class TestDetails:
     trace: str = ""
     attachments: list[Attachment] = field(default_factory=list)
     log: str = ""  # the test's captured log (allure "log" attachment)
+    failure: FailurePoint | None = None
 
     def by_kind(self, kind: str) -> list[Attachment]:
         return [a for a in self.attachments if a.kind == kind]
@@ -71,6 +112,14 @@ def _read_text(path: Path, limit: int, tail: bool = False) -> str:
     if len(data) > limit:
         data = data[-limit:] if tail else data[:limit]
     return data.decode("utf-8", errors="replace")
+
+
+def _failed_chain(node: dict) -> list[dict]:
+    """Outermost-first chain of failed steps: follow the first failed child at every level."""
+    for step in node.get("steps") or []:
+        if isinstance(step, dict) and step.get("status") in FAILED:
+            return [step] + _failed_chain(step)
+    return []
 
 
 def _walk_attachments(node: dict) -> list[dict]:
@@ -121,20 +170,57 @@ class RunArtifacts:
                               message=str(status_details.get("message") or "").strip(),
                               trace=str(status_details.get("trace") or "").strip())
         for att in _walk_attachments(data):
-            source = str(att.get("source") or "")
-            if not SOURCE_RE.match(source):
-                continue
-            path = results_dir / source
-            if not path.is_file():
-                continue
-            kind = _kind(str(att.get("type") or ""), source)
-            label = str(att.get("name") or kind)
-            if kind == "text" and label == "log":
-                details.log = _read_text(path, LOG_LIMIT, tail=True)
-                continue
-            item = Attachment(name=label, url=f"{self.runs_url}/{run_id}/allure-results/{source}", kind=kind,
-                              size=path.stat().st_size)
-            if kind == "text":
-                item.text = _read_text(path, TEXT_LIMIT)
-            details.attachments.append(item)
+            item = self._attachment(run_id, results_dir, att)
+            if item == "log":
+                details.log = self._log(results_dir, att)
+            elif item:
+                details.attachments.append(item)
+        details.failure = self._failure(run_id, results_dir, data)
         return details
+
+    def _attachment(self, run_id: str, results_dir: Path, att: dict):
+        """An Attachment, the string "log" for the captured log, or None for anything not served."""
+        source = str(att.get("source") or "")
+        if not SOURCE_RE.match(source):
+            return None
+        path = results_dir / source
+        if not path.is_file():
+            return None
+        kind = _kind(str(att.get("type") or ""), source)
+        label = str(att.get("name") or kind)
+        if kind == "text" and label == "log":
+            return "log"
+        item = Attachment(name=label, url=f"{self.runs_url}/{run_id}/allure-results/{source}", kind=kind,
+                          size=path.stat().st_size)
+        if kind == "text":
+            item.text = _read_text(path, TEXT_LIMIT)
+        return item
+
+    @staticmethod
+    def _log(results_dir: Path, att: dict) -> str:
+        return _read_text(results_dir / str(att.get("source") or ""), LOG_LIMIT, tail=True)
+
+    def _failure(self, run_id: str, results_dir: Path, data: dict) -> FailurePoint | None:
+        chain = _failed_chain(data)
+        if not chain:
+            return None
+        point = FailurePoint()
+        action_step = None
+        for step in chain:
+            name = str(step.get("name") or "")
+            if m := REUSE_RE.match(name):
+                point.reused_test = point.reused_test or m.group("name")
+            elif m := COMMON_RE.match(name):
+                point.common_action = point.common_action or m.group("name")
+            elif m := SCREEN_RE.match(name):
+                point.screen = m.group("name")  # the innermost screen is where it failed
+            elif (m := ACTION_RE.match(name)) and action_step is None:
+                point.step_no, point.action, point.field_name = int(m.group("n")), m.group("action"), m.group("field")
+                action_step = step
+        if not (point.screen or point.field_name):
+            return None
+        for att in _walk_attachments(action_step or chain[-1]):
+            item = self._attachment(run_id, results_dir, att)
+            if item and item != "log":
+                point.attachments.append(item)
+        return point

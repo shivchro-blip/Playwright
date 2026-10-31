@@ -303,6 +303,16 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
         out.append("</tbody></table></div>")
     out.append("</section>")
 
+    by_screen = failures_by_screen(run, details)
+    if by_screen:
+        out.append("<section><h2>Failures by screen</h2><p class=\"note\">Several failures on one screen usually "
+                   "have one cause.</p><div class=\"table-wrap\"><table><thead><tr><th>Screen</th>"
+                   "<th class=\"num\">Failures</th><th>Tests</th></tr></thead><tbody>")
+        for screen, tests in by_screen:
+            out.append(f"<tr><td><b>{_e(screen)}</b></td><td class=\"num\">{len(tests)}</td>"
+                       f"<td>{_e(', '.join(tests))}</td></tr>")
+        out.append("</tbody></table></div></section>")
+
     out.append('<section><h2>Tests</h2><div class="table-wrap"><table><thead><tr><th>Status</th><th>Test case</th>'
                '<th>Browser</th><th class="num">Duration</th><th>Recent results</th></tr></thead><tbody>')
     order = {"failed": 0, "error": 1}
@@ -312,10 +322,15 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
         item = details.get((r.test_id, r.browser))
         body = ""
         if r.outcome in FAILING:
+            point = item.failure if item else None
+            if point:
+                trail = " &rsaquo; ".join(f"<b>{_e(c)}</b>" for c in point.crumbs)
+                body += f'<p class="where">Failed at {trail}</p>'
             message = (item.message if item and item.message else r.message) or ""
             if message:
                 body += f'<pre class="msg">{_e(message[:4000])}</pre>'
-            shots = item.by_kind("image") if item else []
+            first = [point.screenshot] if point and point.screenshot else []
+            shots = first or (item.by_kind("image") if item else [])
             if shots:
                 body += '<div class="shots">' + "".join(
                     f'<a href="{_e(_relative(s.url, run.id))}"><img src="{_e(_relative(s.url, run.id))}" '
@@ -328,6 +343,55 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
         out.append('<tr><td colspan="5">No test results were recorded.</td></tr>')
     out.append("</tbody></table></div></section></main></body></html>")
     return "".join(out)
+
+
+def build_markdown(run: Run, details: dict[Key, TestDetails] | None = None, max_failures: int = 25) -> str:
+    """The run as Markdown (a CI job summary): status, counts, and each failure with where it failed."""
+    details = details or {}
+    cfg, counts = run.config, run.counts()
+
+    def code(text: str, limit: int = 160) -> str:
+        return "`" + " ".join(str(text).replace("`", "'").split())[:limit] + "`"
+
+    out = [f"## AutomateNY run {run.id}: {run.status}", "",
+           f"System **{cfg.system}/{cfg.env}** | tags **{', '.join(cfg.tags)}** | "
+           f"browsers **{', '.join(cfg.browsers)}**", ""]
+    if run.error:
+        out += [f"> {' '.join(run.error.split())}", ""]
+    if counts:
+        out += ["| " + " | ".join(["Tests", *counts]) + " |", "|" + "---|" * (len(counts) + 1),
+                "| " + " | ".join([str(sum(counts.values())), *map(str, counts.values())]) + " |", ""]
+    failed = [r for r in run.results.values() if r.outcome in FAILING]
+    if failed:
+        out.append("### Failures")
+        for r in sorted(failed, key=lambda r: r.test_id)[:max_failures]:
+            item = details.get((r.test_id, r.browser))
+            where = item.failure.short if item and item.failure else ""
+            message = ((item.message if item and item.message else r.message) or "").strip().splitlines()
+            line = f"- {code(r.test_id)} ({r.browser})"
+            if where:
+                line += f" failed at {code(where)}"
+            if message:
+                line += f": {code(message[0])}"
+            out.append(line)
+        if len(failed) > max_failures:
+            out.append(f"- ... and {len(failed) - max_failures} more")
+        screens = failures_by_screen(run, details)
+        if len(screens) > 1 or any(len(t) > 1 for _, t in screens):
+            out += ["", "By screen: " + "; ".join(f"{code(s)} x{len(t)}" for s, t in screens)]
+        out.append("")
+    return "\n".join(out)
+
+
+def failures_by_screen(run: Run, details: dict[Key, TestDetails]) -> list[tuple[str, list[str]]]:
+    """Failed tests grouped by the screen they failed on, biggest group first; tests with no known screen are
+    left out."""
+    groups: dict[str, list[str]] = {}
+    for r in run.results.values():
+        item = details.get((r.test_id, r.browser))
+        if r.outcome in FAILING and item and item.failure and item.failure.screen:
+            groups.setdefault(item.failure.screen, []).append(r.test_id)
+    return sorted(((s, sorted(t)) for s, t in groups.items()), key=lambda kv: (-len(kv[1]), kv[0]))
 
 
 def _relative(url: str, run_id: str) -> str:
