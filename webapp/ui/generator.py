@@ -21,6 +21,7 @@ from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.locator_dialog import open_locator_check
+from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.recorder_dialog import open_recorder
 from webapp.ui.step_actions import (
@@ -896,6 +897,8 @@ class PageEditor:
                         ui.menu_item("Rename page...", on_click=self.rename_page_dialog)
                         ui.menu_item("Rename a field...", on_click=self.rename_field_dialog)
                         ui.menu_item("Tidy up this page...", on_click=self.tidy_dialog)
+                        ui.menu_item("Check all locators on the live page...",
+                                     on_click=lambda: open_locator_health(self))
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
         self.usage_view()
