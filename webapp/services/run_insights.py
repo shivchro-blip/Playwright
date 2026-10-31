@@ -303,6 +303,16 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
         out.append("</tbody></table></div>")
     out.append("</section>")
 
+    by_screen = failures_by_screen(run, details)
+    if by_screen:
+        out.append("<section><h2>Failures by screen</h2><p class=\"note\">Several failures on one screen usually "
+                   "have one cause.</p><div class=\"table-wrap\"><table><thead><tr><th>Screen</th>"
+                   "<th class=\"num\">Failures</th><th>Tests</th></tr></thead><tbody>")
+        for screen, tests in by_screen:
+            out.append(f"<tr><td><b>{_e(screen)}</b></td><td class=\"num\">{len(tests)}</td>"
+                       f"<td>{_e(', '.join(tests))}</td></tr>")
+        out.append("</tbody></table></div></section>")
+
     out.append('<section><h2>Tests</h2><div class="table-wrap"><table><thead><tr><th>Status</th><th>Test case</th>'
                '<th>Browser</th><th class="num">Duration</th><th>Recent results</th></tr></thead><tbody>')
     order = {"failed": 0, "error": 1}
@@ -312,10 +322,15 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
         item = details.get((r.test_id, r.browser))
         body = ""
         if r.outcome in FAILING:
+            point = item.failure if item else None
+            if point:
+                trail = " &rsaquo; ".join(f"<b>{_e(c)}</b>" for c in point.crumbs)
+                body += f'<p class="where">Failed at {trail}</p>'
             message = (item.message if item and item.message else r.message) or ""
             if message:
                 body += f'<pre class="msg">{_e(message[:4000])}</pre>'
-            shots = item.by_kind("image") if item else []
+            first = [point.screenshot] if point and point.screenshot else []
+            shots = first or (item.by_kind("image") if item else [])
             if shots:
                 body += '<div class="shots">' + "".join(
                     f'<a href="{_e(_relative(s.url, run.id))}"><img src="{_e(_relative(s.url, run.id))}" '
@@ -328,6 +343,17 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
         out.append('<tr><td colspan="5">No test results were recorded.</td></tr>')
     out.append("</tbody></table></div></section></main></body></html>")
     return "".join(out)
+
+
+def failures_by_screen(run: Run, details: dict[Key, TestDetails]) -> list[tuple[str, list[str]]]:
+    """Failed tests grouped by the screen they failed on, biggest group first; tests with no known screen are
+    left out."""
+    groups: dict[str, list[str]] = {}
+    for r in run.results.values():
+        item = details.get((r.test_id, r.browser))
+        if r.outcome in FAILING and item and item.failure and item.failure.screen:
+            groups.setdefault(item.failure.screen, []).append(r.test_id)
+    return sorted(((s, sorted(t)) for s, t in groups.items()), key=lambda kv: (-len(kv[1]), kv[0]))
 
 
 def _relative(url: str, run_id: str) -> str:

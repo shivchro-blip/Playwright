@@ -38,6 +38,8 @@ def result_rows(run: Run) -> list[dict]:
         trend = recent.get((r.test_id, r.browser))
         rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name, "code": code,
                      "browser": r.browser, "duration": r.duration, "message": r.message,
+                     "where": details[(r.test_id, r.browser)].failure.short
+                     if (r.test_id, r.browser) in details and details[(r.test_id, r.browser)].failure else "",
                      "has_details": has_details(details, r.test_id, r.browser),
                      "recent": trend.outcomes if trend else [], "flaky": bool(trend and trend.flaky)})
     return rows
@@ -78,6 +80,20 @@ def open_test_details(run: Run, row: dict) -> None:
                     text("span", f"Run {run.id}", "v")
             icon_button("x", "Close", dialog.close)
 
+        point = item.failure if item else None
+        if point:
+            with ui.element("section").classes("any-failat").props('data-testid="failed-at"'):
+                with ui.element("div").classes("min-w-0 flex flex-col gap-2"):
+                    text("div", "Failed at", "any-eyebrow")
+                    with ui.element("ol").classes("any-crumbs"):
+                        for crumb in point.crumbs:
+                            text("li", crumb)
+                shot = point.screenshot
+                if shot:
+                    with ui.element("a").props(f'href="{shot.url}" target="_blank" rel="noopener" '
+                                               'aria-label="Open the failure screenshot"'):
+                        ui.element("img").props(f'src="{shot.url}" alt="{shot.name}" loading="lazy"') \
+                            .classes("any-failat-shot")
         message = (item.message if item else "") or str(row.get("message") or "")
         if message:
             with ui.element("section").classes("any-error-box"):
