@@ -49,7 +49,7 @@ For a long flow, debugging step 90 should not mean repeating steps 1 to 89. **Fr
 
 The state is what the portal keeps in the browser or on its own server (a session, a saved draft). It cannot restore text typed into a form that the portal has not saved yet, so a flow whose progress lives only in the page cannot be resumed this way: start the step from a URL instead, or split the flow so each step ends where the portal saves.
 
-Saved states contain session cookies. They stay in the run's folder, are never served by the web app, and are deleted with the run (History > Delete). The newest run's state is used for each step. Under the hood these are the run options `runFromStep`, `runToStep`, `resumeCheckpoint`, `startUrl` and `saveCheckpoints` (one test case only), so the API and `python -m webapp.cli_run` runs can use them too.
+Saved states contain session cookies. They stay in the run's folder, are never served by the web app, and are deleted with the run (History > Delete). The newest run's state is used for each step. Under the hood these are the run options `runFromStep`, `runToStep`, `resumeCheckpoint`, `startUrl` and `saveCheckpoints` (one test case only), which the run API accepts as well.
 
 ### Check (validation)
 
