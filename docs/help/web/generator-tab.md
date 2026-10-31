@@ -17,14 +17,26 @@ Every editor has a **Form / JSON** toggle. The form covers the common keys; the 
 
 ### Form fields on a page step
 
-| Value type | Saved as | Meaning |
-|---|---|---|
-| Text | `"value"` | Fill / select this value, or a shorthand action such as `click`. |
-| Auto | `null` | Generate a value from the field's `autoGen` rule. |
-| Number | `5` | Numeric value. |
-| JSON | `{...}` | Explicit action, e.g. `{"type": "confirmtext"}` or `{"type": "keyboard", "value": "Enter"}`. |
+Each row is a field, an **action** and (for some actions) a value. The action menu offers only what fits the field:
 
-The field picker lists the page's fields plus every `CUSTOMFIELD_*` command. To use the same field twice in one step, add a pipe suffix: `next`, `next|`, `next||`. **+ All page fields** adds every field of the page as Auto.
+| Action | Saved as | Meaning |
+|---|---|---|
+| Fill / Select option | `"value"` | Types or selects this value. |
+| Choose option | `"No"` | For a field whose locator has `{value}` (see below): the test says which option. |
+| Click, Double-click, Hover, Check | `"click"`, `"dblclick"`, `"hover"`, `"check"` | Does that to the field. |
+| Generate a value | `null` | Uses the field's `autoGen` rule on the page (buttons and checkboxes just click). |
+| Verify text | `{"type": "confirmtext"}` | Checks the field's text against `contains` on the page. |
+| Press key | `{"type": "keyboard", "value": "Enter"}` | Sends a key. |
+| Wait (seconds) | `{"type": "wait", "value": "2"}` | Pauses. |
+| Custom (JSON) | `{...}` | Any other explicit action. |
+
+Picking a field starts it with the natural action (a button as **Click**, a text box as **Fill**, a `{value}` field as **Choose option**). The **{ }** button next to a value inserts `ENV.NAME` (a `.env` variable, name only) or `DICT.name` (a value saved earlier in the test). The small box at the end repeats the action N times (`name|ELoop(N)`); to use the same field twice in a step, repeat it as `next`, `next|`, `next||`. **+ All page fields** adds every field of the page: clicks as **Click**, text fields as **Generate**.
+
+The files keep the same JSON as before; the menu is only a clearer way to write it.
+
+**Open page** (the arrow icon on a page step) jumps to that page in the Pages tab.
+
+**Occurrence (index)** appears on page steps whose page has fields marked `indexed`. It lets one set of fields serve a repeated section: the second row, the second principal. See *Form Data and Page Mapping* for how to set it up.
 
 ### Check (validation)
 
@@ -32,6 +44,7 @@ Warnings do not block saving:
 
 - page not found in `Pages/<SYSTEM>`
 - field not on the selected page
+- a `{value}` field without the option to choose, or a step `index` on a page with no `indexed` fields
 - common action or reusable test not found
 - no tags (the Control tab cannot run it) or no steps
 
@@ -60,11 +73,28 @@ The recorder only works when the web app listens on this machine (`AUTOMATENY_HO
 
 ## Pages
 
-1. Select a page on the left, or **+** to create one (optional folder).
+1. Select a page on the left, or **+** to create one (optional folder). The list shows how many tests and common actions use each page (**Used by**).
 2. **Page settings**: `path` (added to the system base URL) or `fullpath` (absolute URL) to navigate on entry; title check; error locators / texts.
-3. **Fields**: name, type, locator, index and autoGen rule. **{ }** edits all keys of a field (role, name, nested, tableId, waitForNewTab, ...). Use the filter on large pages.
+3. **Fields**: name, type, locator, index and autoGen rule. **{ }** edits all keys of a field (role, name, nested, tableId, waitForNewTab, picker, ...), including **indexed**. Use the filter on large pages. A field that no test uses is shown in italics.
+4. **From page** scans the live page and proposes fields (see below).
 
 Page names must be unique within a system; the list marks duplicates (the last one loaded wins at run time).
+
+**Used by** (under the page title) lists the tests that use the page; click one to open it.
+
+### Maintain: rename and tidy
+
+The **Maintain** menu changes a page and every test that uses it, together:
+
+- **Rename page...** renames the file and updates every `screen` (and `override`) that names it, in tests and common actions.
+- **Rename a field...** renames it on the page and in every step that uses it, keeping pipe suffixes.
+- **Tidy up this page...** finds fields that are exactly the same (merged into one, with `name`, `name|`, `name||` in the steps that used several), fields no test uses (removed), redundant `autoGen: "click"` on buttons, links, checkboxes and radios, and fields that differ only by `index` (a hint to use `indexed` and a step index).
+
+Each one asks you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
+
+### From page: add fields by scanning
+
+**From page** opens the page in headless Chromium on this machine and lists the buttons, inputs, links, checkboxes and menus it can see, with a proposed name, type and locator for each. Locators are checked with the same rules a run uses; one that matches several elements gets the `index` of the element it was proposed for. If your site marks elements with an attribute such as `data-attribute-id`, enter it (and the prefix to drop from names): elements inside such a container are located through it, and several choices in one container (Yes / No) are named after both. Tick what you want and **Add selected fields**; the page stays unsaved until you Save. Fields already on the page are marked and not added twice. Only what is visible is listed, and not elements inside iframes.
 
 ## Safety
 

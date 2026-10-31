@@ -27,6 +27,43 @@ Each key is a **field name from the page object** (or a `CUSTOMFIELD_*` command)
 | `"ENV.NAME"` | An environment variable (also works inside locators). |
 | `{"type": "confirmtext"}` | Explicit action object. Any executable type works, e.g. `{"type": "keyboard", "value": "Enter"}`, `{"type": "wait", "value": "2"}`. Locator settings still come from the page object (put `contains` there for `confirmtext`). |
 
+## Choosing an option: `{value}` in a locator
+
+Put `{value}` in a field's locator and the test supplies the option, so the page object holds no test data:
+
+```json
+"TaxNotPaid": { "locator": "[data-attribute-id='TaxNotPaid'] button:text-is('{value}')", "type": "button" }
+```
+```json
+{ "screen": "Background", "formData": { "TaxNotPaid": "No" } }
+```
+
+The value is put into the locator (quotes are escaped) and the field is clicked. `ENV.NAME` and `DICT.key` work as the value. A `{value}` field with no value fails with a message naming it; when a page runs without form data at all, such fields are skipped.
+
+## Date pickers
+
+A field of type `datepicker` picks a date in a Material UI calendar popup: it opens the calendar from the button next to the input (or from `"picker": "<locator>"` on the field), pages to the month and clicks the day.
+
+```json
+"BeginDate": { "locator": "[data-attribute-id='BeginDate'] input", "type": "datepicker" }
+```
+```json
+{ "BeginDate": "+30d" }
+```
+
+Values: `MM/DD/YYYY`, `YYYY-MM-DD`, `today`, or `+30d` / `-7d` from today; `null` uses the field's `autoGen` rule (for example `getDateBetween(29, 30, '%m/%d/%Y')`). The calendar header is read from the `CalendarHeader-label` element and days are the `Day-root` buttons (MUI X markup); other date widgets need their own action.
+
+## Repeated sections: step `index`
+
+Mark the fields of a repeated section `"indexed": true` (with their usual `index`, normally 0) and run the same fields again with a step `index`:
+
+```json
+{ "screen": "Principal", "formData": { "Name": "Ann", "Save": "click" } },
+{ "screen": "Principal", "index": 1, "formData": { "Name": "Bob", "Save": "click" } }
+```
+
+In the second step every field flagged `indexed` uses index 1 instead of its own; fields without the flag keep theirs. This replaces copying each field as `Name1`, `Save1`, ....
+
 ## Repeating a field
 
 Keys must be unique in JSON, so add pipe suffixes to use a field more than once - everything after the first `|` is ignored when looking up the field:
@@ -54,5 +91,7 @@ Keys must be unique in JSON, so add pipe suffixes to use a field more than once 
 | `fields.<name>.index` | Use the Nth match of the locator. |
 | `fields.<name>.role` / `name` | Locate by ARIA role and name instead of a CSS locator. |
 | `fields.<name>.waitForNewTab` | The action opens a new tab; continue there. |
+| `fields.<name>.indexed` | `true`: a step `index` replaces this field's `index` (repeated sections). |
+| `fields.<name>.picker` | Locator of the button that opens the calendar, for `datepicker` fields. |
 
 See *Custom Fields* for every `CUSTOMFIELD_*` command and *Executables* for every action type.
