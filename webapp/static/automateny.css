@@ -670,3 +670,8 @@
 .any-scan-list { display: flex; flex-direction: column; max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
 .any-scan-row { display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-bottom: 1px solid var(--border-row); }
 .any-scan-row:last-child { border-bottom: 0; }
+
+/* Generator: data sets grid */
+.any-data-grid { display: grid; gap: 6px; align-items: center; min-width: 640px; padding: 3px 0; }
+.any-data-grid.is-head { font-size: 12px; font-weight: 500; color: var(--muted); }
+.any-data-grid.is-defaults { border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 4px; }

@@ -202,6 +202,9 @@ class RunManager:
         level = config.options.get("LOG_LEVEL")
         if level is not None and level not in LEVELS:
             raise ValueError(f"Log level must be one of {', '.join(LEVELS)}.")
+        data_set = str(config.options.get("runDataSet") or "")
+        if data_set and not re.fullmatch(r"[\w\-]+", data_set):
+            raise ValueError("The data set name may only have letters, digits, '_' and '-'.")
 
         with self._lock:
             if len(self._queue) >= MAX_QUEUED:

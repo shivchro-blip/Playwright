@@ -20,6 +20,7 @@ from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
+from webapp.ui.data_sets_panel import DataSetEditor
 from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.recorder_dialog import open_recorder
@@ -32,7 +33,7 @@ from webapp.ui.theme import icon, svg
 KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "Reusable test",
                "API_REQUEST": "API request"}
 KIND_TONES = {"screen": "kind-page", "commonAction": "kind-common", "testCase": "kind-reuse", "API_REQUEST": "kind-api"}
-TC_META = ("testCaseID", "system", "env", "module", "tags", "description")
+TC_META = ("testCaseID", "system", "env", "module", "tags", "description", "dataSet")
 SAVE_ERRORS = (ValueError, ConflictError, PathError, OSError)
 
 
@@ -236,6 +237,8 @@ class TestEditor:
         tc: dict = {}
         for key in TC_META:
             value = self.meta.get(key)
+            if key == "dataSet" and not value:
+                continue  # clearing the data set removes the key
             if value is None or (value in ("", []) and key not in self.orig_keys and key != "testCaseID"):
                 continue  # don't add empty optional keys the file never had
             tc[key] = value
@@ -311,12 +314,26 @@ class TestEditor:
                 with labelled("Module", "tc-module"):
                     ui.input(value=self.meta.get("module") or "", on_change=bind("module")) \
                         .props('for="tc-module"').classes("w-40")
+            with ui.element("div").classes("any-form-row"):
+                with labelled("Data set (runs once per set)", "tc-dataset"):
+                    names = self.svc.datasets.names()
+                    current = self.meta.get("dataSet") or None
+                    ui.select(names + ([current] if current and current not in names else []), value=current,
+                              clearable=True, on_change=self._set_data_set) \
+                        .props('for="tc-dataset" data-testid="tc-dataset"').classes("w-64")
+                ui.label("Values in the steps become DATA.<key>; see the Data sets tab.") \
+                    .classes("any-muted text-xs self-end pb-2")
             with labelled("Tags", "tc-tags"):
                 ui.input_chips(value=list(self.meta.get("tags") or []), new_value_mode="add-unique",
                                on_change=bind("tags")).props('for="tc-tags"').classes("w-full any-multi")
             with labelled("Description", "tc-desc"):
                 ui.textarea(value=self.meta.get("description") or "", on_change=bind("description")) \
                     .props('autogrow for="tc-desc"').classes("w-full")
+
+    def _set_data_set(self, e) -> None:
+        self.meta["dataSet"] = e.value or ""
+        self.touch()
+        self.steps_view.refresh()  # the value menu offers DATA.<key> only when a data set is chosen
 
     @ui.refreshable_method
     def steps_view(self) -> None:
@@ -473,18 +490,24 @@ class TestEditor:
             with ui.menu():
                 ui.menu_item("From a .env variable...", on_click=lambda: pick("ENV"))
                 ui.menu_item("From a value saved earlier in the test...", on_click=lambda: pick("DICT"))
+                if self.meta.get("dataSet"):
+                    ui.menu_item(f"From the data set ({self.meta['dataSet']})...", on_click=lambda: pick("DATA"))
 
     def ref_dialog(self, kind: str, on_pick: Callable[[str], None]) -> None:
         system = self.meta.get("system") or self.gen.system
         names: list[str] = []
+        if kind == "DATA":
+            names = self.svc.datasets.keys(str(self.meta.get("dataSet") or ""))
         if kind == "ENV":  # names only: values stay in .env
             names = sorted(set(self.svc.env.load_other()) | {
                 c["key"] for c in (self.svc.credential_status(system, self.meta.get("env") or "dev") or [])},
                 key=str.casefold)
-        what = "the .env variable" if kind == "ENV" else "the saved value (set earlier in the test)"
+        what = {"ENV": "the .env variable", "DATA": "the data set key"}.get(
+            kind, "the saved value (set earlier in the test)")
         with ui.dialog() as dialog, ui.card().classes("any-app any-dialog"):
             text("h2", "Insert a value", "any-title")
-            ui.label(f"Name {what}; the engine reads it at run time ({kind}.NAME).").classes("any-muted text-xs")
+            when = "each set supplies it" if kind == "DATA" else "the engine reads it"
+            ui.label(f"Name {what}; {when} at run time ({kind}.NAME).").classes("any-muted text-xs")
             pick = ui.select(names, with_input=True, new_value_mode="add-unique") \
                 .props('aria-label="Name"').classes("w-full") if names else \
                 ui.input(placeholder="name").props('aria-label="Name"').classes("w-full")
@@ -1378,12 +1401,15 @@ class GeneratorPanel:
                                          'aria-label="Generator sections"').classes("any-subtabs") as tabs:
                         tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
                         pages_tab = ui.tab("Pages", icon=icon("app-window"))
-                self.sections, self.pages_tab, self.tests_tab = tabs, pages_tab, tests_tab
+                        data_tab = ui.tab("Data sets", icon=icon("braces")).props('data-testid="tab-data"')
+                self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
                     self.tests = TestEditor(self)
                 with ui.tab_panel(pages_tab).classes("p-0"):
                     self.pages = PageEditor(self)
+                with ui.tab_panel(data_tab).classes("p-0"):
+                    self.data = DataSetEditor(self)
         self.tests.load_refs()
 
     async def open_page(self, name: str) -> None:

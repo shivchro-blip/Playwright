@@ -24,8 +24,27 @@ Each key is a **field name from the page object** (or a `CUSTOMFIELD_*` command)
 | `null` | Generate a value with the field's `autoGen` rule from `rand_gen_rules.json`. |
 | `"click"`, `"check"`, `"dblclick"`, `"hover"`, `"setchecked"` | Run that action instead of the default. |
 | `"DICT.key"` | A value saved earlier in the test (dictionary). |
+| `"DATA.key"` | The value of `key` in the test case's data set (see *Data sets* below). |
 | `"ENV.NAME"` | An environment variable (also works inside locators). |
 | `{"type": "confirmtext"}` | Explicit action object. Any executable type works, e.g. `{"type": "keyboard", "value": "Enter"}`, `{"type": "wait", "value": "2"}`. Locator settings still come from the page object (put `contains` there for `confirmtext`). |
+
+## Data sets: one test, many sets of values
+
+Keep what a test types (addresses, names, numbers) in `Data/TestData/<name>.json` and name the file in the test case:
+
+```json
+{ "defaults": { "Country": "United States" },
+  "sets": { "albany": { "City": "Albany", "Zip": "12206" },
+            "nyc":    { "City": "New York", "Zip": "10001" } } }
+```
+```json
+{ "testCaseID": "TC-APPLY", "dataSet": "applicants", "steps": [
+  { "screen": "Address", "formData": { "City": "DATA.City", "Zip": "DATA.Zip", "Country": "DATA.Country" } } ] }
+```
+
+The test case runs once per set, as `TC-APPLY[albany]` and `TC-APPLY[nyc]`. A value that is exactly `DATA.<key>` (also as a part of a `|`-joined value, inside an explicit action such as `{"type": "fill", "value": "DATA.City"}`, or as the value of an `override`) is replaced by the set's value, with the set's own values over the file's `defaults`. Text that merely contains `DATA.x` is left alone. A key a set does not have stops the run with a message naming the test, the set and what it does have. Keys are letters, digits, `_` and `-`; set and file names the same; values are text or numbers.
+
+A reused test case (`testCase` step) or common action does not see the set, except through an `override` on the step that calls it. The run option `runDataSet` (or the Run from a step dialog) runs only one set.
 
 ## Choosing an option: `{value}` in a locator
 

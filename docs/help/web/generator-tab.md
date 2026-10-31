@@ -50,6 +50,17 @@ Warnings do not block saving:
 
 Errors (missing ID, malformed steps, the same field twice) block saving.
 
+## Data sets
+
+A **data set** keeps the values a test types in one file (`Data/TestData/<name>.json`) so a test case can run against many sets and the test itself holds no addresses or numbers. The **Data sets** tab edits them:
+
+- **+** creates a file; the list shows how many sets each has and which test cases use it.
+- The grid has **one row per set and one column per key**. The **defaults** row applies to every set; an empty cell falls back to it. **+ Set**, **+ Column**, duplicate and remove work on rows and columns; **Form / JSON** switches to the raw file. Values are text.
+- In a test case, choose the **Data set** (below the ID row of the editor). The value menu (the **{ }** button next to a value) now offers *From the data set*, which writes `DATA.<key>`. **Check** warns if a file is missing, a `DATA.` key is not defined in every set, or the steps use `DATA.` values with no data set.
+- The test case then runs once per set, as `TC-1[albany]`, `TC-1[nyc]`; each shows as its own result. A missing value stops the run with a message naming the set.
+
+Details, including what a reused test or common action sees, are in *Form Data and Page Mapping*.
+
 ## Recorder
 
 Record a test by clicking through the site instead of writing locators by hand. It is **off by default**: turn on the **Recorder** switch next to the section tabs (saved as `recorderEnabled` in `.env`), then click **Record**.

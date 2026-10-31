@@ -10,6 +10,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from utils.data_sets import DataSetError, load_file, references
 from webapp.services.json_files import ConflictError, NAME_RE, PathError, read_json, safe_path, write_json
 from webapp.services.pom_service import PomService
 
@@ -218,4 +219,24 @@ class TestCaseService:
                 known_ids = known_ids if known_ids is not None else set(self.all_test_ids())
                 if target not in known_ids:
                     v.warnings.append(f"Step {n}: reusable test case '{target}' not found.")
+        self._check_data_set(tc, steps, v)
         return v
+
+    def _check_data_set(self, tc: dict, steps: list, v: Validation) -> None:
+        """The data file exists, and every DATA.<key> the steps use is defined in every set."""
+        used = references(steps)
+        name = tc.get("dataSet")
+        if not name:
+            if used:
+                v.warnings.append(f"Steps use {', '.join('DATA.' + k for k in sorted(used))} but the test case "
+                                  "has no data set.")
+            return
+        try:
+            defaults, sets = load_file(self.workspace, str(name))
+        except DataSetError as e:
+            v.warnings.append(str(e))
+            return
+        for key in sorted(used):
+            lacking = [s for s, values in sets.items() if key not in defaults and key not in values]
+            if lacking:
+                v.warnings.append(f"DATA.{key} is not defined in data set '{name}' for: {', '.join(lacking)}.")

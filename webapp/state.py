@@ -9,6 +9,7 @@ from dotenv import dotenv_values
 
 from webapp.services.ai_assist import AIAssist
 from webapp.services.audit import AuditLog
+from webapp.services.data_sets import DataSetService
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
 from webapp.services.notifier import Notifier
@@ -41,6 +42,7 @@ class Services:
     ai: AIAssist
     users: UserStore
     audit: AuditLog
+    datasets: DataSetService
 
 
     def flag(self, key: str) -> bool:
@@ -98,9 +100,10 @@ def services() -> Services:
     env = EnvConfigService(s.dotenv_path)
     schedules = ScheduleStore(s.workspace / "Data" / "schedules.json")
     notifier = Notifier(notify_lookup(env), s.resolved_public_url)
+    tests_service = TestCaseService(s.workspace, pom)
     return Services(
         pom=pom,
-        tests=TestCaseService(s.workspace, pom),
+        tests=tests_service,
         help=HelpService(s.repo_root / "docs" / "help"),
         artifacts=RunArtifacts("/runs"),
         recorder=Recorder(s.python_exe, s.recorder_command or None),
@@ -115,4 +118,5 @@ def services() -> Services:
                     s.resolved_runs_dir.parent / "ai-audit.jsonl", s.ai_model),
         users=UserStore(s.resolved_users_file),
         audit=AuditLog(s.resolved_runs_dir.parent / "audit.jsonl"),
+        datasets=DataSetService(s.workspace, tests_service),
     )

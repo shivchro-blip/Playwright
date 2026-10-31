@@ -11,6 +11,7 @@ import random
 from playwright.async_api import async_playwright, expect
 from pages.dynamic_page import DynamicPage
 from utils.test_data_loader import load_test_cases_from_folder, load_all_test_cases
+from utils.data_sets import expand as expand_data_sets
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -149,6 +150,8 @@ test_cases = load_test_cases_from_folder(tests_folder, runTagsConfig, ["applicat
 runTestIdsConfig = set(_normalize_run_tags(os.getenv("runTestIds")))
 if runTestIdsConfig:
     test_cases = [tc for tc in test_cases if tc.get("testCaseID") in runTestIdsConfig]
+# A test case with a "dataSet" runs once per set of Data/TestData/<name>.json (or only runDataSet)
+test_cases = expand_data_sets(test_cases, workspaceDir, (os.getenv("runDataSet") or "").strip())
 selection_error_message = (
     "No runnable tests were selected. "
     f"workspace={workspaceDir} system={systemConfig or '<blank>'} "

@@ -1,7 +1,7 @@
 [
   {"id": "getting-started", "category": "Using the web app", "title": "Getting started", "path": "web/getting-started.md", "tags": ["setup", "start", "workspace"]},
   {"id": "control-tab", "category": "Using the web app", "title": "Control tab", "path": "web/control-tab.md", "tags": ["run", "tags", "browsers", "credentials"]},
-  {"id": "generator-tab", "category": "Using the web app", "title": "Generator tab", "path": "web/generator-tab.md", "tags": ["edit", "test case", "page", "pom", "recorder", "codegen"]},
+  {"id": "generator-tab", "category": "Using the web app", "title": "Generator tab", "path": "web/generator-tab.md", "tags": ["edit", "test case", "page", "pom", "recorder", "codegen", "data set", "test data"]},
   {"id": "history-and-reports", "category": "Using the web app", "title": "History and reports", "path": "web/history-and-reports.md", "tags": ["allure", "report", "history", "video", "trace"]},
   {"id": "team", "category": "Using the web app", "title": "Accounts, roles and the audit trail", "path": "web/team.md", "tags": ["login", "users", "roles", "token", "audit", "activity", "queue", "security"]},
   {"id": "ai-assist", "category": "Using the web app", "title": "AI assist", "path": "web/ai-assist.md", "tags": ["ai", "claude", "triage", "locator", "draft", "summary", "anthropic"]},

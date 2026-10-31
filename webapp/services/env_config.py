@@ -50,6 +50,8 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("TestSuiteLoggerLevel", "choice", "INFO", "Logging", "Suite logger", LEVELS),
     EnvField("PageLoggerLevel", "choice", "INFO", "Logging", "Page logger", LEVELS),
     EnvField("FormHandlerLoggerLevel", "choice", "INFO", "Logging", "Form logger", LEVELS),
+    # Run only one set of a test case's data file (see utils/data_sets.py)
+    EnvField("runDataSet", "str", "", "Debug", "Data set to run"),
     # Web app features (not passed to runs)
     EnvField("recorderEnabled", "bool", "false", "App", "Test recorder"),
     EnvField("aiAssistEnabled", "bool", "false", "App", "AI assist"),
