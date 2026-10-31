@@ -63,7 +63,10 @@ FIELD_TYPE_DEFAULT_ACTION = {
     "document":          "document",
     "sladocument":       "sladocument",
     "correctionDocument":"correctionDocument",
-    "fileChooserDocument": "fileChooserDocument"
+    "fileChooserDocument": "fileChooserDocument",
+
+    # calendar widgets: the value is a date (MM/DD/YYYY, YYYY-MM-DD or +30d / -7d from today)
+    "datepicker":        "muidate",
 }
 
 # For Error Loggingg
@@ -398,7 +401,26 @@ async def auto_generate_actions(dictionaryContext, pomFields, testData=None):
 ###########################################################################################################################
 ###########################################################################################################################
 
-async def generate_action(dictionaryContext, field_name, raw_value, field_config, pomFields):
+async def resolve_value_locator(dictionaryContext, field_name, locator, raw_value, auto=False):
+    """A locator with {value} takes its answer from the test, so the page object stays free of test data:
+    "TaxNotPaid": "No" clicks  [data-attribute-id='TaxNotPaid'] button:text-is('No').
+    ENV.NAME and DICT.key work as the value. Returns the locator, or None to skip the field."""
+    if auto:  # no test data (the page is being auto-run): there is no answer to put in
+        logger.warning(f"Skipping '{field_name}': its locator contains {{value}} and no test data names the option")
+        return None
+    value = raw_value
+    if isinstance(value, str) and value.startswith("ENV."):
+        value = os.getenv(value[4:].strip(), "")
+    elif isinstance(value, str) and value.startswith("DICT."):
+        value = await loadFromDictionary(dictionaryContext, value[5:].strip())
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)) or not str(value).strip():
+        await addFail(f"Field '{field_name}' needs a value: its locator contains {{value}}, so the test must say "
+                      f"which option to choose, e.g. \"{field_name}\": \"No\".")
+    text = str(value).strip().replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
+    return locator.replace("{value}", text)
+
+
+async def generate_action(dictionaryContext, field_name, raw_value, field_config, pomFields, auto=False):
     # 1) strip off any |ELoop(x) or |LLoop(x)
     field_config, clean_name, loop_type, loop_count = await parse_field_override(dictionaryContext, field_name, pomFields)    ## GET FIELD CONFIG AGAIN AFTER PARSE NAME!!!!
     if field_config:
@@ -418,10 +440,17 @@ async def generate_action(dictionaryContext, field_name, raw_value, field_config
         focus       = field_config.get("focus")
         field_type  = field_config.get("type")
         auto_gen    = field_config.get("autoGen")
+        picker      = field_config.get("picker")
         required    = field_config.get("required") or True
     else:
         await attach_allure_failure_details(name=f"Generate Action Failure - No Field Config for: {field_name}")
         await addFail(f"Failed to generate Actions - No Field Config for: {field_name}")
+
+    if field_config and locator and "{value}" in str(locator):
+        locator = await resolve_value_locator(dictionaryContext, clean_name, str(locator), raw_value, auto)
+        if locator is None:
+            return None
+        raw_value = "click"  # the answer is in the locator now; choosing it is a click
 
     #if "DICT." in raw_value:
     #    strippedValue = raw_value.replace("DICT.", "").strip()
@@ -467,7 +496,7 @@ async def generate_action(dictionaryContext, field_name, raw_value, field_config
                 raw_value = gen
 
         action_type = FIELD_TYPE_DEFAULT_ACTION.get(field_type, "fill")
-        value = raw_value if action_type in {"fill","select","type_number","document","sladocument","correctionDocument", "fileChooserDocument"} else None
+        value = raw_value if action_type in {"fill","select","type_number","document","sladocument","correctionDocument", "fileChooserDocument", "muidate"} else None
 
     # 4) assemble the action dict
     action = {
@@ -487,6 +516,7 @@ async def generate_action(dictionaryContext, field_name, raw_value, field_config
         "index":            index,
         "tableId":          tableId,
         "required":         required,
+        **({"picker": picker} if picker else {}),
         **({"value": value} if value is not None else {}),
     }
 
@@ -529,7 +559,8 @@ async def createActionsFromPOM(dictionaryContext, pomFields):
         for field_name, field_config in pomFields.items():
             logger.info(f"POM Field: {field_name} - config: {field_config}")
             field_value = None
-            action = await generate_action(dictionaryContext, field_name, field_value, field_config, pomFields)
+            action = await generate_action(dictionaryContext, field_name, field_value, field_config, pomFields,
+                                           auto=True)
             if action:
                 actions.append(action)
     except Exception as e:

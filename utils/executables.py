@@ -4,6 +4,7 @@ from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_de
 import asyncio
 import logging
 from utils.log_level import from_env as _log_level
+from utils.date_value import months_to, parse_date_value
 import re
 import json
 import pytest
@@ -103,6 +104,51 @@ async def clickAction(page,dictionaryContext, element, target, waitForNewTab=Fal
         page = new_page
     logger.info(f"Clicked '{target}'")
     return page
+
+async def muidateAction(page, dictionaryContext, element, action, target):
+    """Pick a date in a Material UI calendar popup: open it from the field, page to the month, click the day.
+    The value is MM/DD/YYYY, YYYY-MM-DD, today or +30d / -7d; "picker" on the field is the locator of the
+    button that opens the calendar (default: the date button next to the input)."""
+    try:
+        raw = action.get("value")
+        if isinstance(raw, str) and raw.startswith("ENV."):
+            raw = os.getenv(raw[4:].strip(), "")
+        elif isinstance(raw, str) and raw.startswith("DICT."):
+            raw = dictionaryContext.get(raw[5:].strip())
+        wanted = parse_date_value(raw)
+
+        opener = None
+        if action.get("picker"):
+            opener = page.locator(action["picker"]).first
+        else:
+            for levels in range(1, 7):  # climb until a date button sits next to the input
+                scope = element.locator("xpath=" + "/".join([".."] * levels))
+                found = scope.locator("button[aria-label*='date' i]")
+                if await found.count():
+                    opener = found.first
+                    break
+        if opener is None:
+            raise ValueError(f"No calendar button found next to '{target}'; set \"picker\" on the field.")
+        await opener.click()
+
+        header = page.locator("[class*='CalendarHeader-label']:visible").first
+        await header.wait_for(state="visible", timeout=10000)
+        for _ in range(60):
+            offset = months_to(await header.inner_text(), wanted)
+            if offset == 0:
+                break
+            before = await header.inner_text()
+            name = "Next month" if offset > 0 else "Previous month"
+            await page.locator(f"button[aria-label='{name}']:visible").first.click()
+            await expect(header).not_to_have_text(before, timeout=5000)
+        else:
+            raise ValueError(f"Could not reach {wanted:%B %Y} in the calendar.")
+        day = page.locator(f"button[class*='Day-root']:not([class*='OutsideMonth']):visible:text-is('{wanted.day}')")
+        await day.first.click()
+        logger.info(f"Picked {wanted:%m/%d/%Y} in '{target}'")
+    except Exception as e:
+        await attach_allure_failure_details(page, action=action, name="Date Picker Failure")
+        await addFail(f"Date picker action failed for '{target}': {e}")
 
 async def kendodateAction(page,element,locator):
     try:

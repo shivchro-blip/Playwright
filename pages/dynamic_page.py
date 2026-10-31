@@ -6,6 +6,7 @@ import pytest
 from dotenv import load_dotenv
 import os
 import utils.snapshot_helper as snap
+from utils.step_options import fields_for_step
 load_dotenv()
 
 loggerLevelString = os.getenv("PageLoggerLevel", "INFO").upper()
@@ -60,7 +61,7 @@ class DynamicPage:
 
     async def execute_actions(self, test_data, dictionaryContext):
         logger.info("--- IN EXECUTE ACTIONS --- ")
-        fields = self.screen_config.get("fields", {})
+        fields = fields_for_step(self.screen_config.get("fields", {}), test_data)
         logger.info("")
         #logger.info("fields :")
         #logger.info(fields)

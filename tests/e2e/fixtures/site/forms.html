@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>AutomateNY authoring page</title>
+<style>.MuiPickersPopper-root{border:1px solid #888;padding:6px;display:none}.MuiPickersPopper-root.on{display:block}
+.MuiPickersDay-root{width:34px}.MuiPickersDay-dayOutsideMonth{color:#aaa}</style></head>
+<body>
+  <h1>Authoring page</h1>
+  <div data-attribute-id="Taxed"><button type="button">Yes</button><button type="button">No</button></div>
+  <div data-attribute-id="Home"><button type="button">Yes</button><button type="button">No</button></div>
+  <p id="answers"></p>
+
+  <div class="MuiFormControl-root"><div class="MuiInputBase-root">
+    <input id="begin" placeholder="MM/DD/YYYY" readonly>
+    <div class="MuiInputAdornment-root"><button type="button" aria-label="Choose date">open</button></div>
+  </div></div>
+  <p id="begin-echo"></p>
+  <div class="MuiPickersPopper-root" id="popper">
+    <div class="MuiPickersCalendarHeader-root">
+      <button type="button" aria-label="Previous month">&lt;</button>
+      <span class="MuiPickersCalendarHeader-label" id="label"></span>
+      <button type="button" aria-label="Next month">&gt;</button>
+    </div>
+    <div id="days"></div>
+  </div>
+
+  <input class="member"><span class="echo"></span>
+  <input class="member"><span class="echo"></span>
+
+  <script>
+    const answers = {};
+    document.querySelectorAll('[data-attribute-id] button').forEach(b => b.addEventListener('click', () => {
+      answers[b.parentElement.dataset.attributeId.toLowerCase()] = b.textContent;
+      document.getElementById('answers').textContent = Object.entries(answers).map(([k, v]) => k + '=' + v).join(' ');
+    }));
+    document.querySelectorAll('.member').forEach(i => i.addEventListener('input', () => {
+      i.nextElementSibling.textContent = i.value;
+    }));
+    const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    let shown = new Date(); shown.setDate(1);
+    const pad = n => String(n).padStart(2, '0');
+    function draw() {
+      document.getElementById('label').textContent = names[shown.getMonth()] + ' ' + shown.getFullYear();
+      const box = document.getElementById('days'); box.innerHTML = '';
+      const first = new Date(shown.getFullYear(), shown.getMonth(), 1 - shown.getDay());
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(first.getFullYear(), first.getMonth(), first.getDate() + i);
+        const b = document.createElement('button'); b.type = 'button'; b.textContent = d.getDate();
+        b.className = 'MuiPickersDay-root' + (d.getMonth() !== shown.getMonth() ? ' MuiPickersDay-dayOutsideMonth' : '');
+        b.addEventListener('click', () => {
+          const text = pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + '/' + d.getFullYear();
+          document.getElementById('begin').value = text;
+          document.getElementById('begin-echo').textContent = text;
+          document.getElementById('popper').classList.remove('on');
+        });
+        box.appendChild(b);
+      }
+    }
+    document.querySelector('[aria-label="Choose date"]').addEventListener('click', () => {
+      document.getElementById('popper').classList.add('on'); draw();
+    });
+    document.querySelector('[aria-label="Previous month"]').addEventListener('click', () => { shown.setMonth(shown.getMonth() - 1); draw(); });
+    document.querySelector('[aria-label="Next month"]').addEventListener('click', () => { shown.setMonth(shown.getMonth() + 1); draw(); });
+  </script>
+</body>
+</html>
