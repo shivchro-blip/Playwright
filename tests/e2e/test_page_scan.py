@@ -57,7 +57,6 @@ def test_scan_dialog_adds_selected_fields_to_the_page(workspace, tmp_path, site_
         page.get_by_role("tab", name="Pages").click()
         # the Generator opens the first page by itself: let that finish, or it re-renders under the clicks below
         expect(page.get_by_role("heading", name="ScanMe", level=2)).to_be_visible()
-        page.get_by_role("region", name="Pages").locator("tbody tr", has_text="ScanMe").click()
         page.get_by_test_id("scan-open").click()
         dialog = page.get_by_role("dialog", name="Add fields from the live page")
         expect(dialog.get_by_test_id("scan-url")).to_have_value(f"{site_url}/wizard.html")
