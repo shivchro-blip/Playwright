@@ -36,6 +36,8 @@ def test_used_by_rename_and_tidy(workspace: Path, tmp_path: Path):
         page.goto(url, wait_until="networkidle")
         page.get_by_role("tab", name="Generator").click()
         page.get_by_role("tab", name="Pages").click()
+        # the Generator opens the first page by itself: let that finish, or it re-renders under the clicks below
+        expect(page.get_by_role("heading", name="AppForm", level=2)).to_be_visible()
 
         row = page.get_by_role("region", name="Pages").locator("tbody tr", has_text="AppForm")
         expect(row).to_contain_text("1")  # used by TC-MAINT
