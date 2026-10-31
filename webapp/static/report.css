@@ -46,3 +46,6 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; }
 .shots img { max-width: 320px; max-height: 200px; border: 1px solid var(--border); border-radius: 8px; }
 .note { color: var(--muted); font-size: 13px; margin: 12px 0 0; } .note b { color: var(--ink-2); font-weight: 500; }
 a { color: inherit; }
+
+.where { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); }
+.where b { font-family: var(--mono); font-weight: 500; color: var(--ink); }
