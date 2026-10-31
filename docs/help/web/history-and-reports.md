@@ -19,6 +19,14 @@ Every run gets its own folder:
 
 Runs survive app restarts. A run that was in progress when the app stopped is shown as `error`.
 
+## Where a test failed
+
+A failed test names where it failed: the screen, the action and the field (for example *Screen Financial > FILL BankNme*, inside a common action or reused test if there is one). It is read from the failing step of the run's own results, so it needs no Allure CLI. You see it:
+
+- in the **Message** column of the results tables, ahead of the error text;
+- at the top of the test's details (click the row), as a trail of steps with the screenshot taken at that moment;
+- in the built-in report: under each failed test, and a **Failures by screen** table, because several failures on one screen usually have one cause.
+
 ## Allure reports
 
 Install the Allure CLI (needs Java), for example:

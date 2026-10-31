@@ -1,0 +1,78 @@
+# Run your AutomateNY tests in GitHub Actions: on commit, on a schedule, and on demand.
+#
+# Copy this file to .github/workflows/test-suite.yml and change the lines marked  # <-- CHANGE.
+# What it does: installs the locked dependencies and Chromium, runs the tests with the same engine as the
+# Control tab (python -m webapp.cli_run), puts the result in the job summary, marks each failure with where it
+# failed, uploads the report, and fails the job when a test fails. See Help > "Run in CI".
+name: Test suite
+
+on:
+  push:
+    branches: [main]
+    paths:                       # run only when tests, pages or the framework change  # <-- CHANGE
+      - "workspace/**"
+      - "pages/**"
+      - "utils/**"
+      - "tests/dynamic_test_suite.py"
+  pull_request:
+    paths:
+      - "workspace/**"
+      - "pages/**"
+      - "utils/**"
+      - "tests/dynamic_test_suite.py"
+  schedule:
+    - cron: "30 5 * * 1-5"       # weekdays 05:30 UTC  # <-- CHANGE
+  workflow_dispatch:             # the Run workflow button, with choices
+    inputs:
+      system: {description: System, default: NYBE2}
+      env: {description: Environment, default: dev}
+      tags: {description: Tags (comma-separated), default: smoke}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: suite-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # What to run when nobody picked anything (push, pull request, schedule).  # <-- CHANGE
+  SYSTEM: ${{ inputs.system || 'NYBE2' }}
+  ENVIRONMENT: ${{ inputs.env || 'dev' }}
+  TAGS: ${{ inputs.tags || 'smoke' }}
+  # Where Data/, Pages/ and Tests/ live. Point this elsewhere if your workspace is not in the repository.
+  AUTOMATENY_WORKSPACE: ${{ github.workspace }}/workspace
+  PYTHONUTF8: "1"
+  # Logins: the variable names are username_env / password_env in Data/systemData.json; the values are
+  # repository secrets (Settings > Secrets and variables > Actions).  # <-- CHANGE
+  NYBE2_DEV_USERNAME: ${{ secrets.NYBE2_DEV_USERNAME }}
+  NYBE2_DEV_PASSWORD: ${{ secrets.NYBE2_DEV_PASSWORD }}
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest       # or windows-latest, or a self-hosted runner inside your network
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements-lock.txt
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Run the tests
+        run: >
+          python -m webapp.cli_run --system "$SYSTEM" --env "$ENVIRONMENT" --tags "$TAGS"
+          --browsers chromium --out "$RUNNER_TEMP/runs" --timeout-minutes 50
+      - name: Upload the report, screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: suite-results
+          path: ${{ runner.temp }}/runs
+          retention-days: 14

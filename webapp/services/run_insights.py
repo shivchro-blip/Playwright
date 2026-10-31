@@ -345,6 +345,44 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
     return "".join(out)
 
 
+def build_markdown(run: Run, details: dict[Key, TestDetails] | None = None, max_failures: int = 25) -> str:
+    """The run as Markdown (a CI job summary): status, counts, and each failure with where it failed."""
+    details = details or {}
+    cfg, counts = run.config, run.counts()
+
+    def code(text: str, limit: int = 160) -> str:
+        return "`" + " ".join(str(text).replace("`", "'").split())[:limit] + "`"
+
+    out = [f"## AutomateNY run {run.id}: {run.status}", "",
+           f"System **{cfg.system}/{cfg.env}** | tags **{', '.join(cfg.tags)}** | "
+           f"browsers **{', '.join(cfg.browsers)}**", ""]
+    if run.error:
+        out += [f"> {' '.join(run.error.split())}", ""]
+    if counts:
+        out += ["| " + " | ".join(["Tests", *counts]) + " |", "|" + "---|" * (len(counts) + 1),
+                "| " + " | ".join([str(sum(counts.values())), *map(str, counts.values())]) + " |", ""]
+    failed = [r for r in run.results.values() if r.outcome in FAILING]
+    if failed:
+        out.append("### Failures")
+        for r in sorted(failed, key=lambda r: r.test_id)[:max_failures]:
+            item = details.get((r.test_id, r.browser))
+            where = item.failure.short if item and item.failure else ""
+            message = ((item.message if item and item.message else r.message) or "").strip().splitlines()
+            line = f"- {code(r.test_id)} ({r.browser})"
+            if where:
+                line += f" failed at {code(where)}"
+            if message:
+                line += f": {code(message[0])}"
+            out.append(line)
+        if len(failed) > max_failures:
+            out.append(f"- ... and {len(failed) - max_failures} more")
+        screens = failures_by_screen(run, details)
+        if len(screens) > 1 or any(len(t) > 1 for _, t in screens):
+            out += ["", "By screen: " + "; ".join(f"{code(s)} x{len(t)}" for s, t in screens)]
+        out.append("")
+    return "\n".join(out)
+
+
 def failures_by_screen(run: Run, details: dict[Key, TestDetails]) -> list[tuple[str, list[str]]]:
     """Failed tests grouped by the screen they failed on, biggest group first; tests with no known screen are
     left out."""
