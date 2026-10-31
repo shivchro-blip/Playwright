@@ -38,6 +38,9 @@ async def action_handler(page, dictionaryContext, action_type, locator=None, ele
         elif action_type == "click":
             page = await Executables.clickAction(page,dictionaryContext, element, target, action["waitForNewTab"], action["focus"], action["request"])
         
+        elif action_type == "muidate":
+            await Executables.muidateAction(page, dictionaryContext, element, action, target)
+
         elif action_type == "kendodate":
             await Executables.kendodateAction(page,element,locator)
 

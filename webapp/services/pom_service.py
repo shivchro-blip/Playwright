@@ -15,7 +15,7 @@ FIELD_TYPES = [
     "button", "link", "checkbox", "radio", "table",
     "text", "input", "textarea", "select", "number",
     "document", "sladocument", "correctionDocument", "fileChooserDocument",
-    "keyboard", "date",
+    "keyboard", "date", "datepicker",
 ]
 # Page-level keys the engine reads (pages/dynamic_page.py)
 PAGE_KEYS = ["path", "fullpath", "titleLocator", "titleContains", "errorLocators", "errorContains"]
