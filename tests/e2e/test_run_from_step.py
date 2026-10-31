@@ -113,5 +113,6 @@ def test_from_step_dialog_offers_the_saved_state_and_starts_the_run(workspace: P
         browser.close()
     runs = sorted((tmp_path / "runs").glob("*/run.json"))
     options = json.loads(runs[-1].read_text(encoding="utf-8"))["config"]["options"]
-    assert options["runFromStep"] == 3 and options["resumeCheckpoint"].endswith("/TC-RESUME/2.json")
+    assert options["runFromStep"] == 3
+    assert Path(options["resumeCheckpoint"]).parts[-2:] == (TEST_ID, "2.json")  # Windows paths use backslashes
     assert "saveCheckpoints" not in options
