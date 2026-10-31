@@ -21,6 +21,7 @@ from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.locator_dialog import open_locator_check
+from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.recorder_dialog import open_recorder
 from webapp.ui.step_actions import (
     HINTS, KEY_NAMES, action_options, apply_action, default_action, has_value_slot, json_value, loop_of,
@@ -952,7 +953,12 @@ class PageEditor:
                     text("span", str(len(self.rows)), "any-count-pill mono")
                     ui.input(placeholder="Filter fields", value=self.field_filter, on_change=self._set_filter) \
                         .props('clearable debounce=300 aria-label="Filter fields"').classes("w-56")
-                ui.button("Field", icon=icon("plus"), color=None, on_click=self.add_field).classes("any-btn is-32")
+                with ui.element("div").classes("flex gap-2"):
+                    ui.button("From page", icon=icon("scan-search"), color=None,
+                              on_click=lambda: open_page_scan(self)).props('data-testid="scan-open"') \
+                        .classes("any-btn is-32").tooltip("Add fields by scanning the live page")
+                    ui.button("Field", icon=icon("plus"), color=None, on_click=self.add_field) \
+                        .classes("any-btn is-32")
             with ui.element("div").classes("any-grid-scroll"):
                 with ui.element("div").classes("any-field-grid is-head").props('aria-hidden="true"'):
                     for label in ("Name", "Type", "Locator", "Index", "autoGen", ""):

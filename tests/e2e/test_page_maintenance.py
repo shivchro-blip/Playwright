@@ -39,7 +39,8 @@ def test_used_by_rename_and_tidy(workspace: Path, tmp_path: Path):
 
         row = page.get_by_role("region", name="Pages").locator("tbody tr", has_text="AppForm")
         expect(row).to_contain_text("1")  # used by TC-MAINT
-        expect(page.get_by_role("region", name="Pages").locator("tbody tr", has_text="Lonely")).to_contain_text("unused")
+        lonely = page.get_by_role("region", name="Pages").locator("tbody tr", has_text="Lonely")
+        expect(lonely).to_contain_text("unused")
         row.click()
         used = page.get_by_test_id("page-used-by")
         expect(used).to_contain_text("Used by 1 test")

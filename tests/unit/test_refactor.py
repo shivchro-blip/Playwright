@@ -65,7 +65,8 @@ def test_rename_page_updates_steps_overrides_and_the_file(ws):
     r.rename_page("SYS", "Form", "Application")
     plan = r.plan()
     apply_plan(plan)
-    assert not (root / "Pages" / "SYS" / "Form.json").exists() and (root / "Pages" / "SYS" / "Application.json").exists()
+    pages = root / "Pages" / "SYS"
+    assert not (pages / "Form.json").exists() and (pages / "Application.json").exists()
     cases = load(root, "Tests", "SYS", "MasterRegressionSuite", "T.json")["testCases"]
     assert cases[0]["steps"][0]["screen"] == "Application" and cases[0]["steps"][1]["screen"] == "Other"
     assert cases[0]["steps"][2]["override"] == "Application|Name|Zed"
@@ -109,8 +110,9 @@ def test_merge_refuses_fields_that_differ_and_unmergeable_repeats(ws):
     root, pom, tests = ws
     with pytest.raises(RefactorError, match="exactly the same"):
         Refactor(pom, tests).merge_fields("SYS", "Form", "Principal", ["Principal1"])
-    w(root / "Tests" / "SYS" / "MasterRegressionSuite" / "L.json", {"testCases": [{"testCaseID": "L", "system": "SYS",
-        "steps": [{"screen": "Form", "formData": {"Save": "click", "Save1|ELoop(2)": "click", "Save2|ELoop(2)": "click"}}]}]})
+    looped = {"Save": "click", "Save1|ELoop(2)": "click", "Save2|ELoop(2)": "click"}
+    w(root / "Tests" / "SYS" / "MasterRegressionSuite" / "L.json", {"testCases": [
+        {"testCaseID": "L", "system": "SYS", "steps": [{"screen": "Form", "formData": looped}]}]})
     with pytest.raises(RefactorError, match="by hand"):
         Refactor(pom, tests).merge_fields("SYS", "Form", "Save", ["Save1", "Save2"])
 
