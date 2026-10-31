@@ -200,11 +200,18 @@ class TestCaseService:
                 if target not in screens:
                     v.warnings.append(f"Step {n}: page '{target}' not found in Pages/{step_system}.")
                     continue
-                fields = set(self.pom.field_names(step_system, target))
-                for key in (step.get("formData") or {}):
+                configs = self.pom.field_configs(step_system, target)
+                for key, value in (step.get("formData") or {}).items():
                     name = base_field(key)
-                    if name not in fields and name not in custom and not name.startswith("CUSTOMFIELD_"):
+                    if name not in configs and name not in custom and not name.startswith("CUSTOMFIELD_"):
                         v.warnings.append(f"Step {n}: field '{name}' is not on page '{target}'.")
+                    elif "{value}" in str(configs.get(name, {}).get("locator", "")) and \
+                            (value is None or (isinstance(value, str) and not value.strip())):
+                        v.warnings.append(f"Step {n}: field '{name}' needs the option to choose "
+                                          f"(its locator has {{value}}), e.g. \"{name}\": \"No\".")
+                if "index" in step and not any(c.get("indexed") for c in configs.values()):
+                    v.warnings.append(f"Step {n}: 'index' has no effect: no field on '{target}' is marked "
+                                      "\"indexed\": true.")
             elif kind == "commonAction" and target not in common:
                 v.warnings.append(f"Step {n}: common action '{target}' not found in Tests/com.")
             elif kind == "testCase":

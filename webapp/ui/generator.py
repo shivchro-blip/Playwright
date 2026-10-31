@@ -19,9 +19,12 @@ from webapp.ui.components import field as labelled, icon_button, split_test_id, 
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.recorder_dialog import open_recorder
+from webapp.ui.step_actions import (
+    HINTS, KEY_NAMES, action_options, apply_action, default_action, has_value_slot, json_value, loop_of,
+    ref_value, row_action, set_json_value, split_key, with_loop,
+)
 from webapp.ui.theme import icon, svg
 
-VALUE_KINDS = {"text": "Text", "auto": "Auto", "number": "Number", "json": "JSON"}
 KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "Reusable test",
                "API_REQUEST": "API request"}
 KIND_TONES = {"screen": "kind-page", "commonAction": "kind-common", "testCase": "kind-reuse", "API_REQUEST": "kind-api"}
@@ -345,6 +348,9 @@ class TestEditor:
                 ui.select(options, value=step.target or None, with_input=True, new_value_mode="add-unique",
                           on_change=set_target).props(f'aria-label="Step {i + 1} target"').classes("flex-1 min-w-0")
                 with ui.element("div").classes("any-step-tools"):
+                    if step.kind == "screen" and step.target in self._screens:
+                        icon_button("external-link", "Open this page in the Pages tab",
+                                    lambda t=step.target: self.gen.open_page(t), "is-32")
                     icon_button("arrow-up", "Move step up", lambda: self.move(i, -1), "is-32").set_enabled(i > 0)
                     icon_button("arrow-down", "Move step down", lambda: self.move(i, 1), "is-32") \
                         .set_enabled(i < len(self.steps) - 1)
@@ -360,28 +366,56 @@ class TestEditor:
                 with labelled("Override (screen|field|value)", f"step-{i}-override"):
                     ui.input(value=step.extra.get("override", ""), on_change=set_override) \
                         .props(f'for="step-{i}-override"').classes("w-full")
-            others = {k: v for k, v in step.extra.items() if k != "override"}
+            others = {k: v for k, v in step.extra.items() if k not in ("override", "index")}
             if others:
                 ui.label("Other step keys (edit in JSON view): " + ", ".join(others)).classes("any-muted text-xs")
             if step.kind == "screen":
+                self.index_input(i, step)
                 self.form_rows(step)
+
+    def index_input(self, i: int, step: StepModel) -> None:
+        """For pages with repeated sections: the occurrence the fields marked "indexed" act on."""
+        system = self.meta.get("system") or self.gen.system
+        configs = self.svc.pom.field_configs(system, step.target) if step.target and system else {}
+        if not (any(c.get("indexed") for c in configs.values()) or "index" in step.extra):
+            return
+
+        def set_index(e):
+            if e.value in (None, ""):
+                step.extra.pop("index", None)
+            else:
+                step.extra["index"] = int(e.value)
+            self.touch()
+
+        with ui.element("div").classes("any-form-row"):
+            with labelled("Occurrence (index, from 0)", f"step-{i}-index"):
+                ui.number(value=step.extra.get("index"), min=0, precision=0, on_change=set_index) \
+                    .props(f'for="step-{i}-index" placeholder="0"').classes("w-40")
+            ui.label("Fields marked indexed on the page use this occurrence: 1 acts on the second row, "
+                     "second section, ...").classes("any-muted text-xs self-end pb-2")
 
     def form_rows(self, step: StepModel) -> None:
         system = self.meta.get("system") or self.gen.system
-        fields = self.svc.pom.field_names(system, step.target) if step.target and system else []
+        configs = self.svc.pom.field_configs(system, step.target) if step.target and system else {}
+        fields = list(configs)
         custom = self.svc.pom.custom_fields()
         for row in step.rows:
-            key_options = sorted(set(fields) | ({row.key} if row.key else set()), key=str.casefold) + \
-                [c for c in custom if c != row.key]
+            name, _ = split_key(row.key)
+            cfg = configs.get(name)
+            key_options = sorted(set(fields) | ({name} if name else set()), key=str.casefold) + \
+                [c for c in custom if c != name]
 
-            def set_key(e, r=row):
-                r.key = e.value or ""
+            def set_name(e, r=row):
+                old = split_key(r.key)[1]
+                r.key = (e.value or "") + old
+                new_cfg = configs.get(e.value or "")
+                if new_cfg and r.kind == "text" and not r.raw.strip():
+                    apply_action(r, default_action(new_cfg), new_cfg)  # a button starts as Click, a text box as Fill
                 self.touch()
+                self.steps_view.refresh()
 
-            def set_kind(e, r=row):
-                r.kind = e.value
-                if r.kind == "auto":
-                    r.raw = ""
+            def set_action(e, r=row, c=cfg):
+                apply_action(r, e.value, c)
                 self.touch()
                 self.steps_view.refresh()
 
@@ -389,24 +423,93 @@ class TestEditor:
                 r.raw = e.value or ""
                 self.touch()
 
+            action = row_action(row, cfg)
             with ui.element("div").classes("any-form-line"):
-                ui.select(key_options, value=row.key or None, with_input=True, new_value_mode="add-unique",
-                          on_change=set_key).props('aria-label="Field"').classes("w-64 max-w-full")
-                ui.select(VALUE_KINDS, value=row.kind, on_change=set_kind) \
-                    .props('aria-label="Value type"').classes("w-28")
-                if row.kind == "auto":
-                    ui.label("auto-generated (null)").classes("flex-1 any-muted text-sm italic")
-                else:
-                    placeholder = {"json": '{"type": "confirmtext"}', "number": "0"}.get(row.kind, "value or click")
-                    ui.input(value=row.raw, on_change=set_raw, placeholder=placeholder) \
-                        .props('aria-label="Value"').classes("flex-1 min-w-40")
+                ui.select(key_options, value=name or None, with_input=True, new_value_mode="add-unique",
+                          on_change=set_name).props('aria-label="Field"').classes("w-64 max-w-full")
+                ui.select(action_options(cfg), value=action, on_change=set_action) \
+                    .props('aria-label="Action"').classes("w-48")
+                self.value_control(row, action, cfg, set_raw)
+                self.repeat_control(row)
                 icon_button("x", "Remove field", lambda r=row: self.remove_row(step, r), "is-32")
         with ui.element("div").classes("any-form-line is-actions"):
             ui.button("Field", icon=icon("plus"), color=None, on_click=lambda: self.add_row(step)) \
                 .props("flat").classes("any-ghost")
             if fields:
                 ui.button(f"All {len(fields)} page fields", icon=icon("plus"), color=None,
-                          on_click=lambda: self.add_all_rows(step, fields)).props("flat").classes("any-ghost")
+                          on_click=lambda: self.add_all_rows(step, fields, configs)).props("flat").classes("any-ghost")
+
+    def value_control(self, row: FormRow, action: str, cfg: dict | None, set_raw) -> None:
+        """The part of a row that depends on the action: a value, a key, seconds, JSON, or just a hint."""
+        if action in ("fill", "select", "choose"):
+            hint = {"choose": "option to choose, e.g. No", "select": "option to select"}.get(action, "value")
+            ui.input(value=row.raw, on_change=set_raw, placeholder=hint) \
+                .props('aria-label="Value"').classes("flex-1 min-w-40")
+            self.insert_menu(row)
+        elif action == "key":
+            ui.select(list(KEY_NAMES), value=json_value(row) or None, with_input=True, new_value_mode="add-unique",
+                      on_change=lambda e, r=row: (set_json_value(r, e.value or ""), self.touch())) \
+                .props('aria-label="Key"').classes("flex-1 min-w-40")
+        elif action == "wait":
+            ui.number(value=float(json_value(row) or 0), min=0, step=1,
+                      on_change=lambda e, r=row: (set_json_value(r, str(int(e.value or 0))), self.touch())) \
+                .props('aria-label="Seconds"').classes("flex-1 min-w-40")
+        elif action == "custom":
+            ui.input(value=row.raw, on_change=set_raw, placeholder='{"type": "..."}') \
+                .props('aria-label="Custom action JSON"').classes("flex-1 min-w-40 mono-input")
+        else:
+            ui.label(HINTS.get(action, "")).classes("flex-1 any-muted text-sm italic")
+
+    def insert_menu(self, row: FormRow) -> None:
+        def pick(kind: str) -> None:
+            self.ref_dialog(kind, lambda value: (setattr(row, "raw", value), self.touch(), self.steps_view.refresh()))
+
+        button = icon_button("braces", "Insert a value from .env or from an earlier step", None, "is-32")
+        with button:
+            with ui.menu():
+                ui.menu_item("From a .env variable...", on_click=lambda: pick("ENV"))
+                ui.menu_item("From a value saved earlier in the test...", on_click=lambda: pick("DICT"))
+
+    def ref_dialog(self, kind: str, on_pick: Callable[[str], None]) -> None:
+        system = self.meta.get("system") or self.gen.system
+        names: list[str] = []
+        if kind == "ENV":  # names only: values stay in .env
+            names = sorted(set(self.svc.env.load_other()) | {
+                c["key"] for c in (self.svc.credential_status(system, self.meta.get("env") or "dev") or [])},
+                key=str.casefold)
+        what = "the .env variable" if kind == "ENV" else "the saved value (set earlier in the test)"
+        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog"):
+            text("h2", "Insert a value", "any-title")
+            ui.label(f"Name {what}; the engine reads it at run time ({kind}.NAME).").classes("any-muted text-xs")
+            pick = ui.select(names, with_input=True, new_value_mode="add-unique") \
+                .props('aria-label="Name"').classes("w-full") if names else \
+                ui.input(placeholder="name").props('aria-label="Name"').classes("w-full")
+
+            def ok() -> None:
+                value = ref_value(kind, str(pick.value or ""))
+                if value:
+                    on_pick(value)
+                dialog.close()
+
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ui.button("Insert", color=None, on_click=ok).classes("any-primary")
+        dialog.open()
+
+    def repeat_control(self, row: FormRow) -> None:
+        kind, count = loop_of(row.key)
+        if kind == "LLoop":  # one pass per match of the locator: shown, edited in JSON view
+            ui.label(f"each match x{count}").classes("any-muted text-xs")
+            return
+
+        def set_count(e, r=row):
+            value = str(e.value or "").strip()
+            if value or loop_of(r.key)[0]:
+                r.key = with_loop(r.key, "ELoop" if value else "", value)
+            self.touch()
+
+        ui.input(value=count, on_change=set_count, placeholder="x1") \
+            .props('aria-label="Repeat" dense').classes("w-16").tooltip("Repeat the action N times (ELoop)")
 
     def json_editor(self) -> None:
         try:
@@ -444,9 +547,17 @@ class TestEditor:
         self.touch()
         self.steps_view.refresh()
 
-    def add_all_rows(self, step: StepModel, fields: list[str]) -> None:
-        present = {r.key for r in step.rows}
-        step.rows += [FormRow(f, "auto", "") for f in fields if f not in present]
+    def add_all_rows(self, step: StepModel, fields: list[str], configs: dict[str, dict]) -> None:
+        present = {split_key(r.key)[0] for r in step.rows}
+        for name in fields:
+            if name in present:
+                continue
+            row = FormRow(name, "auto", "")
+            if default_action(configs.get(name)) == "click":
+                apply_action(row, "click")  # clicks say what they do; text fields stay generated
+            elif has_value_slot(configs.get(name)):
+                row.kind = "text"  # needs an answer from the author
+            step.rows.append(row)
         self.touch()
         self.steps_view.refresh()
 
@@ -885,6 +996,9 @@ class PageEditor:
                 .classes("any-muted text-xs")
             code = ui.codemirror(json.dumps(row.cfg, indent=2, ensure_ascii=False), language="JSON") \
                 .classes("any-code h-72")
+            indexed = ui.switch("Repeats with the step's index (indexed)", value=bool(row.cfg.get("indexed"))) \
+                .tooltip("A step with \"index\": N uses N as this field's index: one set of fields for every "
+                         "row or section")
 
             def apply():
                 try:
@@ -894,6 +1008,10 @@ class PageEditor:
                 except ValueError as e:
                     ui.notify(f"Invalid JSON: {e}", type="negative")
                     return
+                if indexed.value:
+                    cfg["indexed"] = True
+                else:
+                    cfg.pop("indexed", None)
                 row.cfg = cfg
                 self.touch()
                 dialog.close()
@@ -1035,6 +1153,15 @@ class GeneratorPanel:
                 with ui.tab_panel(pages_tab).classes("p-0"):
                     self.pages = PageEditor(self)
         self.tests.load_refs()
+
+    async def open_page(self, name: str) -> None:
+        """Jump to a page in the Pages tab (from a step)."""
+        rel = self.svc.pom.screen_index(self.system).get(name) if self.system else None
+        if not rel:
+            ui.notify(f"Page {name!r} not found in Pages/{self.system}.", type="warning")
+            return
+        self.sections.set_value(self.pages_tab)
+        await self.pages.open(rel)
 
     async def show_default(self) -> None:
         """Default view when the Generator tab is opened: Pages, with the first page open in Form view.

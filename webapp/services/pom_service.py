@@ -77,15 +77,20 @@ class PomService:
             r.duplicate = names[r.name] > 1
         return refs
 
-    def field_names(self, system: str, screen: str) -> list[str]:
+    def field_configs(self, system: str, screen: str) -> dict[str, dict]:
+        """Field name -> config of a page, in file order; {} when the page is missing or unreadable."""
         rel = self.screen_index(system).get(screen)
         if not rel:
-            return []
+            return {}
         try:
             data, _, _ = read_json(safe_path(self.pages_dir(system), rel))
         except (OSError, ValueError):
-            return []
-        return list((data.get("fields") or {}).keys()) if isinstance(data, dict) else []
+            return {}
+        fields = data.get("fields") if isinstance(data, dict) else None
+        return {k: v for k, v in fields.items() if isinstance(v, dict)} if isinstance(fields, dict) else {}
+
+    def field_names(self, system: str, screen: str) -> list[str]:
+        return list(self.field_configs(system, screen))
 
     # ───────────── read / write ─────────────
 
