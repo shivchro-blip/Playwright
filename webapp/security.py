@@ -82,6 +82,9 @@ class RunArtifactHeadersMiddleware:
         if scope["type"] != "http" or not path.startswith(self.prefix):
             await self.app(scope, receive, send)
             return
+        if "/checkpoints/" in path:  # saved browser states hold session cookies: never served
+            await PlainTextResponse("Not found", status_code=404)(scope, receive, send)
+            return
         sandbox = any(p in path for p in SANDBOXED_RUN_PATHS)
 
         async def send_with_headers(message: Message) -> None:

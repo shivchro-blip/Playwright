@@ -10,6 +10,8 @@ from nicegui import ui
 
 from webapp.services.env_config import FIELDS as ENV_FIELDS
 from webapp.services.json_files import ConflictError, PathError
+from webapp.services.checkpoints import CheckpointStore
+from webapp.services.locator_check import page_url
 from webapp.services.refactor import Plan, Refactor, RefactorError, apply_plan
 from webapp.services.tidy import analyze as tidy_analyze, build_plan as tidy_plan
 from webapp.services.usage import Usage, UsageIndex
@@ -273,6 +275,9 @@ class TestEditor:
                 icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")
                 ui.button("Run", icon=icon("play-solid"), color=None, on_click=self.run_this) \
                     .classes("any-btn is-38").tooltip("Run only this test case")
+                ui.button("From step...", icon=icon("list-checks"), color=None, on_click=self.run_from_step) \
+                    .props('data-testid="run-from-step"').classes("any-btn is-38") \
+                    .tooltip("Run some of the steps, starting from a saved state")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
         self.validation_view()
         if self.json_mode:
@@ -629,26 +634,30 @@ class TestEditor:
         self.list_view.refresh()
         ui.notify(f"Saved {tc.get('testCaseID')} to {self.file}", type="positive")
 
-    async def run_this(self) -> None:
-        """Run just this test case with the saved defaults (.env) for browser options."""
+    async def _ready_to_run(self) -> tuple[str, list[str]] | None:
+        """(test ID, tags) once the guard, unsaved changes and tags are settled; None to stop."""
         if not guard("run", "run test case"):
-            return
+            return None
         if self.dirty:
             if not await confirm("Save changes before running?", "Save and run"):
-                return
+                return None
             self.save()
             if self.dirty:  # save failed
-                return
+                return None
         test_id = str(self.meta.get("testCaseID") or "")
         tags = list(self.meta.get("tags") or [])
         if not tags:
             ui.notify("Add at least one tag - the framework only selects tagged tests.", type="warning")
-            return
+            return None
+        return test_id, tags
+
+    def _start_run(self, test_id: str, tags: list[str], extra: dict | None = None) -> None:
         system = self.gen.system or ""
         env = self.meta.get("env") or next(iter(self.svc.systems.environments(system)), "")
         defaults = self.svc.env.load()
         options = {f.key: defaults[f.key] for f in ENV_FIELDS if f.group in ("Browser", "Artifacts")
                    and f.key != "del_allure"}
+        options.update(extra or {})
         browsers = [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] or ["chrome"]
         try:
             run = self.svc.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
@@ -656,10 +665,122 @@ class TestEditor:
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
-        audit("run.start", run.id, test_id=test_id)
+        audit("run.start", run.id, test_id=test_id, **({"steps": f"{extra.get('runFromStep', 1)}-"
+                                                        f"{extra.get('runToStep') or 'end'}"} if extra else {}))
         ui.notify(f"Running {test_id} ({run.id})", type="positive")
         if self.gen.on_run:
             self.gen.on_run(run.id)
+
+    async def run_this(self) -> None:
+        """Run just this test case with the saved defaults (.env) for browser options."""
+        ready = await self._ready_to_run()
+        if ready:
+            self._start_run(*ready)
+
+    async def run_from_step(self) -> None:
+        """Run some of the steps, from the browser state saved after the step before (or from a URL)."""
+        ready = await self._ready_to_run()
+        if not ready:
+            return
+        test_id, tags = ready
+        total = len(self.steps)
+        if not total:
+            ui.notify("This test case has no steps.", type="warning")
+            return
+        system = self.gen.system or ""
+        env = self.meta.get("env") or next(iter(self.svc.systems.environments(system)), "")
+        saved = CheckpointStore(self.svc.settings.resolved_runs_dir).for_test(test_id)
+        labels = {n: f"{n}. {KIND_LABELS.get(s.kind, s.kind)} {s.target}".strip() for n, s in enumerate(self.steps, 1)}
+        state: dict = {"first": 1, "last": total, "mode": "fresh", "url": "", "save": False}
+
+        def step_url(n: int) -> str:
+            step = self.steps[n - 1]
+            if step.kind != "screen":
+                return ""
+            rel = self.svc.pom.screen_index(system).get(step.target)
+            if not rel:
+                return ""
+            login = self.svc.systems.login(system, env)
+            try:
+                page, _ = self.svc.pom.load(system, rel)
+            except (ValueError, OSError):
+                return ""
+            return page_url(login.base_url if login else "", page)
+
+        def modes() -> dict[str, str]:
+            n = state["first"]
+            if n == 1:
+                return {"fresh": "From the start: sign in and run the steps in order"}
+            out = {}
+            if n - 1 in saved:
+                cp = saved[n - 1]
+                out["saved"] = f"Saved state after step {n - 1} (run {cp.run_id}, {cp.saved.replace('T', ' ')})"
+            out["url"] = "Sign in, then open this URL"
+            out["login"] = "Sign in only: the step opens its own page"
+            return out
+
+        def pick_first(e) -> None:
+            state["first"] = int(e.value)
+            state["last"] = max(state["last"], state["first"])
+            state["url"] = step_url(state["first"])
+            state["mode"] = next(iter(modes()))
+            options.refresh()
+
+        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]"):
+            text("h2", f"Run {test_id} from a step", "any-title")
+            ui.label("Starts the browser in a saved state so you can debug a late step without repeating the earlier "
+                     "ones. A state is saved when a run has 'Save the state after each step' ticked.") \
+                .classes("any-muted text-sm")
+            with ui.element("div").classes("any-form-row"):
+                with labelled("From step", "rs-first").classes("is-grow"):
+                    ui.select(labels, value=1, on_change=pick_first).props('for="rs-first" data-testid="rs-first"') \
+                        .classes("w-full")
+                with labelled("To step", "rs-last").classes("is-grow"):
+                    ui.select(labels, value=total, on_change=lambda e: state.update(last=int(e.value))) \
+                        .props('for="rs-last" data-testid="rs-last"').classes("w-full")
+
+            @ui.refreshable
+            def options() -> None:
+                choices = modes()
+                ui.radio(choices, value=state["mode"], on_change=lambda e: (state.update(mode=e.value),
+                                                                           options.refresh())) \
+                    .props('data-testid="rs-mode"')
+                if state["mode"] == "url":
+                    ui.input(value=state["url"], on_change=lambda e: state.update(url=e.value or ""),
+                             placeholder="https://...").props('aria-label="URL" data-testid="rs-url"') \
+                        .classes("w-full mono-input")
+                if state["first"] > 1 and "saved" not in choices:
+                    ui.label(f"No saved state after step {state['first'] - 1} yet: run the test once with "
+                             "'Save the state' ticked (From the start), or open a URL.").classes("any-muted text-xs")
+                elif state["mode"] == "saved":
+                    ui.label("Restores cookies, local and session storage and the page address. Text typed into a "
+                             "form and not yet saved by the portal is not restored.").classes("any-muted text-xs")
+
+            options()
+            ui.checkbox("Save the state after each step I run (to resume from later)",
+                        on_change=lambda e: state.update(save=bool(e.value))).props('data-testid="rs-save"')
+
+            def run() -> None:
+                extra: dict = {}
+                first, last = state["first"], state["last"]
+                if first > 1:
+                    extra["runFromStep"] = first
+                if last < total:
+                    extra["runToStep"] = last
+                if state["mode"] == "saved" and first - 1 in saved:
+                    extra["resumeCheckpoint"] = str(saved[first - 1].path)
+                elif state["mode"] == "url" and state["url"].strip():
+                    extra["startUrl"] = state["url"].strip()
+                if state["save"]:
+                    extra["saveCheckpoints"] = True
+                dialog.close()
+                self._start_run(test_id, tags, extra)
+
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ui.button("Run", icon=icon("play-solid"), color=None, on_click=run) \
+                    .props('data-testid="rs-run"').classes("any-primary")
+        dialog.open()
 
     async def revert(self) -> None:
         if self.file is None:

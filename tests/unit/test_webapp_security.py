@@ -193,3 +193,9 @@ def test_run_artifacts_are_sandboxed():
     assert "content-security-policy" not in r.headers  # the report itself needs scripts
     assert r.headers["x-content-type-options"] == "nosniff"
     assert "content-security-policy" not in c.get("/api/ping").headers
+
+
+def test_saved_browser_states_are_never_served():
+    c = _client()  # a checkpoint holds session cookies: the files must not be reachable under /runs
+    for path in ("/runs/20261031-1/checkpoints/TC-1/2.json", "/runs/x/checkpoints/", "/runs/x/a/checkpoints/b.json"):
+        assert c.get(path).status_code == 404

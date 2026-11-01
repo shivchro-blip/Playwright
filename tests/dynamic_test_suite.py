@@ -11,6 +11,7 @@ import random
 from playwright.async_api import async_playwright, expect
 from pages.dynamic_page import DynamicPage
 from utils.test_data_loader import load_test_cases_from_folder, load_all_test_cases
+import utils.checkpoints as checkpoints
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -463,7 +464,8 @@ async def run_login_pretest(page, browser, dictionaryContext, system_needed):
     return base_url
 
 
-async def run_steps(steps, page, browser, dictionaryContext, testSystem, current_login_state, system_needed, parent_override=None):
+async def run_steps(steps, page, browser, dictionaryContext, testSystem, current_login_state, system_needed, parent_override=None,
+                    start_url=None, after_step=None):
     global reportDescription
     if current_login_state.get("system") != system_needed:
         logger.info(f"[LOGIN SWITCH] CURRENT = {current_login_state.get('system')} → NEW = {system_needed}")
@@ -480,6 +482,10 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
     else:
         base_url = current_login_state.get("base_url")
 
+    if start_url:  # running from a step: open the page that step starts on (after signing in, if that was needed)
+        logger.info("[resume] Opening %s", start_url)
+        await page.goto(start_url, wait_until="domcontentloaded")
+
     try:
         await asyncio.sleep(5)
         await get_token(page, dictionaryContext, "token", "authToken")
@@ -488,7 +494,7 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
         logger.warning("No auth token found in page storage - continuing without one")
 
 
-    for step in steps:
+    for step_no, step in enumerate(steps, 1):
         if "commonAction" in step:
             commonAction = step["commonAction"]
             allure.dynamic.feature(f"Common Action: {commonAction}")
@@ -604,6 +610,9 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
             screen_name = step["screen"]
             with allure.step(f"- Screen: {screen_name} -"):
                 page = await run_single_step(step, page, base_url, browser, system_needed, dictionaryContext)
+
+        if after_step:
+            await after_step(step_no, page)
     return page
 
 
@@ -726,6 +735,10 @@ async def browser_context(test_case, suite_browser):
         logger.info("[browser_context] Packaged runner detected - disabling video recording.")
         recording_on = False
 
+    resume = checkpoints.load_resume(test_case.get("testCaseID"))
+    if resume:
+        logger.info(f"[browser_context] Resuming from the state saved after step {resume.get('step')} "
+                    f"({resume.get('url')})")
     video_dir = mkdir_per_worker() if recording_on else None
     logger.info(
         f"[browser_context] browser={suite_browser} | recording={recording_on} | video_dir={video_dir}"
@@ -772,6 +785,7 @@ async def browser_context(test_case, suite_browser):
                 browser = await browser_type.launch(**launch_args)
                 context = await browser.new_context(
                     http_credentials=http_credentials if http_credentials else None,
+                    storage_state=resume["storage_state"] if resume else None,
                     no_viewport=True,
                     record_video_dir=str(video_dir) if video_dir else None,
                     record_video_size={"width": 1280, "height": 720} if recording_on else None,
@@ -780,6 +794,7 @@ async def browser_context(test_case, suite_browser):
                 browser = await browser_type.launch(**launch_args)
                 context = await browser.new_context(
                     http_credentials=http_credentials if http_credentials else None,
+                    storage_state=resume["storage_state"] if resume else None,
                     viewport={
                         "width": int(browserConfigWidth),
                         "height": int(browserConfigHeight),
@@ -791,6 +806,9 @@ async def browser_context(test_case, suite_browser):
             logger.warning(f"[browser_context] Failed to initialize browser/context: {e}")
             raise
 
+        script = checkpoints.session_storage_script(resume)
+        if script:  # sessionStorage is not part of Playwright's storage state
+            await context.add_init_script(script)
         page = await context.new_page()
 
         try:
@@ -869,8 +887,24 @@ if test_cases:
         if tracingConfig == "true":
             await page.context.tracing.start(screenshots=True, snapshots=True)
 
+        all_steps = test_case["steps"]
+        first, last = checkpoints.steps_window(len(all_steps))
+        resume = checkpoints.load_resume(testCaseId)
+        if checkpoints.is_windowed(len(all_steps)) or resume:
+            logger.info(f"[steps] Running steps {first}-{last} of {len(all_steps)} of {testCaseId}")
+            allure.dynamic.parameter("steps", f"{first}-{last} of {len(all_steps)}")
+        after_step = None
+        if checkpoints.save_enabled():
+            checkpoint_dir = os.environ["checkpointsDir"]
+
+            async def after_step(step_no, current_page):  # first + step_no - 1 is the step's number in the test
+                await checkpoints.save_checkpoint(checkpoint_dir, testCaseId, first + step_no - 1, current_page)
+
         try:
-            page = await run_steps(test_case["steps"], page, browser, dictionaryContext, testSystem, current_login_state, testSystem)
+            page = await run_steps(all_steps[first - 1:last], page, browser, dictionaryContext, testSystem,
+                                   current_login_state, testSystem,
+                                   start_url=(resume or {}).get("url") or checkpoints.start_url() or None,
+                                   after_step=after_step)
 
         finally:
             try:
