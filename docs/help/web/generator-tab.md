@@ -38,6 +38,19 @@ The files keep the same JSON as before; the menu is only a clearer way to write 
 
 **Occurrence (index)** appears on page steps whose page has fields marked `indexed`. It lets one set of fields serve a repeated section: the second row, the second principal. See *Form Data and Page Mapping* for how to set it up.
 
+### Run from a step
+
+For a long flow, debugging step 90 should not mean repeating steps 1 to 89. **From step...** (next to **Run**) runs part of the test case, starting the browser in a saved state:
+
+- **From step / To step** pick the range. Steps are the top-level steps of the test case (a common action is one step).
+- **Saved state after step N-1** starts the browser as it was after the step before: cookies, local and session storage and the page address. It signs in only if that session has expired, opens the saved address, and runs from step N. The option appears once an earlier run saved that state.
+- **Sign in, then open this URL** (prefilled from the step's page) and **Sign in only** start fresh when no state is saved.
+- **Save the state after each step I run** makes the run write those states, so the next run can resume from any step it passed. Run the whole test once with this ticked (From step 1) to create them.
+
+The state is what the portal keeps in the browser or on its own server (a session, a saved draft). It cannot restore text typed into a form that the portal has not saved yet, so a flow whose progress lives only in the page cannot be resumed this way: start the step from a URL instead, or split the flow so each step ends where the portal saves.
+
+Saved states contain session cookies. They stay in the run's folder, are never served by the web app, and are deleted with the run (History > Delete). The newest run's state is used for each step. Under the hood these are the run options `runFromStep`, `runToStep`, `resumeCheckpoint`, `startUrl` and `saveCheckpoints` (one test case only), which the run API accepts as well.
+
 ### Check (validation)
 
 Warnings do not block saving:
@@ -95,13 +108,14 @@ Page names must be unique within a system; the list marks duplicates (the last o
 
 ### Maintain: rename and tidy
 
-The **Maintain** menu changes a page and every test that uses it, together:
+The **Maintain** menu works on the whole page and the tests that use it:
 
 - **Rename page...** renames the file and updates every `screen` (and `override`) that names it, in tests and common actions.
 - **Rename a field...** renames it on the page and in every step that uses it, keeping pipe suffixes.
 - **Tidy up this page...** finds fields that are exactly the same (merged into one, with `name`, `name|`, `name||` in the steps that used several), fields no test uses (removed), redundant `autoGen: "click"` on buttons, links, checkboxes and radios, and fields that differ only by `index` (a hint to use `indexed` and a step index).
+- **Check all locators on the live page...** opens the page once in headless Chromium and resolves every field the way a run does: *found*, *not found*, *hidden*, *several matches* (set `index`), *index too high*, or *not checked* (fields whose option comes from the test, table cells, nested chains, `DICT.`/`ENV.` values). Problems are listed first; **Problems only** can be turned off. It checks what is in the editor, saved or not. After a site change it turns "the nightly run failed somewhere" into a short list. A page you reach by clicking through earlier screens shows its later fields as not found or hidden: that describes the page as loaded, not always a broken locator.
 
-Each one asks you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
+Rename and Tidy each ask you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
 
 ### From page: add fields by scanning
 

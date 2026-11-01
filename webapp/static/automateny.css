@@ -675,3 +675,13 @@
 .any-data-grid { display: grid; gap: 6px; align-items: center; min-width: 640px; padding: 3px 0; }
 .any-data-grid.is-head { font-size: 12px; font-weight: 500; color: var(--muted); }
 .any-data-grid.is-defaults { border-bottom: 1px dashed var(--border); padding-bottom: 8px; margin-bottom: 4px; }
+/* Failure triage: where a test failed */
+.any-where { display: block; font-size: 12px; color: var(--ink); font-family: var(--font-mono); }
+.any-failat { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface-subtle); }
+.any-crumbs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.any-crumbs li { font-size: 13px; padding: 2px 8px; border-radius: 6px; background: #fff; border: 1px solid var(--border);
+  font-family: var(--font-mono); }
+.any-crumbs li:not(:last-child)::after { content: "›"; margin-left: 8px; color: var(--muted); }
+.any-crumbs li:last-child { border-color: var(--fail); }
+.any-failat-shot { max-width: 320px; max-height: 190px; border: 1px solid var(--border); border-radius: 8px; display: block; }

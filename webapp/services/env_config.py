@@ -52,6 +52,12 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("FormHandlerLoggerLevel", "choice", "INFO", "Logging", "Form logger", LEVELS),
     # Run only one set of a test case's data file (see utils/data_sets.py)
     EnvField("runDataSet", "str", "", "Debug", "Data set to run"),
+    # Run one test case from a step (see utils/checkpoints.py); set by the Generator's "Run from step"
+    EnvField("runFromStep", "int", "0", "Debug", "First step"),
+    EnvField("runToStep", "int", "0", "Debug", "Last step"),
+    EnvField("resumeCheckpoint", "str", "", "Debug", "Saved state to resume from"),
+    EnvField("startUrl", "str", "", "Debug", "URL to open after signing in"),
+    EnvField("saveCheckpoints", "bool", "false", "Debug", "Save the state after every step"),
     # Web app features (not passed to runs)
     EnvField("recorderEnabled", "bool", "false", "App", "Test recorder"),
     EnvField("aiAssistEnabled", "bool", "false", "App", "AI assist"),

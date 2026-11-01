@@ -161,10 +161,14 @@ def result_slots(table: ui.table) -> None:
     table.add_slot("body-cell-message", f'''
         <q-td :props="props">
           <div class="any-msg-cell">
-            <span v-if="props.value"
-                  :class="['any-msg', ['failed', 'error'].includes(props.row.outcome) ? 'is-fail' : '']"
-            >{{{{ props.value }}}}</span>
-            <span v-else class="any-msg">—</span>
+            <div class="flex flex-col gap-1 min-w-0">
+              <span v-if="props.row.where" class="any-where"
+                    title="Where the test failed: screen, field (action)">{{{{ props.row.where }}}}</span>
+              <span v-if="props.value"
+                    :class="['any-msg', ['failed', 'error'].includes(props.row.outcome) ? 'is-fail' : '']"
+              >{{{{ props.value }}}}</span>
+              <span v-else class="any-msg">—</span>
+            </div>
             <span v-if="props.row.has_details" class="any-details-chip"
                   title="Click the row for failure details">{svg("file-text")}Details</span>
           </div>
