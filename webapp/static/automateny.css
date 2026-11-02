@@ -685,3 +685,7 @@
 .any-crumbs li:not(:last-child)::after { content: "›"; margin-left: 8px; color: var(--muted); }
 .any-crumbs li:last-child { border-color: var(--fail); }
 .any-failat-shot { max-width: 320px; max-height: 190px; border: 1px solid var(--border); border-radius: 8px; display: block; }
+
+/* A labelled button that deletes (run headers in Control and History) */
+.any-app .any-btn.is-danger { color: var(--fail); border-color: var(--fail-border); }
+.any-app .any-btn.is-danger:hover { background: var(--fail-hover); }

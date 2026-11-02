@@ -13,6 +13,7 @@ from webapp.ui.components import (
     RESULT_COLUMNS, copy_button, eyebrow, field, fmt_seconds, icon_button, placeholder, plural, result_slots,
     split_test_id, status_pill_template, styled_table, test_case_template, text, tone,
 )
+from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.theme import icon, svg
@@ -351,6 +352,10 @@ class ControlPanel:
                     self.cancel_button = ui.button("Cancel", icon=icon("square-solid"), color=None,
                                                    on_click=self.cancel_run) \
                         .props('unelevated no-caps data-testid="cancel-run"').classes("any-cancel")
+                    self.clear_button = ui.button("Clear", icon=icon("trash-2"), color=None,
+                                                  on_click=self.clear_runs) \
+                        .props('flat unelevated no-caps data-testid="clear-runs"').classes("any-btn is-38 is-danger") \
+                        .tooltip("Delete the logs and reports of this run, or of all finished runs")
                     self.summary_button = ui.button("Report", icon=icon("chart-column"), color=None,
                                                     on_click=self.open_summary) \
                         .props('flat unelevated no-caps data-testid="run-report"').classes("any-btn is-38")
@@ -651,6 +656,29 @@ class ControlPanel:
             audit("run.cancel", self.run_id)
             ui.notify("Cancelling run...", type="info")
 
+    async def clear_runs(self) -> None:
+        """Clear this run's logs and reports, or every finished run's, and leave the card empty for the next run."""
+        deleted = await clear_runs(self._run())
+        if not deleted:
+            return
+        if self.run_id in deleted or self._run() is None:
+            self._clear_view()
+        self.history.refresh()
+
+    def _clear_view(self) -> None:
+        self.run_id = None
+        self.log_pos = 0
+        self.last_signature = ()
+        self.log_view.clear()
+        self.log_view.set_active(False)
+        self.progress_view.refresh(None)
+        self.message_view.refresh("")
+        self.results_table.rows = []
+        styled_table(self.results_table, 0, wide=True)
+        self.results_table.update()
+        self._show_idle()
+        self._update_buttons(None)
+
     def save_defaults(self) -> None:
         if not guard("settings", "save defaults"):
             return
@@ -748,6 +776,7 @@ class ControlPanel:
         # Cancel only does something while the viewed run is active
         self.cancel_button.set_visibility(bool(run and run.active))
         self.live_badge.set_visibility(bool(run and run.active))
+        self.clear_button.set_visibility(not (run and run.active) and any(not r.active for r in self.svc.runs.list()))
         self.summary_button.set_enabled(bool(run and not run.active))
         self.report_button.set_enabled(bool(run and run.report_status == "ready"))
         self.report_button.set_visibility(self._allure or bool(run and run.report_status == "ready"))

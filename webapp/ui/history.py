@@ -15,9 +15,9 @@ from webapp.ui.components import (
     RESULT_COLUMNS, field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table,
     text,
 )
+from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.ai_panels import open_run_summary
-from webapp.ui.generator import confirm
 from webapp.ui.run_compare import open_compare
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.theme import icon
@@ -117,15 +117,17 @@ class HistoryPanel:
                     table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
 
     def refresh(self) -> None:
+        self.signature = self._signature()  # a refresh made here must not be repeated by the next timer tick
         self.flaky_view.refresh()
         self.table_view.refresh()
         self.details.refresh()
 
     def _auto_refresh(self) -> None:
-        sig = tuple((r.id, r.status, r.report_status, len(r.results)) for r in self.svc.runs.list())
-        if sig != self.signature:
-            self.signature = sig
+        if self._signature() != self.signature:
             self.refresh()
+
+    def _signature(self) -> tuple:
+        return tuple((r.id, r.status, r.report_status, len(r.results)) for r in self.svc.runs.list())
 
     def _runs(self) -> list[Run]:
         return [r for r in self.svc.runs.list()
@@ -203,6 +205,10 @@ class HistoryPanel:
                             .props("flat unelevated no-caps").classes("any-btn is-38")
                     ui.button("Re-run", icon=icon("rotate-cw"), color=None, on_click=lambda: self.rerun(run.id)) \
                         .props("unelevated no-caps").classes("any-primary")
+                    ui.button("Clear", icon=icon("trash-2"), color=None, on_click=lambda: self.clear(run.id)) \
+                        .props('flat unelevated no-caps data-testid="clear-runs"').classes("any-btn is-38 is-danger") \
+                        .tooltip("Delete the logs and reports of this run, or of all finished runs") \
+                        .set_enabled(not run.active)
                     ui.button("Report", icon=icon("chart-column"), color=None,
                               on_click=lambda: self.open_summary(run.id)) \
                         .props('flat unelevated no-caps data-testid="run-report"').classes("any-btn is-38") \
@@ -226,8 +232,6 @@ class HistoryPanel:
                     ui.button("Console log", icon=icon("file-text"), color=None,
                               on_click=lambda: ui.navigate.to(f"/runs/{run.id}/console.log", new_tab=True)) \
                         .props("flat unelevated no-caps").classes("any-btn is-38")
-                    icon_button("x", "Delete run", lambda: self.delete(run.id)).classes("is-danger") \
-                        .set_enabled(not run.active)
             if run.error:
                 with ui.element("div").classes("any-callout").props('role="status"'):
                     ui.icon(icon("triangle-alert")).props('aria-hidden="true"')
@@ -288,15 +292,8 @@ class HistoryPanel:
                   type="info" if position else "positive")
         self.on_watch(run.id)
 
-    async def delete(self, run_id: str) -> None:
-        if not guard("delete", "delete run"):
-            return
-        if not await confirm(f"Delete run {run_id} and its files?", "Delete", "negative"):
-            return
-        if self.svc.runs.delete(run_id):
-            audit("run.delete", run_id)
-            ui.notify("Run deleted", type="positive")
+    async def clear(self, run_id: str) -> None:
+        deleted = await clear_runs(self.svc.runs.get(run_id))
+        if deleted:
             self.selected = None
             self.refresh()
-        else:
-            ui.notify("Run could not be deleted (still running?)", type="negative")
