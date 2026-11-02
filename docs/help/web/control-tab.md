@@ -29,6 +29,7 @@ Preview of what will run: test case, tags, file and step count. **Selected only*
 - Results table: one row per test and browser, with duration and the failure message.
 - Live log of the run's console output (last 1500 lines; the full log is under **Console log**).
 - **Cancel** stops the whole run, including browsers it started.
+- **Clear** (before **Report**, shown once a run has finished) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
 - **Allure report** opens the HTML report when the Allure CLI is installed (see *History and Reports*).
 
 Only one run at a time is allowed by default, because local runs drive real browser windows.
