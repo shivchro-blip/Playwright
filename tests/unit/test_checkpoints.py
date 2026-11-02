@@ -114,3 +114,12 @@ def test_a_checkpoint_outside_the_runs_folder_is_refused(manager, tmp_path):
     elsewhere = _saved(tmp_path / "other", "run", "TC-1", 1)
     with pytest.raises(ValueError, match="checkpoints"):
         manager.start(_config({"runFromStep": 2, "resumeCheckpoint": str(elsewhere)}))
+
+
+def test_each_data_set_of_a_test_case_has_its_own_checkpoints(tmp_path):
+    """A test case with a data set runs as TC-1[albany], TC-1[nyc]: their saved states must not mix."""
+    albany = _saved(tmp_path, "20261031-100000-aaaa", "TC-1[albany]", 2)
+    nyc = _saved(tmp_path, "20261031-100000-aaaa", "TC-1[nyc]", 2)
+    store = CheckpointStore(tmp_path)
+    assert store.for_test("TC-1[albany]")[2].path == albany and store.for_test("TC-1[nyc]")[2].path == nyc
+    assert store.for_test("TC-1") == {}
