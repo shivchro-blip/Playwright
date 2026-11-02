@@ -28,6 +28,8 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--workers", type=int, default=1, help="Parallel workers (pytest-xdist)")
     p.add_argument("--test-id", action="append", default=[], metavar="ID",
                    help="Only this test case ID (repeatable); the tags must still match")
+    p.add_argument("--data-set", metavar="NAME", default="",
+                   help="Only this set of a test case's data file (default: every set)")
     p.add_argument("--headed", action="store_true", help="Show the browser (default: headless)")
     p.add_argument("--log-level", choices=LEVELS, default="INFO", help="Console log level (default: INFO)")
     p.add_argument("--workspace", help="Workspace folder (default: AUTOMATENY_WORKSPACE or the repo's workspace)")
@@ -65,7 +67,8 @@ def main(argv: list[str] | None = None) -> int:
                          allure_cmd=s.allure_cmd, max_concurrent=1)
     config = RunConfig(system=system, env=env, tags=tags, browsers=_split(args.browsers) or ["chromium"],
                        workers=max(1, args.workers), test_ids=list(args.test_id),
-                       options={"headlessMode": not args.headed, "LOG_LEVEL": args.log_level})
+                       options={"headlessMode": not args.headed, "LOG_LEVEL": args.log_level,
+                                **({"runDataSet": args.data_set} if args.data_set else {})})
     try:
         run = manager.start(config)
     except (ValueError, RuntimeError) as e:

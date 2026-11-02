@@ -10,6 +10,8 @@ from nicegui import ui
 
 from webapp.services.env_config import FIELDS as ENV_FIELDS
 from webapp.services.json_files import ConflictError, PathError
+from utils.data_sets import DataSetError
+from utils.data_sets import load_file as load_data_file
 from webapp.services.checkpoints import CheckpointStore
 from webapp.services.locator_check import page_url
 from webapp.services.refactor import Plan, Refactor, RefactorError, apply_plan
@@ -22,6 +24,7 @@ from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
+from webapp.ui.data_sets_panel import DataSetEditor
 from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_scan_dialog import open_page_scan
@@ -35,7 +38,7 @@ from webapp.ui.theme import icon, svg
 KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "Reusable test",
                "API_REQUEST": "API request"}
 KIND_TONES = {"screen": "kind-page", "commonAction": "kind-common", "testCase": "kind-reuse", "API_REQUEST": "kind-api"}
-TC_META = ("testCaseID", "system", "env", "module", "tags", "description")
+TC_META = ("testCaseID", "system", "env", "module", "tags", "description", "dataSet")
 SAVE_ERRORS = (ValueError, ConflictError, PathError, OSError)
 
 
@@ -239,6 +242,8 @@ class TestEditor:
         tc: dict = {}
         for key in TC_META:
             value = self.meta.get(key)
+            if key == "dataSet" and not value:
+                continue  # clearing the data set removes the key
             if value is None or (value in ("", []) and key not in self.orig_keys and key != "testCaseID"):
                 continue  # don't add empty optional keys the file never had
             tc[key] = value
@@ -317,12 +322,26 @@ class TestEditor:
                 with labelled("Module", "tc-module"):
                     ui.input(value=self.meta.get("module") or "", on_change=bind("module")) \
                         .props('for="tc-module"').classes("w-40")
+            with ui.element("div").classes("any-form-row"):
+                with labelled("Data set (runs once per set)", "tc-dataset"):
+                    names = self.svc.datasets.names()
+                    current = self.meta.get("dataSet") or None
+                    ui.select(names + ([current] if current and current not in names else []), value=current,
+                              clearable=True, on_change=self._set_data_set) \
+                        .props('for="tc-dataset" data-testid="tc-dataset"').classes("w-64")
+                ui.label("Values in the steps become DATA.<key>; see the Data sets tab.") \
+                    .classes("any-muted text-xs self-end pb-2")
             with labelled("Tags", "tc-tags"):
                 ui.input_chips(value=list(self.meta.get("tags") or []), new_value_mode="add-unique",
                                on_change=bind("tags")).props('for="tc-tags"').classes("w-full any-multi")
             with labelled("Description", "tc-desc"):
                 ui.textarea(value=self.meta.get("description") or "", on_change=bind("description")) \
                     .props('autogrow for="tc-desc"').classes("w-full")
+
+    def _set_data_set(self, e) -> None:
+        self.meta["dataSet"] = e.value or ""
+        self.touch()
+        self.steps_view.refresh()  # the value menu offers DATA.<key> only when a data set is chosen
 
     @ui.refreshable_method
     def steps_view(self) -> None:
@@ -479,18 +498,24 @@ class TestEditor:
             with ui.menu():
                 ui.menu_item("From a .env variable...", on_click=lambda: pick("ENV"))
                 ui.menu_item("From a value saved earlier in the test...", on_click=lambda: pick("DICT"))
+                if self.meta.get("dataSet"):
+                    ui.menu_item(f"From the data set ({self.meta['dataSet']})...", on_click=lambda: pick("DATA"))
 
     def ref_dialog(self, kind: str, on_pick: Callable[[str], None]) -> None:
         system = self.meta.get("system") or self.gen.system
         names: list[str] = []
+        if kind == "DATA":
+            names = self.svc.datasets.keys(str(self.meta.get("dataSet") or ""))
         if kind == "ENV":  # names only: values stay in .env
             names = sorted(set(self.svc.env.load_other()) | {
                 c["key"] for c in (self.svc.credential_status(system, self.meta.get("env") or "dev") or [])},
                 key=str.casefold)
-        what = "the .env variable" if kind == "ENV" else "the saved value (set earlier in the test)"
+        what = {"ENV": "the .env variable", "DATA": "the data set key"}.get(
+            kind, "the saved value (set earlier in the test)")
         with ui.dialog() as dialog, ui.card().classes("any-app any-dialog"):
             text("h2", "Insert a value", "any-title")
-            ui.label(f"Name {what}; the engine reads it at run time ({kind}.NAME).").classes("any-muted text-xs")
+            when = "each set supplies it" if kind == "DATA" else "the engine reads it"
+            ui.label(f"Name {what}; {when} at run time ({kind}.NAME).").classes("any-muted text-xs")
             pick = ui.select(names, with_input=True, new_value_mode="add-unique") \
                 .props('aria-label="Name"').classes("w-full") if names else \
                 ui.input(placeholder="name").props('aria-label="Name"').classes("w-full")
@@ -689,9 +714,24 @@ class TestEditor:
             return
         system = self.gen.system or ""
         env = self.meta.get("env") or next(iter(self.svc.systems.environments(system)), "")
-        saved = CheckpointStore(self.svc.settings.resolved_runs_dir).for_test(test_id)
+        store = CheckpointStore(self.svc.settings.resolved_runs_dir)
+        data_name = str(self.meta.get("dataSet") or "")
+        set_names: list[str] = []
+        if data_name:  # a test case with a data set runs once per set: from a step, pick one
+            try:
+                set_names = list(load_data_file(self.svc.settings.workspace, data_name)[1])
+            except DataSetError as e:
+                ui.notify(str(e), type="negative", multi_line=True)
+                return
+        held: dict = {"saved": {}}
+
+        def load_saved() -> None:
+            held["saved"] = store.for_test(f"{test_id}[{state['set']}]" if state["set"] else test_id)
+
         labels = {n: f"{n}. {KIND_LABELS.get(s.kind, s.kind)} {s.target}".strip() for n, s in enumerate(self.steps, 1)}
-        state: dict = {"first": 1, "last": total, "mode": "fresh", "url": "", "save": False}
+        state: dict = {"first": 1, "last": total, "mode": "fresh", "url": "", "save": False,
+                       "set": set_names[0] if set_names else ""}
+        load_saved()
 
         def step_url(n: int) -> str:
             step = self.steps[n - 1]
@@ -712,8 +752,8 @@ class TestEditor:
             if n == 1:
                 return {"fresh": "From the start: sign in and run the steps in order"}
             out = {}
-            if n - 1 in saved:
-                cp = saved[n - 1]
+            if n - 1 in held["saved"]:
+                cp = held["saved"][n - 1]
                 out["saved"] = f"Saved state after step {n - 1} (run {cp.run_id}, {cp.saved.replace('T', ' ')})"
             out["url"] = "Sign in, then open this URL"
             out["login"] = "Sign in only: the step opens its own page"
@@ -726,11 +766,21 @@ class TestEditor:
             state["mode"] = next(iter(modes()))
             options.refresh()
 
+        def pick_set(e) -> None:
+            state["set"] = e.value
+            load_saved()
+            state["mode"] = next(iter(modes()))
+            options.refresh()
+
         with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]"):
             text("h2", f"Run {test_id} from a step", "any-title")
             ui.label("Starts the browser in a saved state so you can debug a late step without repeating the earlier "
                      "ones. A state is saved when a run has 'Save the state after each step' ticked.") \
                 .classes("any-muted text-sm")
+            if set_names:
+                with labelled(f"Data set '{data_name}': run this set", "rs-set"):
+                    ui.select(set_names, value=state["set"], on_change=pick_set) \
+                        .props('for="rs-set" data-testid="rs-set"').classes("w-64")
             with ui.element("div").classes("any-form-row"):
                 with labelled("From step", "rs-first").classes("is-grow"):
                     ui.select(labels, value=1, on_change=pick_first).props('for="rs-first" data-testid="rs-first"') \
@@ -767,12 +817,14 @@ class TestEditor:
                     extra["runFromStep"] = first
                 if last < total:
                     extra["runToStep"] = last
-                if state["mode"] == "saved" and first - 1 in saved:
-                    extra["resumeCheckpoint"] = str(saved[first - 1].path)
+                if state["mode"] == "saved" and first - 1 in held["saved"]:
+                    extra["resumeCheckpoint"] = str(held["saved"][first - 1].path)
                 elif state["mode"] == "url" and state["url"].strip():
                     extra["startUrl"] = state["url"].strip()
                 if state["save"]:
                     extra["saveCheckpoints"] = True
+                if state["set"]:
+                    extra["runDataSet"] = state["set"]
                 dialog.close()
                 self._start_run(test_id, tags, extra)
 
@@ -1502,12 +1554,15 @@ class GeneratorPanel:
                                          'aria-label="Generator sections"').classes("any-subtabs") as tabs:
                         tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
                         pages_tab = ui.tab("Pages", icon=icon("app-window"))
-                self.sections, self.pages_tab, self.tests_tab = tabs, pages_tab, tests_tab
+                        data_tab = ui.tab("Data sets", icon=icon("braces")).props('data-testid="tab-data"')
+                self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
                     self.tests = TestEditor(self)
                 with ui.tab_panel(pages_tab).classes("p-0"):
                     self.pages = PageEditor(self)
+                with ui.tab_panel(data_tab).classes("p-0"):
+                    self.data = DataSetEditor(self)
         self.tests.load_refs()
 
     async def open_page(self, name: str) -> None:
