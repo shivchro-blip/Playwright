@@ -117,15 +117,17 @@ class HistoryPanel:
                     table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
 
     def refresh(self) -> None:
+        self.signature = self._signature()  # a refresh made here must not be repeated by the next timer tick
         self.flaky_view.refresh()
         self.table_view.refresh()
         self.details.refresh()
 
     def _auto_refresh(self) -> None:
-        sig = tuple((r.id, r.status, r.report_status, len(r.results)) for r in self.svc.runs.list())
-        if sig != self.signature:
-            self.signature = sig
+        if self._signature() != self.signature:
             self.refresh()
+
+    def _signature(self) -> tuple:
+        return tuple((r.id, r.status, r.report_status, len(r.results)) for r in self.svc.runs.list())
 
     def _runs(self) -> list[Run]:
         return [r for r in self.svc.runs.list()

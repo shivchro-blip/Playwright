@@ -33,7 +33,9 @@ def test_clear_this_run_in_control_and_all_runs_in_history(workspace: Path, tmp_
         assert run_dirs(tmp_path) == [first.id]  # only the shown run went; its logs and reports are gone
 
         page.get_by_role("tab", name="History").click()
+        expect(page.locator("tbody tr")).to_have_count(1)
         page.locator("tbody tr").first.click()
+        expect(page.get_by_test_id("clear-runs")).to_be_visible()
         page.get_by_test_id("clear-runs").click()
         dialog = page.get_by_role("dialog")
         dialog.get_by_text("All 1 finished run").click()
