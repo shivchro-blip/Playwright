@@ -158,7 +158,7 @@ def _post(url: str, payload: dict) -> None:
     if parts.scheme not in ("https", "http") or not parts.netloc:
         raise NotifyError("the configured URL is not an http(s) URL")
     request = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), method="POST",
-                                     headers={"Content-Type": "application/json", "User-Agent": "AutomateNY"})
+                                     headers={"Content-Type": "application/json", "User-Agent": "AutoPlay"})
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:  # noqa: S310 (scheme checked above)
             if not 200 <= response.status < 300:
@@ -177,8 +177,8 @@ def _email(msg: Message, to: list[str], lookup: Lookup) -> None:
     mode = (lookup("NOTIFY_SMTP_TLS") or "starttls").strip().lower()
     user, password = lookup("NOTIFY_SMTP_USER"), lookup("NOTIFY_SMTP_PASSWORD")
     email = EmailMessage()
-    email["Subject"] = f"[AutomateNY] {msg.title}"
-    email["From"] = lookup("NOTIFY_SMTP_FROM") or user or f"automateny@{host}"
+    email["Subject"] = f"[AutoPlay] {msg.title}"
+    email["From"] = lookup("NOTIFY_SMTP_FROM") or user or f"autoplay@{host}"
     email["To"] = ", ".join(to)
     email.set_content(msg.text)
     context = ssl.create_default_context()
@@ -223,7 +223,7 @@ class Notifier:
         return results
 
     def test_message(self, schedule_name: str) -> Message:
-        return Message(title=f"{schedule_name}: test notification from AutomateNY", status="passed",
+        return Message(title=f"{schedule_name}: test notification from AutoPlay", status="passed",
                        lines=["Notifications for this schedule are set up correctly."],
                        facts=[("Schedule", schedule_name)], failed=[], url=self.public_url,
                        data={"event": "test", "schedule": schedule_name})

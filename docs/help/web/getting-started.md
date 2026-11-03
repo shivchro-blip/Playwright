@@ -1,6 +1,6 @@
 # Getting Started
 
-AutomateNY runs JSON-driven browser tests (Python, pytest and Playwright). The web app is where you pick what to run, watch it live, and edit tests and pages.
+AutoPlay runs JSON-driven browser tests (Python, pytest and Playwright). The web app is where you pick what to run, watch it live, and edit tests and pages.
 
 ## Start the app
 
@@ -10,7 +10,7 @@ First time on a machine (needs Python 3.12+ on PATH), from the project folder:
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-This creates `.venv`, installs the packages and Playwright Chromium, creates `.env` from `.env.example` if missing, and adds a **Start AutomateNY** desktop shortcut. Safe to re-run after pulling updates.
+This creates `.venv`, installs the packages and Playwright Chromium, creates `.env` from `.env.example` if missing, and adds a **Start AutoPlay** desktop shortcut. Safe to re-run after pulling updates.
 
 Then start the app with the shortcut or `start.cmd` (same as `.venv\Scripts\python -m webapp`).
 
@@ -18,11 +18,11 @@ Open **http://127.0.0.1:8080** (`start.cmd` opens it for you). The app only list
 
 | Setting | Env var | Default |
 |---|---|---|
-| Port | `AUTOMATENY_PORT` | `8080` |
-| Host | `AUTOMATENY_HOST` | `127.0.0.1` |
-| Workspace folder | `AUTOMATENY_WORKSPACE` | repo `workspace/` |
-| Run output folder | `AUTOMATENY_RUNS_DIR` | `<workspace>/reports/runs` |
-| Allure CLI | `AUTOMATENY_ALLURE_CMD` | `allure` |
+| Port | `AUTOPLAY_PORT` | `8080` |
+| Host | `AUTOPLAY_HOST` | `127.0.0.1` |
+| Workspace folder | `AUTOPLAY_WORKSPACE` | repo `workspace/` |
+| Run output folder | `AUTOPLAY_RUNS_DIR` | `<workspace>/reports/runs` |
+| Allure CLI | `AUTOPLAY_ALLURE_CMD` | `allure` |
 
 ## Tabs
 

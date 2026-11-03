@@ -13,7 +13,7 @@ from webapp.services.schedules import validate as validate_schedule
 from webapp.auth import require
 from webapp.state import services
 
-router = APIRouter(prefix="/api", tags=["automateny"], dependencies=[require("view")])
+router = APIRouter(prefix="/api", tags=["autoplay"], dependencies=[require("view")])
 
 
 class RunRequest(BaseModel):

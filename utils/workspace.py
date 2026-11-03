@@ -1,7 +1,7 @@
-"""Single place to resolve the AutomateNY workspace (Data/, Pages/, Tests/, .env).
+"""Single place to resolve the AutoPlay workspace (Data/, Pages/, Tests/, .env).
 
 Resolution order:
-  1. AUTOMATENY_WORKSPACE env var (set by the web app for each run)
+  1. AUTOPLAY_WORKSPACE env var (set by the web app for each run)
   2. <repo>/workspace
 """
 import os
@@ -12,14 +12,14 @@ REPO_WORKSPACE = REPO_ROOT / "workspace"
 
 
 def resolve_workspace_dir() -> str:
-    override = os.getenv("AUTOMATENY_WORKSPACE")
+    override = os.getenv("AUTOPLAY_WORKSPACE")
     if override:
         return override
     return str(REPO_WORKSPACE)
 
 
 def resolve_dotenv_path(workspace_dir: str) -> str:
-    override = os.getenv("AUTOMATENY_DOTENV_PATH")
+    override = os.getenv("AUTOPLAY_DOTENV_PATH")
     if override:
         return override
     workspace_env = os.path.join(workspace_dir, ".env")
@@ -30,7 +30,7 @@ def resolve_dotenv_path(workspace_dir: str) -> str:
 
 
 def resolve_systemdata_path(workspace_dir: str) -> str:
-    override = os.getenv("AUTOMATENY_SYSTEMDATA_PATH")
+    override = os.getenv("AUTOPLAY_SYSTEMDATA_PATH")
     if override:
         return override
     return os.path.join(workspace_dir, "Data", "systemData.json")

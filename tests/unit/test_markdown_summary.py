@@ -9,7 +9,7 @@ from webapp.services.run_manager import TestResult as Result
 
 
 def _run(tmp_path: Path) -> Run:
-    run = Run(id="r1", config=RunConfig(system="NYBE2", env="dev", tags=["smoke"], browsers=["chromium"]),
+    run = Run(id="r1", config=RunConfig(system="PORTAL", env="dev", tags=["smoke"], browsers=["chromium"]),
               dir=tmp_path, status="failed")
     run.results = {
         "a": Result("a", "TC-A", "chromium", "passed"),
@@ -27,7 +27,7 @@ def test_summary_lists_counts_and_each_failure_with_where(tmp_path):
                                                  failure=FailurePoint(screen="Financial", action="CLICK",
                                                                       field_name="Next"))}
     md = build_markdown(_run(tmp_path), details)
-    assert md.startswith("## AutomateNY run r1: failed")
+    assert md.startswith("## AutoPlay run r1: failed")
     assert "| Tests | passed | failed |" in md and "| 3 | 1 | 2 |" in md
     assert "- `TC-B` (chromium) failed at `Financial > BankNme (FILL)`: `Timeout 30000ms`" in md
     assert "By screen: `Financial` x2" in md

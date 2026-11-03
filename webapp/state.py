@@ -57,7 +57,7 @@ class Services:
             return "The test recorder is turned off. Turn it on with the Recorder switch in the Generator."
         if self.settings.host not in ("127.0.0.1", "localhost", "::1"):
             return ("The recorder opens a browser on the machine running the app, so it only works when the app "
-                    "listens on this machine only (AUTOMATENY_HOST=127.0.0.1).")
+                    "listens on this machine only (AUTOPLAY_HOST=127.0.0.1).")
         return ""
 
     def credential_status(self, system: str | None, env: str | None) -> list[dict] | None:

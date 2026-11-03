@@ -27,7 +27,7 @@ def test_passing_run_exits_0_and_writes_the_summary(workspace: Path, tmp_path: P
     runs = list((tmp_path / "runs").iterdir())
     assert len(runs) == 1 and (runs[0] / "report.html").is_file()
     summary = (runs[0] / "summary.md").read_text(encoding="utf-8")
-    assert "## AutomateNY run" in summary and ": passed" in summary and "| 2 | 2 |" in summary
+    assert "## AutoPlay run" in summary and ": passed" in summary and "| 2 | 2 |" in summary
     assert step_summary.read_text(encoding="utf-8").strip() == summary.strip()  # also in the job summary
 
 
@@ -47,5 +47,5 @@ def test_no_matching_tests_and_missing_arguments_exit_2(workspace: Path, tmp_pat
     bare = subprocess.run([sys.executable, "-m", "webapp.cli_run", "--workspace", str(workspace)], cwd=REPO_ROOT,
                           capture_output=True, text=True, timeout=60,
                           env={**{k: v for k, v in os.environ.items() if not k.startswith("PYTEST_")},
-                               "AUTOMATENY_DOTENV_PATH": str(tmp_path / "empty.env")})
+                               "AUTOPLAY_DOTENV_PATH": str(tmp_path / "empty.env")})
     assert bare.returncode == 2 and "--system" in bare.stderr

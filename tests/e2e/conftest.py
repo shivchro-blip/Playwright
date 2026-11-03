@@ -47,6 +47,6 @@ def workspace(tmp_path: Path, site_url: str, monkeypatch) -> Path:
                            encoding="utf-8")
     empty_env = tmp_path / "empty.env"
     empty_env.write_text("", encoding="utf-8")
-    monkeypatch.setenv("AUTOMATENY_WORKSPACE", str(ws))
-    monkeypatch.setenv("AUTOMATENY_DOTENV_PATH", str(empty_env))
+    monkeypatch.setenv("AUTOPLAY_WORKSPACE", str(ws))
+    monkeypatch.setenv("AUTOPLAY_DOTENV_PATH", str(empty_env))
     return ws

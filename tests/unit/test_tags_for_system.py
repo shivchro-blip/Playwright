@@ -9,10 +9,10 @@ def catalog(system: str, *tag_lists: list[str]) -> Catalog:
 
 
 def test_leftover_tags_from_another_system_are_dropped():
-    nybe = catalog("NYBE2", ["all", "WCB", "Regression", "Smoke"], ["all", "TC_CE200_001_C_CORP"])
-    assert nybe.tags_for(["GOOGLE"], "NYBE2") == ["all"]  # nothing matches: falls back to "all"
-    assert nybe.tags_for(["GOOGLE", "smoke"], "NYBE2") == ["Smoke"]  # kept, spelled as the tests spell it
-    assert nybe.tags_for(["WCB", "wcb", "Nope"], "NYBE2") == ["WCB"]
+    portal = catalog("PORTAL", ["all", "WCB", "Regression", "Smoke"], ["all", "TC_CE200_001_C_CORP"])
+    assert portal.tags_for(["GOOGLE"], "PORTAL") == ["all"]  # nothing matches: falls back to "all"
+    assert portal.tags_for(["GOOGLE", "smoke"], "PORTAL") == ["Smoke"]  # kept, spelled as the tests spell it
+    assert portal.tags_for(["WCB", "wcb", "Nope"], "PORTAL") == ["WCB"]
 
 
 def test_default_is_the_systems_own_tag_then_all_then_nothing():

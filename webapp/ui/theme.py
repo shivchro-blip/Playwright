@@ -1,6 +1,6 @@
 """Design tokens and static assets (fonts, Lucide icon sprite, stylesheet) for the redesigned UI.
 
-Tokens live as CSS custom properties in webapp/static/automateny.css. Icons are Lucide SVG symbols in
+Tokens live as CSS custom properties in webapp/static/autoplay.css. Icons are Lucide SVG symbols in
 webapp/static/icons.svg, used through Quasar's `svguse:` icon names so every q-icon/q-btn accepts them.
 """
 from __future__ import annotations
@@ -19,11 +19,11 @@ def _version(name: str) -> str:
     return hashlib.sha256((STATIC_DIR / name).read_bytes()).hexdigest()[:10]
 
 
-CSS_URL = f"{ASSETS_URL}/automateny.css?v={_version('automateny.css')}"
+CSS_URL = f"{ASSETS_URL}/autoplay.css?v={_version('autoplay.css')}"
 SPRITE_URL = f"{ASSETS_URL}/icons.svg?v={_version('icons.svg')}"
 
 
-# Quasar brand palette = the CSS tokens (accent, failed, passed, warning). Mirrors automateny.css :root.
+# Quasar brand palette = the CSS tokens (accent, failed, passed, warning). Mirrors autoplay.css :root.
 BRAND = {
     "primary": "#2851E6", "secondary": "#344054", "accent": "#2851E6", "dark": "#0E1525",
     "positive": "#157043", "negative": "#B42318", "info": "#1F3EAB", "warning": "#B25E00",

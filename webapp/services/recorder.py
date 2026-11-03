@@ -536,7 +536,7 @@ class Recorder:
         with self._lock:
             if self.active:
                 raise RecorderError("A recording is already in progress. Close its browser window first.")
-            workdir = Path(tempfile.mkdtemp(prefix="automateny-rec-"))
+            workdir = Path(tempfile.mkdtemp(prefix="autoplay-rec-"))
             session = Session(url=url, workdir=workdir, options=options or RecordOptions())
             argv = [*self.command, "codegen", "--target", "python", "-o", str(session.output)]
             if session.options.id_attribute:

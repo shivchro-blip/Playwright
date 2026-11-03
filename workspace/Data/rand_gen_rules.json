@@ -61,7 +61,7 @@
     "foreignCountry": "TT",
     "frgnUS": "Foreign",
     "futureDate": "2030-08-21",
-    "jurisdictionCounty": "Albany",
+    "jurisdictionCounty": "Travis",
     "natureOfInterest": "2",
     "pastDate": "2025-01-01",
     "paymentMethod": "Credit Card",
@@ -78,7 +78,7 @@
     "sessionDate": "05/20/2025",
     "securityDescription": "Free Type description",
     "selectEvent": "Anniversary Party",
-    "tempCity": "Albany",
+    "tempCity": "Austin",
     "time": "03:30 PM",
     "website": " ",
     "word": "RANDOMWORD",
@@ -119,10 +119,10 @@
     "faker": "\ntry:\n    from faker import Faker\n    faker = Faker()\nexcept Exception as e:\n    print(f'Faker - Error: {e}')"
   },
     "address_list": [
-      {"use": true, "street":  "100 Central Ave", "county": "Albany", "city": "Albany", "state": "NY", "country": "US", "zip": "12206"},
-      {"use": true, "street":  "1000 Washington Ave", "county": "Albany", "city": "Albany", "state": "NY", "country": "US", "zip": "12226"},
-      {"use": true, "street":  "123 5th Ave", "county": "New York", "city": "New York", "state": "NY", "country": "US", "zip": "10003"},
-      {"use": true, "street":  "123 W 56th St", "county": "New York", "city": "New York", "state": "NY", "country": "US", "zip": "10019"},
+      {"use": true, "street":  "100 Central Ave", "county": "Travis", "city": "Austin", "state": "TX", "country": "US", "zip": "78701"},
+      {"use": true, "street":  "1000 Washington Ave", "county": "Travis", "city": "Austin", "state": "TX", "country": "US", "zip": "78711"},
+      {"use": true, "street":  "123 5th Ave", "county": "Dallas", "city": "Dallas", "state": "TX", "country": "US", "zip": "75201"},
+      {"use": true, "street":  "123 W 56th St", "county": "Dallas", "city": "Dallas", "state": "TX", "country": "US", "zip": "75202"},
       {"use": false, "street":  "456 Maple St", "county": "", "city": "Toronto", "state": "ON", "country": "Canada", "zip": "15556"},
       {"use": false, "street":  "2930 Elm St", "county": "", "city": "Los Angeles", "state": "CA", "country": "US", "zip": "90065"},
       {"use": false, "street":  "101 Oak Lane", "county": "", "city": "Paris", "state": "FR", "country": "France", "zip": "76001"}

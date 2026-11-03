@@ -11,7 +11,7 @@ from webapp.ui.theme import icon, svg
 
 TEST_ID_RE = re.compile(r"^(TC-.+?-\d+)-(.+)$")
 
-# Outcome -> visual tone (status tokens in automateny.css)
+# Outcome -> visual tone (status tokens in autoplay.css)
 TONES = {
     "passed": "passed", "xpassed": "passed",
     "failed": "failed", "error": "failed",

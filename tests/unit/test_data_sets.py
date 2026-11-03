@@ -13,7 +13,7 @@ from webapp.services.pom_service import PomService
 from webapp.services.test_case_service import TestCaseService as CaseService
 
 FILE = {"description": "applicants", "defaults": {"Country": "United States"},
-        "sets": {"albany": {"City": "Albany", "Zip": "12206"}, "nyc": {"City": "New York", "Zip": 10001}}}
+        "sets": {"austin": {"City": "Austin", "Zip": "78701"}, "dallas": {"City": "Dallas", "Zip": 75201}}}
 CASE = {"testCaseID": "TC-1", "dataSet": "applicants", "steps": [
     {"screen": "Address", "formData": {"City": "DATA.City", "Zip": "DATA.Zip", "Country": "DATA.Country",
                                         "Note": "Lives in DATA.City", "Plain": "x", "Count": 3,
@@ -31,23 +31,23 @@ def workspace(tmp_path: Path) -> Path:
 
 def test_values_are_replaced_only_when_they_are_exactly_a_reference(workspace):
     cases = expand([CASE], workspace)
-    assert [c["testCaseID"] for c in cases] == ["TC-1[albany]", "TC-1[nyc]"]
+    assert [c["testCaseID"] for c in cases] == ["TC-1[austin]", "TC-1[dallas]"]
     form = cases[0]["steps"][0]["formData"]
-    assert form["City"] == "Albany" and form["Zip"] == "12206" and form["Country"] == "United States"
+    assert form["City"] == "Austin" and form["Zip"] == "78701" and form["Country"] == "United States"
     assert form["Note"] == "Lives in DATA.City"  # embedded text is left alone
     assert form["Plain"] == "x" and form["Count"] == 3 and form["Skip"] is None
-    assert form["Full"] == "Albany|12206" and form["Obj"] == {"type": "fill", "value": "Albany"}
-    assert cases[0]["steps"][1]["override"] == "Address|City|Albany"
-    assert cases[1]["steps"][0]["formData"]["Zip"] == "10001"  # numbers become text
-    assert cases[1]["baseTestCaseID"] == "TC-1" and cases[1]["dataSetName"] == "nyc"
+    assert form["Full"] == "Austin|78701" and form["Obj"] == {"type": "fill", "value": "Austin"}
+    assert cases[0]["steps"][1]["override"] == "Address|City|Austin"
+    assert cases[1]["steps"][0]["formData"]["Zip"] == "75201"  # numbers become text
+    assert cases[1]["baseTestCaseID"] == "TC-1" and cases[1]["dataSetName"] == "dallas"
     assert CASE["steps"][0]["formData"]["City"] == "DATA.City"  # the loaded test case is not changed
 
 
 def test_cases_without_a_data_set_pass_through_and_one_set_can_be_chosen(workspace):
     plain = {"testCaseID": "TC-2", "steps": []}
     assert expand([plain], workspace) == [plain]
-    only = expand([CASE, plain], workspace, only_set="nyc")
-    assert [c["testCaseID"] for c in only] == ["TC-1[nyc]", "TC-2"]
+    only = expand([CASE, plain], workspace, only_set="dallas")
+    assert [c["testCaseID"] for c in only] == ["TC-1[dallas]", "TC-2"]
     with pytest.raises(DataSetError, match="no set 'paris'"):
         expand([CASE], workspace, only_set="paris")
 
@@ -55,7 +55,7 @@ def test_cases_without_a_data_set_pass_through_and_one_set_can_be_chosen(workspa
 def test_a_missing_value_names_the_set_and_what_it_has(workspace):
     bad = {"testCaseID": "TC-3", "dataSet": "applicants",
            "steps": [{"screen": "A", "formData": {"State": "DATA.State"}}]}
-    with pytest.raises(DataSetError, match=r"TC-3\[albany\].*no value 'State'.*City, Country, Zip"):
+    with pytest.raises(DataSetError, match=r"TC-3\[austin\].*no value 'State'.*City, Country, Zip"):
         expand([bad], workspace)
 
 
@@ -125,7 +125,7 @@ def test_check_warns_about_missing_files_unset_values_and_unused_data_sets(works
     ok = tests.validate("SYS", {**CASE, "steps": [{"commonAction": "x", "override": "A|b|DATA.City"}]})
     assert not any("DATA" in w or "data set" in w for w in ok.warnings)
     short = tests.validate("SYS", {**CASE, "steps": [{"commonAction": "x", "override": "A|b|DATA.State"}]})
-    assert any("DATA.State is not defined in data set 'applicants' for: albany, nyc" in w for w in short.warnings)
+    assert any("DATA.State is not defined in data set 'applicants' for: austin, dallas" in w for w in short.warnings)
     gone = tests.validate("SYS", {**CASE, "dataSet": "nope"})
     assert any("'nope' not found" in w for w in gone.warnings)
     none = tests.validate("SYS", {k: v for k, v in CASE.items() if k != "dataSet"})

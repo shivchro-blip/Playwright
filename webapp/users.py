@@ -1,7 +1,7 @@
 """Manage web app users:  python -m webapp.users {add,passwd,role,disable,enable,remove,list,token,revoke}
 
-Users are stored in <workspace>/reports/users.json (AUTOMATENY_USERS_FILE). Login is used when
-AUTOMATENY_AUTH_ENABLED=true, and always when the app listens on a network address.
+Users are stored in <workspace>/reports/users.json (AUTOPLAY_USERS_FILE). Login is used when
+AUTOPLAY_AUTH_ENABLED=true, and always when the app listens on a network address.
 """
 from __future__ import annotations
 

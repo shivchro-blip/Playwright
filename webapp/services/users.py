@@ -1,6 +1,6 @@
 """Accounts for a shared web app: users, roles, hashed passwords and API tokens.
 
-Login is off by default for the local, single-user app (AUTOMATENY_AUTH_ENABLED). Users live in
+Login is off by default for the local, single-user app (AUTOPLAY_AUTH_ENABLED). Users live in
 <workspace>/reports/users.json (git-ignored), passwords as scrypt hashes and API tokens as SHA-256 hashes,
 so the file never holds a usable secret. Manage them with:  python -m webapp.users --help
 """

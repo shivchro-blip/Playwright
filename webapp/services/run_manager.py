@@ -348,7 +348,7 @@ class RunManager:
             "runTestIds": ",".join(cfg.test_ids),
             "del_allure": "false",  # each run has its own fresh results folder
             "reportsDir": str(run.results_dir),
-            "AUTOMATENY_WORKSPACE": str(self.workspace),
+            "AUTOPLAY_WORKSPACE": str(self.workspace),
             "PYTHONUNBUFFERED": "1",
             "PYTHONIOENCODING": "utf-8",
         })
@@ -489,7 +489,7 @@ class RunManager:
         if not exe:
             run.report_status = "unavailable"
             run.report_message = (f"Allure CLI '{self.allure_cmd}' not found. Install it (e.g. `scoop install allure`) "
-                                  f"or set AUTOMATENY_ALLURE_CMD. Raw results: {run.results_dir}")
+                                  f"or set AUTOPLAY_ALLURE_CMD. Raw results: {run.results_dir}")
             self._append(run, f"[webapp] {run.report_message}")
             return
         run.report_status = "generating"

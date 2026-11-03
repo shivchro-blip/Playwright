@@ -31,7 +31,7 @@ def test_every_status_is_reported_from_one_visit(site_url: str):
     by_name = {f.name: f for f in health.fields}
     assert by_name["members"].count == 2 and "index" in by_name["members"].detail
     assert "{value}" in by_name["answer"].detail
-    assert health.counts()[OK] == 3 and health.title == "AutomateNY authoring page"
+    assert health.counts()[OK] == 3 and health.title == "AutoPlay authoring page"
 
 
 def test_bad_input_is_reported(site_url: str):

@@ -33,7 +33,7 @@ def _config(**kw) -> RunConfig:
 
 
 @pytest.mark.parametrize("key", ["PYTHONPATH", "PYTHONSTARTUP", "LD_PRELOAD", "PATH",
-                                 "AUTOMATENY_DOTENV_PATH", "AUTOMATENY_SYSTEMDATA_PATH",
+                                 "AUTOPLAY_DOTENV_PATH", "AUTOPLAY_SYSTEMDATA_PATH",
                                  "systemConfig", "runTags", "del_allure", "MYAPP_PASSWORD"])
 def test_run_rejects_options_outside_allowlist(manager: RunManager, key: str):
     with pytest.raises(ValueError):
@@ -150,14 +150,14 @@ def test_cross_origin_requests_rejected(origin: str):
 
 
 def test_configured_host_and_extra_hosts_allowed():
-    c = _client(host="10.0.0.5", allowed_hosts="automateny.corp")
+    c = _client(host="10.0.0.5", allowed_hosts="autoplay.corp")
     assert c.get("/api/ping", headers={"host": "10.0.0.5:8080"}).status_code == 200
-    assert c.get("/api/ping", headers={"host": "automateny.corp"}).status_code == 200
+    assert c.get("/api/ping", headers={"host": "autoplay.corp"}).status_code == 200
     assert c.get("/api/ping", headers={"host": "evil.example"}).status_code == 400
 
 
 def test_wildcard_bind_without_allowed_hosts_keeps_working():
-    # Existing AUTOMATENY_HOST=0.0.0.0 setups must not break
+    # Existing AUTOPLAY_HOST=0.0.0.0 setups must not break
     c = _client(host="0.0.0.0")
     assert c.get("/api/ping", headers={"host": "any.name"}).status_code == 200
 
@@ -169,8 +169,8 @@ def test_wildcard_bind_still_refuses_cross_site_requests():
 
 
 def test_proxy_host_in_allowed_hosts_is_accepted_as_origin():
-    c = _client(allowed_hosts="automateny.corp")
-    assert c.post("/api/ping", headers={"origin": "https://automateny.corp"}).status_code == 200
+    c = _client(allowed_hosts="autoplay.corp")
+    assert c.post("/api/ping", headers={"origin": "https://autoplay.corp"}).status_code == 200
 
 
 def test_websocket_scope_is_checked():

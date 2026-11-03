@@ -70,7 +70,7 @@ A **data set** keeps the values a test types in one file (`Data/TestData/<name>.
 - **+** creates a file; the list shows how many sets each has and which test cases use it.
 - The grid has **one row per set and one column per key**. The **defaults** row applies to every set; an empty cell falls back to it. **+ Set**, **+ Column**, duplicate and remove work on rows and columns; **Form / JSON** switches to the raw file. Values are text.
 - In a test case, choose the **Data set** (below the ID row of the editor). The value menu (the **{ }** button next to a value) now offers *From the data set*, which writes `DATA.<key>`. **Check** warns if a file is missing, a `DATA.` key is not defined in every set, or the steps use `DATA.` values with no data set.
-- The test case then runs once per set, as `TC-1[albany]`, `TC-1[nyc]`; each shows as its own result. A missing value stops the run with a message naming the set.
+- The test case then runs once per set, as `TC-1[austin]`, `TC-1[dallas]`; each shows as its own result. A missing value stops the run with a message naming the set.
 
 Details, including what a reused test or common action sees, are in *Form Data and Page Mapping*.
 
@@ -93,7 +93,7 @@ For a long flow with a "Save & Continue" button on every screen, open **Multi-sc
 
 Check the fields and locators in the review: the recorder can only turn into fields what codegen writes. Not converted: assertions (`expect`), actions inside iframes, and later navigations (they are reported as warnings). Values typed into fields that look like passwords or codes are **not saved**; use `ENV.<KEY>` values instead.
 
-The recorder only works when the web app listens on this machine (`AUTOMATENY_HOST=127.0.0.1`), because the browser opens where the app runs.
+The recorder only works when the web app listens on this machine (`AUTOPLAY_HOST=127.0.0.1`), because the browser opens where the app runs.
 
 ## Pages
 

@@ -1,4 +1,4 @@
-"""App settings. Override any field with an AUTOMATENY_<FIELD> env var (e.g. AUTOMATENY_PORT=9000)."""
+"""App settings. Override any field with an AUTOPLAY_<FIELD> env var (e.g. AUTOPLAY_PORT=9000)."""
 from __future__ import annotations
 
 import sys
@@ -12,7 +12,7 @@ from utils.workspace import REPO_ROOT, resolve_dotenv_path, resolve_systemdata_p
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="AUTOMATENY_", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="AUTOPLAY_", extra="ignore")
 
     workspace: Path = Field(default_factory=lambda: Path(resolve_workspace_dir()))
     runs_dir: Path | None = None  # default: <workspace>/reports/runs

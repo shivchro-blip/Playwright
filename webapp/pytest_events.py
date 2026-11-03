@@ -1,7 +1,7 @@
 """pytest plugin: emits machine-readable run events on stdout for the web app.
 
 Loaded with `-p webapp.pytest_events`. Each event is one line:
-    @@AUTOMATENY@@ {"event": "...", ...}
+    @@AUTOPLAY@@ {"event": "...", ...}
 Only the xdist controller (or a plain serial run) emits; worker reports are relayed
 to the controller, so events are not duplicated.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import sys
 
-PREFIX = "@@AUTOMATENY@@ "
+PREFIX = "@@AUTOPLAY@@ "
 _enabled = True
 
 

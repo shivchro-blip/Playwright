@@ -33,7 +33,7 @@ def make_flow(workspace: Path) -> None:
     write(workspace / "Tests" / "SMOKE" / "MasterRegressionSuite" / "Resume.json", {"testCases": [{
         "testCaseID": TEST_ID, "system": "SMOKE", "env": "dev", "module": "m", "tags": ["resume"], "steps": [
             {"screen": "Wiz1", "formData": {"next1": "click"}},
-            {"screen": "Wiz2", "formData": {"city": "Albany", "next2": "click"}},
+            {"screen": "Wiz2", "formData": {"city": "Austin", "next2": "click"}},
             {"screen": "Wiz3", "formData": {"finish": "click", "done": {"type": "confirmtext"}}}]}]})
 
 

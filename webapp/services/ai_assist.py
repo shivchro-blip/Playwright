@@ -9,7 +9,7 @@ Design rules:
   prompt tells Claude it is data, never instructions.
 
 Turned on with aiAssistEnabled=true in .env; uses ANTHROPIC_API_KEY (environment or .env) or the default
-Anthropic credentials. The model is AUTOMATENY_AI_MODEL (default claude-opus-5-5).
+Anthropic credentials. The model is AUTOPLAY_AI_MODEL (default claude-opus-5-5).
 """
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ SECRET_SHAPES = [
 ]
 
 SYSTEM = (
-    "You assist QA engineers who use AutomateNY, a JSON-driven Playwright test framework. Test cases are lists of "
+    "You assist QA engineers who use AutoPlay, a JSON-driven Playwright test framework. Test cases are lists of "
     "steps; a `screen` step opens a page object (a JSON file of named fields with locator keys) and fills or "
     "clicks fields through `formData`. Field locator keys, in the order the engine tries them: `locator` (CSS/"
     "Playwright selector, used when no role), `placeholder`, `contains` (p:has-text), `label`, `text`, `role` + "
@@ -320,7 +320,7 @@ class AIAssist:
         r = self.redactor()
         catalog = "\n".join(f"- {name}: " + ", ".join(f"{f} ({t})" for f, t in fields.items())
                             for name, fields in sorted(pages.items()))
-        text = (f"Draft one AutomateNY test case for system {system}.\n\nWhat the tester wants:\n{r(request)}\n\n"
+        text = (f"Draft one AutoPlay test case for system {system}.\n\nWhat the tester wants:\n{r(request)}\n\n"
                 f"Pages and their fields (field (type)) - use ONLY these names:\n{catalog or '(no pages)'}\n\n"
                 f"Common actions: {', '.join(common_actions) or '(none)'}\n\n"
                 "For each step list form_data in the order the actions happen. Values: text to fill, an option "
