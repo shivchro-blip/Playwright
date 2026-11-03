@@ -9,7 +9,7 @@ def test_single_match_has_a_screenshot(site_url):
     assert result.ok and result.error == "" and result.count == 1, result
     assert result.matches[0]["tag"] == "input" and result.matches[0]["visible"]
     assert result.screenshot and result.screenshot.startswith(b"\x89PNG")
-    assert result.title == "AutomateNY smoke page" and result.warnings == []
+    assert result.title == "AutoPlay smoke page" and result.warnings == []
 
 
 def test_many_matches_warn_about_strict_mode_and_index_picks_one(site_url):

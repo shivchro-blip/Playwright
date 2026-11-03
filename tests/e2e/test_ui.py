@@ -31,9 +31,9 @@ def running_app(tmp_path: Path, **extra_env: str):
     fake_codegen = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake_codegen.py"
     base_env = {k: v for k, v in base_env.items() if k not in ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_PROFILE")}
     ai_server, ai_url = fake_anthropic.serve()  # AI assist talks to a local fake Messages API
-    env = {**base_env, "AUTOMATENY_PORT": str(port), "AUTOMATENY_RUNS_DIR": str(tmp_path / "runs"),
-           "AUTOMATENY_DOTENV_PATH": str(env_file), "PYTHONUNBUFFERED": "1",
-           "AUTOMATENY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)]),
+    env = {**base_env, "AUTOPLAY_PORT": str(port), "AUTOPLAY_RUNS_DIR": str(tmp_path / "runs"),
+           "AUTOPLAY_DOTENV_PATH": str(env_file), "PYTHONUNBUFFERED": "1",
+           "AUTOPLAY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)]),
            "ANTHROPIC_BASE_URL": ai_url, "ANTHROPIC_API_KEY": "sk-ant-test-not-a-real-key", **extra_env}
     log = (tmp_path / "webapp.log").open("w", encoding="utf-8")
     proc = subprocess.Popen([sys.executable, "-m", "webapp"], cwd=REPO_ROOT, env=env, stdout=log,
@@ -101,7 +101,7 @@ def test_every_tab_loads_and_a_run_passes(app_url: str):
 
         with page.context.expect_page() as report_page:  # built-in report, no Allure CLI needed
             run_card.get_by_test_id("run-report").click()
-        expect(report_page.value.get_by_text("AutomateNY run report")).to_be_visible()
+        expect(report_page.value.get_by_text("AutoPlay run report")).to_be_visible()
         report_page.value.close()
 
         page.get_by_role("tab", name="Generator").click()  # live locator check on the open page's first field
@@ -150,7 +150,7 @@ def test_recorder_is_off_by_default_and_records_a_test(app_url: str, tmp_path: P
 def test_wizard_recording_saves_a_page_per_screen(workspace: Path, tmp_path: Path):
     fake = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake_codegen_wizard.py"
     command = json.dumps([sys.executable, str(fake)])
-    with running_app(tmp_path, AUTOMATENY_RECORDER_COMMAND=command) as url, sync_playwright() as p:
+    with running_app(tmp_path, AUTOPLAY_RECORDER_COMMAND=command) as url, sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 900})
         page.goto(url, wait_until="networkidle")
@@ -263,7 +263,7 @@ def test_sign_in_roles_and_activity(workspace: Path, tmp_path: Path):
     users.add("ann", "admin password 1", "admin")
     users.add("vic", "viewer password 1", "viewer")
     problems: list[str] = []
-    with running_app(tmp_path, AUTOMATENY_AUTH_ENABLED="true", AUTOMATENY_USERS_FILE=str(users.path)) as url:
+    with running_app(tmp_path, AUTOPLAY_AUTH_ENABLED="true", AUTOPLAY_USERS_FILE=str(users.path)) as url:
         assert urllib.request.urlopen(url + "login").status == 200
         with sync_playwright() as p:
             browser = p.chromium.launch()

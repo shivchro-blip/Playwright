@@ -1,4 +1,4 @@
-# AutomateNY
+# AutoPlay
 
 JSON-driven browser test automation built on Python, pytest and Playwright, with a local web app for running tests and editing them.
 
@@ -15,7 +15,7 @@ powershell -ExecutionPolicy Bypass -File setup.ps1
 start.cmd
 ```
 
-`setup.ps1` creates `.venv`, installs the Python packages and Playwright Chromium, creates `.env` from `.env.example` if it doesn't exist, and adds a **Start AutomateNY** desktop shortcut (skip with `-NoShortcut`). It is safe to re-run after pulling updates.
+`setup.ps1` creates `.venv`, installs the Python packages and Playwright Chromium, creates `.env` from `.env.example` if it doesn't exist, and adds a **Start AutoPlay** desktop shortcut (skip with `-NoShortcut`). It is safe to re-run after pulling updates.
 
 `start.cmd` starts the web app and opens **http://127.0.0.1:8080**. It only listens on your own machine by default.
 
@@ -37,7 +37,7 @@ For the sample, choose system `GOOGLE`, environment `dev`, and tag `GOOGLE` (all
 
 ## Sharing the app with a team
 
-Sign-in is off on your own machine (`127.0.0.1`). For a shared server, create an admin with `python -m webapp.users add <name> --role admin` and start with `AUTOMATENY_AUTH_ENABLED=true`; sign-in is required automatically on a non-loopback `AUTOMATENY_HOST`. Roles: viewer, runner, editor, admin. Scripts use API tokens (`python -m webapp.users token <name>`). Runs started while another is in progress are queued. See Help → *Accounts, roles and the audit trail*.
+Sign-in is off on your own machine (`127.0.0.1`). For a shared server, create an admin with `python -m webapp.users add <name> --role admin` and start with `AUTOPLAY_AUTH_ENABLED=true`; sign-in is required automatically on a non-loopback `AUTOPLAY_HOST`. Roles: viewer, runner, editor, admin. Scripts use API tokens (`python -m webapp.users token <name>`). Runs started while another is in progress are queued. See Help → *Accounts, roles and the audit trail*.
 
 ## Running tests without the UI
 
@@ -78,14 +78,14 @@ The new system appears in the web app's System dropdown. See the Help tab for th
 
 | Setting | Env var | Default |
 |---|---|---|
-| Port | `AUTOMATENY_PORT` | `8080` |
-| Host | `AUTOMATENY_HOST` | `127.0.0.1` |
-| Extra allowed host names (comma-separated; needed when the app is reached by a DNS name or through a proxy) | `AUTOMATENY_ALLOWED_HOSTS` | none |
-| Workspace folder | `AUTOMATENY_WORKSPACE` | `workspace/` |
-| Run output folder | `AUTOMATENY_RUNS_DIR` | `<workspace>/reports/runs` |
-| Allure CLI | `AUTOMATENY_ALLURE_CMD` | `allure` |
+| Port | `AUTOPLAY_PORT` | `8080` |
+| Host | `AUTOPLAY_HOST` | `127.0.0.1` |
+| Extra allowed host names (comma-separated; needed when the app is reached by a DNS name or through a proxy) | `AUTOPLAY_ALLOWED_HOSTS` | none |
+| Workspace folder | `AUTOPLAY_WORKSPACE` | `workspace/` |
+| Run output folder | `AUTOPLAY_RUNS_DIR` | `<workspace>/reports/runs` |
+| Allure CLI | `AUTOPLAY_ALLURE_CMD` | `allure` |
 
-The web app has no login yet. It answers only to its own host names (`127.0.0.1`, `localhost`, the configured host and `AUTOMATENY_ALLOWED_HOSTS`) and refuses browser requests from other sites. If you set `AUTOMATENY_HOST` to a non-loopback address, anyone who can reach it can edit tests and start runs.
+The web app has no login yet. It answers only to its own host names (`127.0.0.1`, `localhost`, the configured host and `AUTOPLAY_ALLOWED_HOSTS`) and refuses browser requests from other sites. If you set `AUTOPLAY_HOST` to a non-loopback address, anyone who can reach it can edit tests and start runs.
 
 HTML reports need the [Allure command-line tool](https://allurereport.org/docs/install/) on `PATH`; without it, runs still work and the report link shows as unavailable.
 

@@ -1,4 +1,4 @@
-# Run your AutomateNY tests in GitHub Actions: on commit, on a schedule, and on demand.
+# Run your AutoPlay tests in GitHub Actions: on commit, on a schedule, and on demand.
 #
 # Copy this file to .github/workflows/test-suite.yml and change the lines marked  # <-- CHANGE.
 # What it does: installs the locked dependencies and Chromium, runs the tests with the same engine as the
@@ -24,7 +24,7 @@ on:
     - cron: "30 5 * * 1-5"       # weekdays 05:30 UTC  # <-- CHANGE
   workflow_dispatch:             # the Run workflow button, with choices
     inputs:
-      system: {description: System, default: NYBE2}
+      system: {description: System, default: PORTAL}
       env: {description: Environment, default: dev}
       tags: {description: Tags (comma-separated), default: smoke}
 
@@ -37,16 +37,16 @@ concurrency:
 
 env:
   # What to run when nobody picked anything (push, pull request, schedule).  # <-- CHANGE
-  SYSTEM: ${{ inputs.system || 'NYBE2' }}
+  SYSTEM: ${{ inputs.system || 'PORTAL' }}
   ENVIRONMENT: ${{ inputs.env || 'dev' }}
   TAGS: ${{ inputs.tags || 'smoke' }}
   # Where Data/, Pages/ and Tests/ live. Point this elsewhere if your workspace is not in the repository.
-  AUTOMATENY_WORKSPACE: ${{ github.workspace }}/workspace
+  AUTOPLAY_WORKSPACE: ${{ github.workspace }}/workspace
   PYTHONUTF8: "1"
   # Logins: the variable names are username_env / password_env in Data/systemData.json; the values are
   # repository secrets (Settings > Secrets and variables > Actions).  # <-- CHANGE
-  NYBE2_DEV_USERNAME: ${{ secrets.NYBE2_DEV_USERNAME }}
-  NYBE2_DEV_PASSWORD: ${{ secrets.NYBE2_DEV_PASSWORD }}
+  PORTAL_DEV_USERNAME: ${{ secrets.PORTAL_DEV_USERNAME }}
+  PORTAL_DEV_PASSWORD: ${{ secrets.PORTAL_DEV_PASSWORD }}
 
 jobs:
   suite:

@@ -242,7 +242,7 @@ def test_wizard_uses_the_site_id_for_locators_and_names():
 
 
 def test_id_attribute_without_wizard_mode_keeps_one_page():
-    rec = parse_codegen(codegen('page.get_by_test_id("LSI_DTF17_Zip").locator("input").fill("12206")',
+    rec = parse_codegen(codegen('page.get_by_test_id("LSI_DTF17_Zip").locator("input").fill("78701")',
                                 'page.get_by_role("button", name="Save & Continue").click()'),
                         RecordOptions(id_attribute="data-attribute-id", id_prefix="LSI_DTF17_"))
     assert rec.screens == [] and list(rec.fields) == ["Zip", "saveContinueButton"]
@@ -251,13 +251,13 @@ def test_id_attribute_without_wizard_mode_keeps_one_page():
 def test_save_wizard_writes_a_page_per_screen_and_one_step_each(tmp_path: Path):
     pom, tests = services(tmp_path)
     names = ["DTF17_Business", "DTF17_Tax", "DTF17_Submit"]
-    saved = save_wizard(pom, tests, "NYBE2", wizard_recording(), page_names=names,
+    saved = save_wizard(pom, tests, "PORTAL", wizard_recording(), page_names=names,
                         base_url="https://shop.test", test_id="TC_DTF17_REC", test_file="Rec.json", env="dev")
     assert [p[0] for p in saved.pages] == names
-    page1, _ = pom.load("NYBE2", saved.pages[0][1])
-    page2, _ = pom.load("NYBE2", saved.pages[1][1])
+    page1, _ = pom.load("PORTAL", saved.pages[0][1])
+    page2, _ = pom.load("PORTAL", saved.pages[1][1])
     assert page1["path"] == "/login" and "path" not in page2  # only the first screen navigates
-    case, _ = tests.get("NYBE2", "Rec.json", saved.test_index)
+    case, _ = tests.get("PORTAL", "Rec.json", saved.test_index)
     assert [s["screen"] for s in case["steps"]] == names
     assert case["steps"][0]["formData"]["BusAct"] == "describe it"
 
@@ -266,9 +266,9 @@ def test_save_wizard_checks_names_before_writing(tmp_path: Path):
     pom, tests = services(tmp_path)
     for names in (["A", "a", "C"], ["A", "", "C"], ["A", "B"]):
         with pytest.raises(RecorderError):
-            save_wizard(pom, tests, "NYBE2", wizard_recording(), page_names=names, base_url="", test_id="T",
+            save_wizard(pom, tests, "PORTAL", wizard_recording(), page_names=names, base_url="", test_id="T",
                         test_file="Rec.json")
-    assert pom.screen_index("NYBE2") == {}
+    assert pom.screen_index("PORTAL") == {}
 
 
 def test_recorder_passes_the_id_attribute_to_codegen():

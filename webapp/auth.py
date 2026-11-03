@@ -1,6 +1,6 @@
 """Sign-in, roles and the audit trail for the web app.
 
-- Login is off for the local single-user app; on when AUTOMATENY_AUTH_ENABLED=true or the app listens on a
+- Login is off for the local single-user app; on when AUTOPLAY_AUTH_ENABLED=true or the app listens on a
   network address (Settings.login_required). Without login every action is done by "local" (admin).
 - Browsers sign in on /login (a plain form POST, so no password goes over the UI websocket); the user name is
   kept in a signed, HttpOnly, SameSite=Lax session cookie that expires after SESSION_HOURS.
@@ -164,10 +164,10 @@ def _safe_next(target: str) -> str:
 def _login_page(error: str = "", next_path: str = "/") -> HTMLResponse:
     message = f'<p class="err" role="alert">{html.escape(error)}</p>' if error else ""
     return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in · AutomateNY</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in · AutoPlay</title>
 <link rel="stylesheet" href="/assets/login.css"></head><body><main>
 <form method="post" action="/login" aria-labelledby="t">
-<div class="brand"><span class="mark" aria-hidden="true"></span>AutomateNY</div>
+<div class="brand"><span class="mark" aria-hidden="true"></span>AutoPlay</div>
 <h1 id="t">Sign in</h1>{message}
 <label for="u">User name</label><input id="u" name="username" autocomplete="username" required autofocus>
 <label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
@@ -224,7 +224,7 @@ def install_auth(app, settings: Settings) -> None:
     app.add_middleware(ApiAuditMiddleware)
     app.add_middleware(AuthMiddleware)
     secret = session_secret(settings.resolved_users_file.with_name(".session-secret"))
-    app.add_middleware(SessionMiddleware, secret_key=secret, session_cookie="automateny_session",
+    app.add_middleware(SessionMiddleware, secret_key=secret, session_cookie="autoplay_session",
                        max_age=SESSION_HOURS * 3600, same_site="lax", https_only=False)
     return secret
 

@@ -32,7 +32,7 @@ def extra_hosts(settings: Settings) -> list[str]:
 
 
 def allowed_hosts(settings: Settings) -> list[str]:
-    """Host names the app answers to. ["*"] only for a wildcard bind with no AUTOMATENY_ALLOWED_HOSTS."""
+    """Host names the app answers to. ["*"] only for a wildcard bind with no AUTOPLAY_ALLOWED_HOSTS."""
     extra = extra_hosts(settings)
     if settings.host in WILDCARD_HOSTS and not extra:
         return ["*"]
@@ -44,7 +44,7 @@ def allowed_hosts(settings: Settings) -> list[str]:
 
 class OriginCheckMiddleware:
     """Refuse HTTP and websocket requests whose Origin is not this app (same host:port as the request)
-    or one of the extra AUTOMATENY_ALLOWED_HOSTS (e.g. a reverse proxy that rewrites Host)."""
+    or one of the extra AUTOPLAY_ALLOWED_HOSTS (e.g. a reverse proxy that rewrites Host)."""
 
     def __init__(self, app: ASGIApp, hosts: list[str]):
         self.app = app
@@ -103,7 +103,7 @@ def install_security(app, settings: Settings) -> None:
     """Add the middleware to the FastAPI/NiceGUI app. Call before the app starts."""
     hosts = allowed_hosts(settings)
     if settings.host not in LOOPBACK_HOSTS and not settings.login_required:
-        logger.warning("Listening on %r WITHOUT login (AUTOMATENY_INSECURE_NO_AUTH): anyone who can reach this "
+        logger.warning("Listening on %r WITHOUT login (AUTOPLAY_INSECURE_NO_AUTH): anyone who can reach this "
                        "address can edit tests and start runs. Allowed hosts: %s", settings.host, ", ".join(hosts))
     # Added last = runs first: reject foreign hosts before anything else
     app.add_middleware(RunArtifactHeadersMiddleware)

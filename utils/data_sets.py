@@ -4,8 +4,8 @@ A data file is Data/TestData/<name>.json:
 
     { "description": "...",
       "defaults": { "Country": "United States" },                 # in every set unless the set says otherwise
-      "sets": { "albany": { "City": "Albany", "Zip": "12206" },
-                "nyc":    { "City": "New York", "Zip": "10001" } } }
+      "sets": { "austin": { "City": "Austin", "Zip": "78701" },
+                "dallas":    { "City": "Dallas", "Zip": "75201" } } }
 
 A test case with "dataSet": "<name>" runs once per set, as "<id>[<set>]". In its steps a value (a formData value, a
 value inside an explicit action, or the value of an override) that is exactly DATA.<key>, or a part of a |-joined

@@ -268,7 +268,7 @@ def build_report(run: Run, runs: Iterable[Run], details: dict[Key, TestDetails] 
     out = ['<!doctype html><html lang="en"><head><meta charset="utf-8">',
            '<meta name="viewport" content="width=device-width, initial-scale=1">',
            f"<title>Run {_e(run.id)}</title><style>{_report_css()}</style></head><body><main>"]
-    out.append(f'<section><div class="eyebrow">AutomateNY run report</div><h1><span class="mono">{_e(run.id)}</span>'
+    out.append(f'<section><div class="eyebrow">AutoPlay run report</div><h1><span class="mono">{_e(run.id)}</span>'
                f'<span class="pill {_e(run.status)}">{_e(run.status)}</span></h1><div class="meta">'
                f"<span>System <b>{_e(cfg.system)}/{_e(cfg.env)}</b></span>"
                f"<span>Tags <b>{_e(', '.join(cfg.tags))}</b></span>"
@@ -353,7 +353,7 @@ def build_markdown(run: Run, details: dict[Key, TestDetails] | None = None, max_
     def code(text: str, limit: int = 160) -> str:
         return "`" + " ".join(str(text).replace("`", "'").split())[:limit] + "`"
 
-    out = [f"## AutomateNY run {run.id}: {run.status}", "",
+    out = [f"## AutoPlay run {run.id}: {run.status}", "",
            f"System **{cfg.system}/{cfg.env}** | tags **{', '.join(cfg.tags)}** | "
            f"browsers **{', '.join(cfg.browsers)}**", ""]
     if run.error:

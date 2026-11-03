@@ -22,7 +22,7 @@ def register() -> None:
 
     @ui.page("/")
     def index() -> None:
-        ui.page_title("AutomateNY")
+        ui.page_title("AutoPlay")
         add_head()
         apply_brand()
         # Panels own their padding (the Control tab is full-bleed)
@@ -33,7 +33,7 @@ def register() -> None:
             with ui.element("div").classes("any-brand"):
                 with ui.element("div").classes("any-brand-mark"):
                     ui.icon(icon("play-solid")).props('aria-hidden="true"')
-                ui.label("AutomateNY")
+                ui.label("AutoPlay")
             with ui.tabs().props('inline-label no-caps indicator-color="transparent" '
                                  'aria-label="Main sections"') as tabs:
                 tab_elems = {name: ui.tab(name, icon=icon(ico)) for name, ico in tab_defs}

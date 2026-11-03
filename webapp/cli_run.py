@@ -1,6 +1,6 @@
 """Run a tagged selection of tests without the web app, for CI and scripts.
 
-    python -m webapp.cli_run --system NYBE2 --env dev --tags smoke --browsers chromium
+    python -m webapp.cli_run --system PORTAL --env dev --tags smoke --browsers chromium
 
 It uses the same engine as the Control tab (same pytest command, per-run results folder, built-in report) and
 streams the console. Credentials come from the environment (CI secrets) or the workspace .env. When it ends it
@@ -32,7 +32,7 @@ def _parser() -> argparse.ArgumentParser:
                    help="Only this set of a test case's data file (default: every set)")
     p.add_argument("--headed", action="store_true", help="Show the browser (default: headless)")
     p.add_argument("--log-level", choices=LEVELS, default="INFO", help="Console log level (default: INFO)")
-    p.add_argument("--workspace", help="Workspace folder (default: AUTOMATENY_WORKSPACE or the repo's workspace)")
+    p.add_argument("--workspace", help="Workspace folder (default: AUTOPLAY_WORKSPACE or the repo's workspace)")
     p.add_argument("--out", help="Folder for run results (default: <workspace>/reports/runs)")
     p.add_argument("--timeout-minutes", type=float, default=0, help="Cancel the run after this long (0: no limit)")
     p.add_argument("--quiet", action="store_true", help="Do not stream the console")
@@ -46,7 +46,7 @@ def _split(value: str | None) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.workspace:
-        os.environ["AUTOMATENY_WORKSPACE"] = str(Path(args.workspace).resolve())
+        os.environ["AUTOPLAY_WORKSPACE"] = str(Path(args.workspace).resolve())
 
     from webapp.services.env_config import EnvConfigService
     from webapp.services.run_artifacts import RunArtifacts

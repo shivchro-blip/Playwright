@@ -458,8 +458,8 @@ async def Payment(action,page):
     await md_card.locator("#ssl_card_number").fill("4111111111111111")
     await md_card.locator("#ssl_exp_date").fill("0229")
     await md_card.locator("#ssl_cvv2cvc2").fill("6467")
-    await md_card.locator("#ssl_avs_address").fill("1220 Washington Ave Albany NY")
-    await md_card.locator("#ssl_avs_zip").fill("12206")
+    await md_card.locator("#ssl_avs_address").fill("1220 Washington Ave Austin TX")
+    await md_card.locator("#ssl_avs_zip").fill("78701")
     await md_card.locator("button:has-text('Pay')").click()
 
 async def fillDate(action,page):

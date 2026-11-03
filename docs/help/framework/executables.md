@@ -126,7 +126,7 @@ Effect: stores `response.json()["agenda_no"]` into `dictionaryContext` under key
 
 ### Example: by value
 ```json
-{ "type": "select", "value": "NY" }
+{ "type": "select", "value": "TX" }
 ```
 
 ### Example: by index

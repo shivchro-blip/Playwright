@@ -95,8 +95,8 @@ def app_client(tmp_path, monkeypatch):
     ws = tmp_path / "workspace"
     shutil.copytree(FIXTURES, ws)
     (tmp_path / "empty.env").write_text("", encoding="utf-8")
-    for key, value in {"AUTOMATENY_WORKSPACE": ws, "AUTOMATENY_DOTENV_PATH": tmp_path / "empty.env",
-                       "AUTOMATENY_RUNS_DIR": tmp_path / "runs", "AUTOMATENY_AUTH_ENABLED": "true"}.items():
+    for key, value in {"AUTOPLAY_WORKSPACE": ws, "AUTOPLAY_DOTENV_PATH": tmp_path / "empty.env",
+                       "AUTOPLAY_RUNS_DIR": tmp_path / "runs", "AUTOPLAY_AUTH_ENABLED": "true"}.items():
         monkeypatch.setenv(key, str(value))
     settings_module.get_settings.cache_clear()
     state_module.services.cache_clear()
@@ -139,7 +139,7 @@ def test_browser_sign_in_with_session_cookie_and_throttling(app_client):
     ok = client.post("/login", data={"username": "ann", "password": PASSWORD, "next": "//evil.test/"},
                      follow_redirects=False)
     assert ok.status_code == 303 and ok.headers["location"] == "/"  # no open redirect
-    assert "automateny_session" in ok.cookies and "httponly" in ok.headers["set-cookie"].lower()
+    assert "autoplay_session" in ok.cookies and "httponly" in ok.headers["set-cookie"].lower()
     assert client.get("/api/systems").status_code == 200  # the cookie works for the API too
     client.get("/logout")
     assert client.get("/api/systems").status_code == 401

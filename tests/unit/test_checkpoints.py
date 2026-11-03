@@ -117,9 +117,9 @@ def test_a_checkpoint_outside_the_runs_folder_is_refused(manager, tmp_path):
 
 
 def test_each_data_set_of_a_test_case_has_its_own_checkpoints(tmp_path):
-    """A test case with a data set runs as TC-1[albany], TC-1[nyc]: their saved states must not mix."""
-    albany = _saved(tmp_path, "20261031-100000-aaaa", "TC-1[albany]", 2)
-    nyc = _saved(tmp_path, "20261031-100000-aaaa", "TC-1[nyc]", 2)
+    """A test case with a data set runs as TC-1[austin], TC-1[dallas]: their saved states must not mix."""
+    austin = _saved(tmp_path, "20261031-100000-aaaa", "TC-1[austin]", 2)
+    dallas = _saved(tmp_path, "20261031-100000-aaaa", "TC-1[dallas]", 2)
     store = CheckpointStore(tmp_path)
-    assert store.for_test("TC-1[albany]")[2].path == albany and store.for_test("TC-1[nyc]")[2].path == nyc
+    assert store.for_test("TC-1[austin]")[2].path == austin and store.for_test("TC-1[dallas]")[2].path == dallas
     assert store.for_test("TC-1") == {}

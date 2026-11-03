@@ -14,7 +14,7 @@ How the spec maps onto this stack:
 
 | Spec | Implementation |
 |---|---|
-| Theme (MUI/Vuetify) | CSS custom properties plus scoped overrides of Quasar classes (`webapp/static/automateny.css`) |
+| Theme (MUI/Vuetify) | CSS custom properties plus scoped overrides of Quasar classes (`webapp/static/autoplay.css`) |
 | @fontsource | woff2 files copied from `@fontsource/ibm-plex-sans` / `ibm-plex-mono` 5.3.0 into `webapp/static/fonts/`, served by the app |
 | lucide-react / lucide-vue | Lucide 1.63.0 SVGs compiled into a sprite (`webapp/static/icons.svg`), used through Quasar's `svguse:` icon names |
 

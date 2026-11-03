@@ -1,5 +1,5 @@
 # One-time setup for a tester machine: Python venv, dependencies, Playwright browser,
-# .env from template, and a "Start AutomateNY" desktop shortcut. Safe to re-run.
+# .env from template, and a "Start AutoPlay" desktop shortcut. Safe to re-run.
 param(
     [switch]$NoShortcut = $false
 )
@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
 Write-Host "========================================="
-Write-Host " AutomateNY Setup "
+Write-Host " AutoPlay Setup "
 Write-Host "========================================="
 
 # 1. Python 3.12+
@@ -86,11 +86,11 @@ if (-not (Test-Path ".\.env")) {
 if (-not $NoShortcut) {
     $desktop = [Environment]::GetFolderPath("Desktop")
     $shell = New-Object -ComObject WScript.Shell
-    $shortcut = $shell.CreateShortcut((Join-Path $desktop "Start AutomateNY.lnk"))
+    $shortcut = $shell.CreateShortcut((Join-Path $desktop "Start AutoPlay.lnk"))
     $shortcut.TargetPath = Join-Path $PSScriptRoot "start.cmd"
     $shortcut.WorkingDirectory = $PSScriptRoot
     $shortcut.Save()
-    Write-Host "Desktop shortcut 'Start AutomateNY' created."
+    Write-Host "Desktop shortcut 'Start AutoPlay' created."
 }
 
 Write-Host "`n========================================="

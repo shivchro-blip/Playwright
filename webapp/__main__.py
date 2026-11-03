@@ -1,4 +1,4 @@
-"""Start the AutomateNY web app:  python -m webapp   (then open http://127.0.0.1:8080)"""
+"""Start the AutoPlay web app:  python -m webapp   (then open http://127.0.0.1:8080)"""
 from __future__ import annotations
 
 import logging
@@ -18,7 +18,7 @@ def main() -> None:
     s = svc.settings
 
     if s.login_required and not any(u.role == "admin" and not u.disabled for u in svc.users.list()):
-        raise SystemExit(f"Login is required (AUTOMATENY_AUTH_ENABLED or host {s.host!r}) but there is no admin "
+        raise SystemExit(f"Login is required (AUTOPLAY_AUTH_ENABLED or host {s.host!r}) but there is no admin "
                          f"in {s.resolved_users_file}. Create one with:\n"
                          "  python -m webapp.users add <name> --role admin")
     # Order matters: install_auth's middleware must run after (inside) install_security's host/origin checks
@@ -37,7 +37,7 @@ def main() -> None:
         "found" if svc.runs.allure_available() else f"'{s.allure_cmd}' not found (reports disabled)",
     )
     ui.run(
-        host=s.host, port=s.port, title="AutomateNY", reload=False, show=False,
+        host=s.host, port=s.port, title="AutoPlay", reload=False, show=False,
         fastapi_docs=True, show_welcome_message=True, storage_secret=storage_secret,
     )
 

@@ -3,7 +3,7 @@
 The same engine that runs from the Control tab runs without the web app, for builds and scripts:
 
 ```
-python -m webapp.cli_run --system NYBE2 --env dev --tags smoke --browsers chromium
+python -m webapp.cli_run --system PORTAL --env dev --tags smoke --browsers chromium
 ```
 
 It streams the console, builds the same built-in report, and ends with the exit code a pipeline needs.
@@ -17,7 +17,7 @@ It streams the console, builds the same built-in report, and ends with the exit 
 | `--data-set NAME` | Only this set of a test case's data file; without it a test case with a data set runs once per set. |
 | `--headed` | Show the browser. Without it the run is headless. |
 | `--log-level` | `ERROR`, `WARNING`, `INFO` (default) or `DEBUG`; same as the Control tab's *Console log level*. |
-| `--workspace`, `--out` | Workspace folder (default `AUTOMATENY_WORKSPACE` or the repo's) and where run folders go. |
+| `--workspace`, `--out` | Workspace folder (default `AUTOPLAY_WORKSPACE` or the repo's) and where run folders go. |
 | `--timeout-minutes N` | Cancel the run after N minutes. |
 | `--quiet` | Do not stream the console. |
 

@@ -10,7 +10,7 @@ On your own machine the app needs no login: it listens on `127.0.0.1` only and e
    python -m webapp.users add ann --role admin
    ```
 
-2. Start the app with `AUTOMATENY_AUTH_ENABLED=true`. Sign-in is also **required automatically** when `AUTOMATENY_HOST` is not a loopback address (for example `0.0.0.0`): the app refuses to start without an admin. Behind a reverse proxy that does its own login you can opt out with `AUTOMATENY_INSECURE_NO_AUTH=true`.
+2. Start the app with `AUTOPLAY_AUTH_ENABLED=true`. Sign-in is also **required automatically** when `AUTOPLAY_HOST` is not a loopback address (for example `0.0.0.0`): the app refuses to start without an admin. Behind a reverse proxy that does its own login you can opt out with `AUTOPLAY_INSECURE_NO_AUTH=true`.
 
 People sign in at `/login`. Sessions last 12 hours (signed, HttpOnly, SameSite=Lax cookie). Five wrong passwords for a name, or from one address, pause sign-in for 5 minutes. The header shows who is signed in, their role and **Sign out**.
 
@@ -37,7 +37,7 @@ python -m webapp.users passwd bob
 python -m webapp.users disable bob        # or enable / remove
 ```
 
-Users are stored in `reports/users.json` in the workspace (git-ignored; `AUTOMATENY_USERS_FILE` to move it). Passwords are scrypt hashes; the file never holds a usable secret. The app always keeps at least one active admin.
+Users are stored in `reports/users.json` in the workspace (git-ignored; `AUTOPLAY_USERS_FILE` to move it). Passwords are scrypt hashes; the file never holds a usable secret. The app always keeps at least one active admin.
 
 ## API tokens (scripts and CI)
 
@@ -54,7 +54,7 @@ Admins open **Activity** in the top bar. It lists, newest first: sign-ins (and f
 
 ## Run queue
 
-Runs started while another is in progress are **queued** (up to 20) instead of refused: the Run button says **Queue**, the run shows as *queued* with its place in line, and it starts as soon as a slot is free. A queued run can be cancelled. Schedules use the same queue. `AUTOMATENY_MAX_CONCURRENT_RUNS` (default 1) sets how many run at once on this machine; each run drives real browsers, so raise it with care.
+Runs started while another is in progress are **queued** (up to 20) instead of refused: the Run button says **Queue**, the run shows as *queued* with its place in line, and it starts as soon as a slot is free. A queued run can be cancelled. Schedules use the same queue. `AUTOPLAY_MAX_CONCURRENT_RUNS` (default 1) sets how many run at once on this machine; each run drives real browsers, so raise it with care.
 
 Remote runners (other machines taking runs from the queue) are not part of the app yet.
 

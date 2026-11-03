@@ -35,7 +35,7 @@ Install the Allure CLI (needs Java), for example:
 scoop install allure
 ```
 
-or set `AUTOMATENY_ALLURE_CMD` to the full path of `allure.bat`. New runs then generate `allure-report/` automatically and the **Allure report** button opens it. Without the CLI, runs still keep their raw `allure-results/`.
+or set `AUTOPLAY_ALLURE_CMD` to the full path of `allure.bat`. New runs then generate `allure-report/` automatically and the **Allure report** button opens it. Without the CLI, runs still keep their raw `allure-results/`.
 
 ## Videos and traces
 

@@ -31,4 +31,4 @@ Webhook URLs and the SMTP password are **secrets**, so they live in `.env` (or t
 
 Use **Send test notification** in the dialog to check the setup. Each run's delivery results are saved next to it (`notifications.json`).
 
-Messages include the names of failed tests and the first line of each error, which can contain text from the tested pages. Report links use `AUTOMATENY_PUBLIC_URL` (default `http://127.0.0.1:<port>`); set it to the address your team uses to open the app.
+Messages include the names of failed tests and the first line of each error, which can contain text from the tested pages. Report links use `AUTOPLAY_PUBLIC_URL` (default `http://127.0.0.1:<port>`); set it to the address your team uses to open the app.

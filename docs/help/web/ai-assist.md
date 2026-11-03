@@ -1,6 +1,6 @@
 # AI assist
 
-Optional help from Claude while you test. It is **off by default**: open **AI** in the top bar and turn on **AI assist** (saved as `aiAssistEnabled` in `.env`). It needs an Anthropic API key: add `ANTHROPIC_API_KEY=...` to `.env` (or sign in with `ant auth login`). The model is `claude-opus-5-5`; set `AUTOMATENY_AI_MODEL` to change it.
+Optional help from Claude while you test. It is **off by default**: open **AI** in the top bar and turn on **AI assist** (saved as `aiAssistEnabled` in `.env`). It needs an Anthropic API key: add `ANTHROPIC_API_KEY=...` to `.env` (or sign in with `ant auth login`). The model is `claude-opus-5-5`; set `AUTOPLAY_AI_MODEL` to change it.
 
 Claude only **suggests**. Nothing it returns is saved or run until you click, and every call and every accepted suggestion is written to `reports/ai-audit.jsonl` in the workspace.
 
