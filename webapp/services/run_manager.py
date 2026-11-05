@@ -19,6 +19,7 @@ import subprocess
 import sys
 import re
 import threading
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -26,10 +27,12 @@ from typing import Callable
 from urllib.parse import urlsplit
 
 from webapp.pytest_events import PREFIX
+from webapp.services.archives import extract_safely
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.json_files import NAME_RE
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_insights import build_report
+from webapp.services.runners import RunnerStore
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,8 @@ MAX_QUEUED = 20  # runs waiting for a free slot
 ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 SUITE = "tests/dynamic_test_suite.py"
 ACTIVE = ("queued", "running")
+RUNNER_SILENCE_SECONDS = 90  # a remote run whose runner has not called in this long is marked as lost
+WATCH_INTERVAL = 15  # seconds between checks for lost runners
 
 
 def _now() -> str:
@@ -55,6 +60,8 @@ class RunConfig:
     options: dict[str, object] = field(default_factory=dict)
     # Optional: run only these testCaseIDs (still filtered by tags first)
     test_ids: list[str] = field(default_factory=list)
+    # "" = this machine; otherwise the name of a registered remote runner (webapp/services/runners.py)
+    runner: str = ""
 
 
 @dataclass
@@ -88,6 +95,8 @@ class Run:
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
     _proc: subprocess.Popen | None = field(default=None, repr=False)
     _cancelled: bool = field(default=False, repr=False)
+    _last_seen: float = field(default=0.0, repr=False)  # remote runs: time.monotonic() of the runner's last call
+    _finishing: bool = field(default=False, repr=False)
     # Login values typed into the app for this run: memory only, never saved, logged or serialized
     _secrets: dict[str, str] = field(default_factory=dict, repr=False)
 
@@ -145,15 +154,68 @@ class Run:
         }
 
 
+
+def pytest_command(run: Run, python_exe: str, repo_root: Path) -> list[str]:
+    """The pytest command line for a run (the web app and the runner agent build it the same way)."""
+    cfg = run.config
+    cmd = [
+        python_exe, "-m", "pytest", SUITE,
+        "-p", "webapp.pytest_events",
+        # Ignore the local (gitignored) pytest.ini addopts - they need plugins not
+        # every machine has - and set what the web app relies on explicitly.
+        "-o", "addopts=",
+        "-o", "log_cli=true",
+        "-o", f"log_cli_level={cfg.options.get('LOG_LEVEL') or 'INFO'}",
+        "-v",
+        f"--rootdir={repo_root}",
+        f"--alluredir={run.results_dir}",
+        "--clean-alluredir",
+    ]
+    if cfg.workers > 1:
+        cmd += ["-n", str(cfg.workers)]
+    else:
+        cmd.append("-s")  # stream framework prints live
+    return cmd
+
+
+def pytest_environment(run: Run, workspace: Path) -> dict[str, str]:
+    """The environment of a run's pytest process."""
+    cfg = run.config
+    env = dict(os.environ)
+    # The suite loads .env with override=False, so these per-run values win
+    env.update({k: format_value(v) for k, v in cfg.options.items()})
+    level = cfg.options.get("LOG_LEVEL")
+    if level:  # one choice for every framework logger, ahead of any per-module level in .env
+        env.update({k: str(level) for k in ("TestSuiteLoggerLevel", "PageLoggerLevel", "FormHandlerLoggerLevel")})
+    env["checkpointsDir"] = str(run.dir / "checkpoints")  # used when saveCheckpoints is on
+    for key, value in run._secrets.items():
+        env.setdefault(key, value)  # never override what the environment already has
+    env.update({
+        "systemConfig": cfg.system,
+        "envConfig": cfg.env,
+        "runTags": ",".join(cfg.tags),
+        "browsers": ",".join(cfg.browsers),
+        "runTestIds": ",".join(cfg.test_ids),
+        "del_allure": "false",  # each run has its own fresh results folder
+        "reportsDir": str(run.results_dir),
+        "AUTOPLAY_WORKSPACE": str(workspace),
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONIOENCODING": "utf-8",
+    })
+    return env
+
+
 class RunManager:
     def __init__(self, repo_root: Path, workspace: Path, runs_dir: Path, python_exe: str,
-                 allure_cmd: str = "allure", max_concurrent: int = 1):
+                 allure_cmd: str = "allure", max_concurrent: int = 1, runners: RunnerStore | None = None):
         self.repo_root = Path(repo_root)
         self.workspace = Path(workspace)
         self.runs_dir = Path(runs_dir)
         self.python_exe = python_exe
         self.allure_cmd = allure_cmd
         self.max_concurrent = max_concurrent
+        self.runners = runners
+        self._watchdog: threading.Thread | None = None
         self._runs: dict[str, Run] = {}
         self._queue: list[Run] = []  # FIFO: runs waiting for one of max_concurrent slots
         self._lock = threading.Lock()
@@ -190,6 +252,13 @@ class RunManager:
             raise ValueError("Select a system.")
         if not NAME_RE.match(config.system) or config.system in (".", ".."):
             raise ValueError(f"Invalid system: {config.system!r}")
+        config.runner = (config.runner or "").strip()
+        if config.runner:
+            if not self.runners or config.runner not in self.runners.names():
+                raise ValueError(f"Unknown runner: {config.runner!r}")
+            local_only = [k for k in ("saveCheckpoints", "resumeCheckpoint") if config.options.get(k)]
+            if local_only:
+                raise ValueError(f"{', '.join(local_only)} only works on this machine, not on a remote runner.")
         if not config.tags:
             raise ValueError("Select at least one tag - the framework runs only tagged tests.")
         bad = [k for k in config.options if is_secret(k)]
@@ -218,6 +287,8 @@ class RunManager:
             self._runs[run_id] = run
             self._queue.append(run)
         self._save(run)
+        if config.runner:
+            self._ensure_watchdog()
         self._dispatch()
         return run
 
@@ -250,18 +321,20 @@ class RunManager:
 
     def queue_position(self, run_id: str) -> int | None:
         """1 = next to start; None when the run is not waiting."""
+        run = self._runs.get(run_id)
         with self._lock:
-            ids = [r.id for r in self._queue]
+            ids = [r.id for r in self._queue if run and r.config.runner == run.config.runner]
         return ids.index(run_id) + 1 if run_id in ids else None
 
     def _dispatch(self) -> None:
         """Start queued runs while slots are free."""
         while True:
             with self._lock:
-                running = sum(1 for r in self._runs.values() if r.status == "running")
-                if running >= self.max_concurrent or not self._queue:
+                running = sum(1 for r in self._runs.values() if r.status == "running" and not r.config.runner)
+                run = next((r for r in self._queue if not r.config.runner), None)  # remote runs wait for their runner
+                if running >= self.max_concurrent or run is None:
                     return
-                run = self._queue.pop(0)
+                self._queue.remove(run)
                 run.status = "running"  # claim the slot before the thread starts
             threading.Thread(target=self._execute, args=(run,), name=f"run-{run.id}", daemon=True).start()
 
@@ -309,50 +382,10 @@ class RunManager:
     # ───────────── internals ─────────────
 
     def _command(self, run: Run) -> list[str]:
-        cfg = run.config
-        cmd = [
-            self.python_exe, "-m", "pytest", SUITE,
-            "-p", "webapp.pytest_events",
-            # Ignore the local (gitignored) pytest.ini addopts - they need plugins not
-            # every machine has - and set what the web app relies on explicitly.
-            "-o", "addopts=",
-            "-o", "log_cli=true",
-            "-o", f"log_cli_level={cfg.options.get('LOG_LEVEL') or 'INFO'}",
-            "-v",
-            f"--rootdir={self.repo_root}",
-            f"--alluredir={run.results_dir}",
-            "--clean-alluredir",
-        ]
-        if cfg.workers > 1:
-            cmd += ["-n", str(cfg.workers)]
-        else:
-            cmd.append("-s")  # stream framework prints live
-        return cmd
+        return pytest_command(run, self.python_exe, self.repo_root)
 
     def _environment(self, run: Run) -> dict[str, str]:
-        cfg = run.config
-        env = dict(os.environ)
-        # The suite loads .env with override=False, so these per-run values win
-        env.update({k: format_value(v) for k, v in cfg.options.items()})
-        level = cfg.options.get("LOG_LEVEL")
-        if level:  # one choice for every framework logger, ahead of any per-module level in .env
-            env.update({k: str(level) for k in ("TestSuiteLoggerLevel", "PageLoggerLevel", "FormHandlerLoggerLevel")})
-        env["checkpointsDir"] = str(run.dir / "checkpoints")  # used when saveCheckpoints is on
-        for key, value in run._secrets.items():
-            env.setdefault(key, value)  # never override what the environment already has
-        env.update({
-            "systemConfig": cfg.system,
-            "envConfig": cfg.env,
-            "runTags": ",".join(cfg.tags),
-            "browsers": ",".join(cfg.browsers),
-            "runTestIds": ",".join(cfg.test_ids),
-            "del_allure": "false",  # each run has its own fresh results folder
-            "reportsDir": str(run.results_dir),
-            "AUTOPLAY_WORKSPACE": str(self.workspace),
-            "PYTHONUNBUFFERED": "1",
-            "PYTHONIOENCODING": "utf-8",
-        })
-        return env
+        return pytest_environment(run, self.workspace)
 
     def _execute(self, run: Run) -> None:
         run.status = "running"
@@ -378,17 +411,7 @@ class RunManager:
             if run._cancelled:  # cancel arrived while spawning
                 self._kill_tree(run._proc)
             for raw in run._proc.stdout:
-                line = raw.rstrip("\r\n")
-                # `-v` prints the node id before the outcome, so an event can start mid-line
-                idx = line.find(PREFIX)
-                if idx >= 0:
-                    self._handle_event(run, line[idx + len(PREFIX):])
-                    line = line[:idx]
-                    if not line.strip():
-                        continue
-                line = run.scrub(line)
-                console.write(line + "\n")
-                self._append(run, line)
+                self._ingest_line(run, console, raw)
             run.exit_code = run._proc.wait()
         except Exception as e:  # spawn failure etc.
             logger.exception("Run %s failed", run.id)
@@ -397,7 +420,24 @@ class RunManager:
         finally:
             console.close()
             run._proc = None
+        self._finish(run)
 
+    def _ingest_line(self, run: Run, console, raw: str) -> None:
+        """One line of pytest output: a framework event, or console text for the log and console.log."""
+        line = raw.rstrip("\r\n")
+        # `-v` prints the node id before the outcome, so an event can start mid-line
+        idx = line.find(PREFIX)
+        if idx >= 0:
+            self._handle_event(run, line[idx + len(PREFIX):])
+            line = line[:idx]
+            if not line.strip():
+                return
+        line = run.scrub(line)
+        console.write(line + "\n")
+        self._append(run, line)
+
+    def _finish(self, run: Run) -> None:
+        """After pytest has ended (here or on a runner): status, reports, notifications, next queued run."""
         run.status = self._final_status(run)
         run.finished_at = _now()
         # Tests still marked running never reported back (crash/cancel)
@@ -415,6 +455,72 @@ class RunManager:
             except Exception:  # a listener must never break the run thread
                 logger.exception("Run listener failed for %s", run.id)
         self._dispatch()
+
+    # ───────────── remote runners ─────────────
+
+    def claim(self, runner: str) -> Run | None:
+        """The next queued run for this runner, now marked running. A runner does one run at a time."""
+        with self._lock:
+            if any(r.status == "running" and r.config.runner == runner for r in self._runs.values()):
+                return None
+            run = next((r for r in self._queue if r.config.runner == runner), None)
+            if run is None:
+                return None
+            self._queue.remove(run)
+            run.status, run.started_at, run._last_seen = "running", _now(), time.monotonic()
+        self._append(run, f"[webapp] Started on runner {runner}")
+        self._save(run)
+        return run
+
+    def remote_run(self, run_id: str, runner: str) -> Run | None:
+        """The running run `run_id` if it was claimed by this runner."""
+        run = self._runs.get(run_id)
+        return run if run and run.status == "running" and run.config.runner == runner and not run._finishing else None
+
+    def remote_events(self, run: Run, lines: list[str]) -> bool:
+        """Output lines from the runner. True when the run was cancelled and the runner should stop."""
+        run._last_seen = time.monotonic()
+        with (run.dir / "console.log").open("a", encoding="utf-8") as console:
+            for raw in lines:
+                self._ingest_line(run, console, raw)
+        return run._cancelled
+
+    def remote_results(self, run: Run, archive: Path) -> int:
+        """Unpack the Allure results the runner uploaded (replaces any earlier upload)."""
+        run._last_seen = time.monotonic()
+        shutil.rmtree(run.results_dir, ignore_errors=True)
+        return extract_safely(archive, run.results_dir)
+
+    def remote_finish(self, run: Run, exit_code: int | None, error: str = "") -> bool:
+        with self._lock:
+            if run.status != "running" or run._finishing:
+                return False
+            run._finishing = True
+        run.exit_code = exit_code
+        if error:
+            run.error = run.scrub(error)[:500]
+            self._append(run, f"[webapp] ERROR: {run.error}")
+        self._finish(run)
+        return True
+
+    def _ensure_watchdog(self) -> None:
+        with self._lock:
+            if self._watchdog and self._watchdog.is_alive():
+                return
+            self._watchdog = threading.Thread(target=self._watch, name="runner-watchdog", daemon=True)
+            self._watchdog.start()
+
+    def _watch(self) -> None:
+        """Mark remote runs whose runner went silent as lost, so they do not stay 'running' for ever."""
+        while True:
+            time.sleep(WATCH_INTERVAL)
+            remote = [r for r in list(self._runs.values()) if r.config.runner and r.active]
+            if not remote:
+                return
+            now = time.monotonic()
+            for run in remote:
+                if run.status == "running" and now - run._last_seen > RUNNER_SILENCE_SECONDS:
+                    self.remote_finish(run, None, f"Runner {run.config.runner} stopped responding.")
 
     def _final_status(self, run: Run) -> str:
         if run._cancelled:

@@ -24,6 +24,7 @@ class RunRequest(BaseModel):
     workers: int = Field(default=1, ge=1, le=16)
     options: dict[str, str | int | bool] = Field(default_factory=dict)
     test_ids: list[str] = Field(default_factory=list)
+    runner: str = ""  # a registered remote runner; "" runs on the machine hosting the app
 
 
 @router.get("/systems")
@@ -32,6 +33,11 @@ def list_systems() -> list[dict]:
     with_tests = set(svc.catalog.systems_with_tests())
     return [{"name": s, "environments": svc.systems.environments(s), "has_tests": s in with_tests}
             for s in svc.systems.systems()]
+
+
+@router.get("/runners")
+def list_runners() -> list[dict]:
+    return services().runners.list()
 
 
 @router.get("/tests")

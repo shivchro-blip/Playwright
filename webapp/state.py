@@ -17,6 +17,7 @@ from webapp.services.pom_service import PomService
 from webapp.services.recorder import Recorder
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
+from webapp.services.runners import RunnerStore
 from webapp.services.schedules import Scheduler, ScheduleStore
 from webapp.services.system_data import SystemDataService
 from webapp.services.test_case_service import TestCaseService
@@ -32,6 +33,7 @@ class Services:
     systems: SystemDataService
     catalog: TestCatalogService
     runs: RunManager
+    runners: RunnerStore
     pom: PomService
     tests: TestCaseService
     help: HelpService
@@ -93,9 +95,11 @@ def services() -> Services:
     s = get_settings()
     pom = PomService(s.workspace, s.repo_root)
     catalog = TestCatalogService(s.workspace)
+    runners = RunnerStore(s.resolved_runs_dir.parent / "runners.json")
     runs = RunManager(
         repo_root=s.repo_root, workspace=s.workspace, runs_dir=s.resolved_runs_dir,
         python_exe=s.python_exe, allure_cmd=s.allure_cmd, max_concurrent=s.max_concurrent_runs,
+        runners=runners,
     )
     env = EnvConfigService(s.dotenv_path)
     schedules = ScheduleStore(s.workspace / "Data" / "schedules.json")
@@ -112,6 +116,7 @@ def services() -> Services:
         systems=SystemDataService(s.systemdata_path),
         catalog=catalog,
         runs=runs,
+        runners=runners,
         schedules=schedules,
         scheduler=Scheduler(schedules, runs, catalog, notifier),
         ai=AIAssist(lambda: env_flag(env, "aiAssistEnabled"), env.env_path,

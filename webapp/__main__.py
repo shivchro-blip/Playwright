@@ -6,6 +6,7 @@ import logging
 from nicegui import app, ui
 
 from webapp.api import router
+from webapp.runner_api import router as runner_router
 from webapp.auth import install_auth
 from webapp.security import install_security
 from webapp.state import services
@@ -25,6 +26,7 @@ def main() -> None:
     storage_secret = install_auth(app, s)
     install_security(app, s)
     app.include_router(router)
+    app.include_router(runner_router)
     # Per-run folders: allure-report/index.html, console.log, raw allure-results
     app.add_static_files("/runs", s.resolved_runs_dir, max_cache_age=0)
     shell.register()
