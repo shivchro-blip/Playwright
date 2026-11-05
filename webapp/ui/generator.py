@@ -24,6 +24,7 @@ from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
+from webapp.ui.common_actions_panel import CommonActionEditor
 from webapp.ui.data_sets_panel import DataSetEditor
 from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
@@ -1595,6 +1596,7 @@ class GeneratorPanel:
                         tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
                         pages_tab = ui.tab("Pages", icon=icon("app-window"))
                         data_tab = ui.tab("Data sets", icon=icon("braces")).props('data-testid="tab-data"')
+                        common_tab = ui.tab("Common actions", icon=icon("copy")).props('data-testid="tab-common"')
                 self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
@@ -1603,6 +1605,8 @@ class GeneratorPanel:
                     self.pages = PageEditor(self)
                 with ui.tab_panel(data_tab).classes("p-0"):
                     self.data = DataSetEditor(self)
+                with ui.tab_panel(common_tab).classes("p-0"):
+                    self.common = CommonActionEditor(self)
         self.tests.load_refs()
 
     async def open_page(self, name: str) -> None:

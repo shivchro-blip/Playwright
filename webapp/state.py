@@ -9,6 +9,7 @@ from dotenv import dotenv_values
 
 from webapp.services.ai_assist import AIAssist
 from webapp.services.audit import AuditLog
+from webapp.services.common_actions import CommonActionService
 from webapp.services.data_sets import DataSetService
 from webapp.services.env_config import EnvConfigService
 from webapp.services.help_service import HelpService
@@ -36,6 +37,7 @@ class Services:
     runs: RunManager
     runners: RunnerStore
     quarantine: QuarantineService
+    common: CommonActionService
     pom: PomService
     tests: TestCaseService
     help: HelpService
@@ -127,4 +129,5 @@ def services() -> Services:
         users=UserStore(s.resolved_users_file),
         audit=AuditLog(s.resolved_runs_dir.parent / "audit.jsonl"),
         datasets=DataSetService(s.workspace, tests_service),
+        common=CommonActionService(s.workspace, tests_service),
     )
