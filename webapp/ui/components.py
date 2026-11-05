@@ -184,8 +184,11 @@ def result_slots(table: ui.table) -> None:
               ></i>
             </span>
             <span v-else class="any-muted">—</span>
-            <span v-if="props.row.flaky" class="any-flaky-chip"
-                  title="Passed and failed in recent runs, and changed its result at least twice">Flaky</span>
+            <span v-if="props.row.retries && ['passed', 'xpassed'].includes(props.row.outcome)" class="any-flaky-chip"
+                  :title="'Failed, then passed when run again (' + props.row.retries + ' retries)'"
+            >Passed on retry</span>
+            <span v-else-if="props.row.flaky" class="any-flaky-chip"
+                  title="Passed and failed in recent runs, or passed only after a retry">Flaky</span>
           </div>
         </q-td>''')
     table.classes("is-clickable")

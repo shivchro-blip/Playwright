@@ -17,8 +17,25 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
+    hits: dict[str, int] = {}  # /flaky/<token>.html -> requests so far
+
     def log_message(self, *args) -> None:
         pass
+
+    def do_GET(self) -> None:
+        if self.path.startswith("/flaky/"):  # a page whose field is missing the first time it is loaded
+            token = self.path.split("?")[0]
+            self.hits[token] = self.hits.get(token, 0) + 1
+            field = '<input id="flaky-field">' if self.hits[token] > 1 else ""
+            body = ("<!doctype html><html lang='en'><head><title>Flaky</title></head>"
+                    f"<body><h1>Flaky</h1>{field}</body></html>")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body.encode())))
+            self.end_headers()
+            self.wfile.write(body.encode())
+            return
+        super().do_GET()
 
 
 def free_port() -> int:

@@ -190,6 +190,9 @@ class ControlPanel:
                                                       on_click=lambda: self._step(1)) \
                             .props('flat unelevated aria-label="More workers"').classes("any-step-btn")
                     self._on_workers_change()
+                with field("Retry failed tests", "sel-retries", hint="a retry is traced"):
+                    self.retries = self._select({0: "No retry", 1: "Once", 2: "Up to twice"},
+                                                min(max(_int(cfg["retryFailed"], 0), 0), 2), "sel-retries")
                 with field("Also run on", "sel-compare", hint="compare environments"):
                     self.compare_select = self._select([], [], "sel-compare", multiple=True, clearable=True) \
                         .props("use-chips")
@@ -645,6 +648,7 @@ class ControlPanel:
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
             "a11yScan": bool(self.a11y.value),
+            "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
         }
 

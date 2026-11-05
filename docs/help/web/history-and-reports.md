@@ -56,3 +56,8 @@ Test data looks real, and logs and reports get shared. Social Security numbers (
 - Each custom rule is a regular expression (`pattern`), an optional `name` and an optional `replacement` (default `[masked <name>]`).
 - Changes apply to new output at once. A bad file is ignored with a warning in the app's log.
 - **Not changed:** screenshots, DOM snapshots, videos, traces and the raw files in the run folder. Treat those as sensitive.
+
+## Flaky tests and quarantine
+
+The **Flaky tests** panel lists tests whose result flipped between pass and fail in their recent runs, or that passed only after a retry. For each, **Quarantine** keeps the test case running but stops its failures from failing the run: it is reported as *xfailed* with your reason, the run stays green, and a pass shows as *xpassed*. **Release** puts it back to normal. The same **Quarantine / Release** button is in the Generator's test case editor. Quarantined test cases are listed in `Data/quarantine.json` in the workspace (a test case with a data set is matched by its ID without the `[set]` part). Quarantine hides a problem: fix the test or the portal, then release it.
+

@@ -27,6 +27,7 @@ from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.data_sets_panel import DataSetEditor
 from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
+from webapp.ui.quarantine_dialog import toggle_quarantine
 from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.recorder_dialog import open_recorder
@@ -276,6 +277,13 @@ class TestEditor:
                 ui.button("Check", icon=icon("list-checks"), color=None, on_click=lambda: self.validate(True)) \
                     .classes("any-btn is-38")
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                quarantined = self.svc.quarantine.is_quarantined(str(self.meta.get("testCaseID") or ""))
+                ui.button("Release" if quarantined else "Quarantine", icon=icon("shield"), color=None,
+                          on_click=lambda: toggle_quarantine(str(self.meta.get("testCaseID") or ""),
+                                                             self.editor.refresh)) \
+                    .props('data-testid="tc-quarantine"').classes("any-btn is-38") \
+                    .tooltip("Release this test case: its failures fail runs again" if quarantined else
+                             "Quarantine: keep running it, but don't let its failures fail the run")
                 ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
                     .props('data-testid="tc-history"').classes("any-btn is-38").tooltip("Earlier versions of this file")
                 ui.button("Copy", icon=icon("copy"), color=None, on_click=self.copy_dialog) \

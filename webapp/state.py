@@ -17,6 +17,7 @@ from webapp.services.pom_service import PomService
 from webapp.services.recorder import Recorder
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
+from webapp.services.quarantine_service import QuarantineService
 from webapp.services.runners import RunnerStore
 from webapp.services.schedules import Scheduler, ScheduleStore
 from webapp.services.system_data import SystemDataService
@@ -34,6 +35,7 @@ class Services:
     catalog: TestCatalogService
     runs: RunManager
     runners: RunnerStore
+    quarantine: QuarantineService
     pom: PomService
     tests: TestCaseService
     help: HelpService
@@ -117,6 +119,7 @@ def services() -> Services:
         catalog=catalog,
         runs=runs,
         runners=runners,
+        quarantine=QuarantineService(s.workspace),
         schedules=schedules,
         scheduler=Scheduler(schedules, runs, catalog, notifier),
         ai=AIAssist(lambda: env_flag(env, "aiAssistEnabled"), env.env_path,

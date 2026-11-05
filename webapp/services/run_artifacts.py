@@ -151,6 +151,7 @@ class RunArtifacts:
         if cached and cached[0] == stamp:
             return cached[1]
         out: dict[tuple[str, str], TestDetails] = {}
+        stopped: dict[tuple[str, str], int] = {}
         for f in files:
             try:
                 data = json.loads(f.read_text(encoding="utf-8"))
@@ -159,7 +160,10 @@ class RunArtifacts:
                 continue
             details = self._parse(run_id, results_dir, data)
             if details:
-                out[(details.test_id, details.browser)] = details
+                key = (details.test_id, details.browser)
+                when = int(data.get("stop") or data.get("start") or 0)
+                if key not in out or when >= stopped[key]:  # a retried test has one result per attempt: the last wins
+                    out[key], stopped[key] = details, when
         self._cache[results_dir] = (stamp, out)
         return out
 

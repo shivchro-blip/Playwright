@@ -32,6 +32,7 @@ class TestTrend:
     outcomes: list[str] = field(default_factory=list)  # oldest -> newest, at most WINDOW
     run_ids: list[str] = field(default_factory=list)
     durations: list[float] = field(default_factory=list)
+    retried: list[bool] = field(default_factory=list)  # per result: passed only after being run again
 
     @property
     def verdicts(self) -> list[bool]:
@@ -51,9 +52,10 @@ class TestTrend:
     def flaky(self) -> bool:
         """Passed and failed in the window and changed its mind at least twice (P F P, F P F, ...).
 
-        A single change is a regression or a fix, not flakiness."""
+        A single change is a regression or a fix, not flakiness. A test that passed only after a retry is flaky
+        by definition."""
         v = self.verdicts
-        return self.flips >= 2 and any(v) and not all(v)
+        return (self.flips >= 2 and any(v) and not all(v)) or any(self.retried)
 
     @property
     def state(self) -> str:
@@ -70,7 +72,7 @@ class TestTrend:
     def to_dict(self) -> dict:
         return {"test_id": self.test_id, "browser": self.browser, "outcomes": self.outcomes,
                 "run_ids": self.run_ids, "flips": self.flips, "failures": self.failures,
-                "flaky": self.flaky, "state": self.state}
+                "flaky": self.flaky, "state": self.state, "retried": sum(self.retried)}
 
 
 def finished(runs: Iterable[Run], system: str | None = None, env: str | None = None,
@@ -94,8 +96,9 @@ def trends(runs: Iterable[Run], system: str | None = None, env: str | None = Non
             t.outcomes.append(r.outcome)
             t.run_ids.append(run.id)
             t.durations.append(r.duration)
+            t.retried.append(r.retries > 0 and r.outcome in PASSING)
     for t in out.values():
-        del t.outcomes[:-window], t.run_ids[:-window], t.durations[:-window]
+        del t.outcomes[:-window], t.run_ids[:-window], t.durations[:-window], t.retried[:-window]
     return out
 
 

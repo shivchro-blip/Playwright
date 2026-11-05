@@ -6,6 +6,8 @@ import os
 from datetime import datetime
 import time
 
+from utils import retry_trace
+
 loggerLevelString = os.getenv("FormHandlerLoggerLevel", "INFO").upper()
 loggerLevel = getattr(logging, loggerLevelString, logging.INFO)
 
@@ -23,7 +25,7 @@ logging.getLogger('playwright').setLevel(logging.INFO)
 logging.getLogger('asyncio').setLevel(logging.INFO)
 
 recordingConfig = os.getenv("recording", "false").lower()
-tracingConfig = os.getenv("tracing", "false").lower()
+tracingConfig = os.getenv("tracing", "false").lower()  # kept for importers; the live value is retry_trace.tracing_on()
 
 class RequiredFieldError(Exception):
     pass
@@ -48,7 +50,7 @@ async def attach_allure_failure_details(page=None, action=None, name="Failure Sc
         os.makedirs("reports/screenshots", exist_ok=True)
         os.makedirs("reports/traces", exist_ok=True)
 
-        if tracingConfig == "true":
+        if retry_trace.tracing_on():
             # 1. Stop and save trace immediately
             trace_path = f"reports/traces/{name}_{timestamp}_trace.zip"
             try:

@@ -12,6 +12,7 @@ import sys
 
 PREFIX = "@@AUTOPLAY@@ "
 _enabled = True
+_retries: dict[str, int] = {}  # nodeid -> times pytest-rerunfailures ran it again
 
 
 def _emit(**payload) -> None:
@@ -43,6 +44,10 @@ def pytest_runtest_logreport(report):
     if report.when == "teardown" and report.skipped:
         return
     outcome = report.outcome
+    if outcome == "rerun":  # a failed attempt that will be run again: not the test's result
+        _retries[report.nodeid] = _retries.get(report.nodeid, 0) + 1
+        _emit(event="retry", nodeid=report.nodeid, attempt=_retries[report.nodeid])
+        return
     if hasattr(report, "wasxfail"):
         outcome = "xfailed" if report.skipped else "xpassed"
     message = ""
@@ -56,6 +61,9 @@ def pytest_runtest_logreport(report):
             lines = (getattr(report, "longreprtext", "") or "").strip().splitlines()
             message = lines[-1] if lines else ""
         message = message.strip().splitlines()[0][:500] if message.strip() else ""
+    if hasattr(report, "wasxfail"):  # xfailed / xpassed: lead with why (quarantine puts its reason here)
+        reason = str(report.wasxfail or "").strip()
+        message = (f"{reason} ({message})" if reason and message else reason or message)[:500]
     _emit(
         event="test",
         nodeid=report.nodeid,
@@ -63,6 +71,7 @@ def pytest_runtest_logreport(report):
         outcome=outcome,
         duration=round(getattr(report, "duration", 0.0) or 0.0, 2),
         message=message,
+        retries=_retries.get(report.nodeid, 0),
     )
 
 
