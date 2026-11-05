@@ -92,6 +92,34 @@ def agent_info() -> dict:
     return {"host": socket.gethostname(), "version": version}
 
 
+def fetch_missing_credentials(run: Run, workspace: Path, env_file: Path | None) -> None:
+    """Login values this machine does not have (environment, its .env, typed in the app) come from its own secret
+    store when one is set up (SECRET_* in its environment or .env, see webapp/services/vault.py)."""
+    from dotenv import dotenv_values
+
+    from webapp.services.system_data import SystemDataService
+    from webapp.services.vault import Vault, missing_credentials
+
+    saved = dotenv_values(env_file) if env_file and env_file.is_file() else {}
+
+    def lookup(key: str) -> str | None:
+        return os.environ.get(key) or saved.get(key)
+
+    vault = Vault(lambda key: lookup(key) if key.startswith("SECRET_") else None)
+    if not vault.configured():
+        return
+    login = SystemDataService(workspace / "Data" / "systemData.json").login(run.config.system, run.config.env)
+    names = [k for k in ((login.username_env, login.password_env) if login else ()) if k]
+    status = [{"key": k, "set": bool(lookup(k) or run._secrets.get(k))} for k in names]
+    wanted = missing_credentials(status, {})
+    if not wanted:
+        return
+    found = vault.fetch(wanted)
+    run._secrets.update(found.values)
+    for key, why in found.errors.items():
+        log(f"{key} could not be fetched from the secret store: {why}")
+
+
 def _output_reader(proc: subprocess.Popen, lines: queue.Queue) -> None:
     for raw in proc.stdout:
         lines.put(raw.rstrip("\r\n"))
@@ -111,6 +139,7 @@ def execute(client: Client, claimed: dict, env_file: Path | None, python_exe: st
         client.download(f"/runner-api/runs/{run_id}/workspace", archive)
         workspace = work / "workspace"
         extract_safely(archive, workspace)
+        fetch_missing_credentials(run, workspace, env_file)
         env = pytest_environment(run, workspace)
         if env_file and env_file.is_file():
             env["AUTOPLAY_DOTENV_PATH"] = str(env_file)

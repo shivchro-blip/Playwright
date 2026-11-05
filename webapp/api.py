@@ -150,9 +150,10 @@ def start_run(req: RunRequest) -> dict:
     unknown = [e for e in req.also_envs if e not in known]
     if unknown:
         raise HTTPException(400, f"Unknown environment for {req.system}: {', '.join(unknown)}")
+    credentials, _, _ = svc.prepare_credentials(req.system, [req.env, *req.also_envs], use_vault=not req.runner)
     try:
         runs = svc.runs.start_compared(RunConfig(**req.model_dump(exclude={"also_envs"})), req.also_envs,
-                                       expected=len(selected) * max(len(req.browsers), 1))
+                                       expected=len(selected) * max(len(req.browsers), 1), credentials=credentials)
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     except RuntimeError as e:  # the queue is full

@@ -35,7 +35,7 @@ The REST API accepts `"runner": "lab1"` or `"runner": "label:windows"` when star
 
 ## Logins and secrets
 
-- Values in the runner's own `.env` (or its environment) are used for logins, so passwords can stay on the runner. Use `--env-file` to point at a different file. The app's `.env` is **never** sent to a runner.
+- Values in the runner's own `.env` (or its environment) are used for logins, so passwords can stay on the runner. With `SECRET_*` set there, the agent also fetches missing ones from its own secret store (see *Logins from a secret store*). Use `--env-file` to point at a different file. The app's `.env` is **never** sent to a runner.
 - Login values typed into the app's *Login credentials* for a run are sent to the runner for that run only, held in memory and removed from the log. That is why the agent **refuses plain `http` to a remote server** (use `https`; `--allow-insecure` overrides it on a network you trust).
 
 ## Limits and good practice

@@ -696,9 +696,13 @@ class TestEditor:
                    and f.key != "del_allure"}
         options.update(extra or {})
         browsers = [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] or ["chrome"]
+        credentials, missing, vault_errors = self.svc.prepare_credentials(system, [env])
+        for key, why in vault_errors.items():
+            ui.notify(f"{key} could not be fetched from the secret store: {why}", type="warning", timeout=8000)
         try:
             run = self.svc.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
-                                                options=options, test_ids=[test_id]), expected=len(browsers))
+                                                options=options, test_ids=[test_id]), expected=len(browsers),
+                                      credentials=credentials)
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
