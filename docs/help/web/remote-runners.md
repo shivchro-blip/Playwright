@@ -6,13 +6,9 @@ The runner calls the app; the app never connects to the runner. So the runner ne
 
 ## Set up a runner
 
-1. **On the app's machine**, register the runner. This prints its token **once**; only a hash is kept (`reports/runners.json`).
+1. **In the app**, click **Runners** in the top bar (admins), type a name and optional labels, and click **Add runner**. The token is shown **once**, together with the command to start the agent; only a hash is kept (`reports/runners.json`). The same dialog shows each runner's status, machine, code version and current run, and edits labels or removes a runner (its token stops working at once).
 
-   ```
-   python -m webapp.runners add lab1
-   ```
-
-   `python -m webapp.runners list` and `remove NAME` manage them. Removing a runner stops its token working at once.
+   On the command line this is `python -m webapp.runners add lab1 --label windows --label chrome`, `list` and `remove NAME`.
 
 2. **On the runner machine**, set the project up (`setup.ps1`), then start the agent:
 
@@ -24,7 +20,11 @@ The runner calls the app; the app never connects to the runner. So the runner ne
 
 3. In the app, **Run on** appears in Run setup once a runner exists. Pick the runner and run as usual. The list shows each runner as *online* or *offline*. A run sent to an offline runner waits until it connects.
 
-The REST API accepts `"runner": "lab1"` when starting a run, and `GET /api/runners` lists them.
+## Labels
+
+Give runners labels (`windows`, `chrome`, `lab2`) and pick **Any runner labelled windows** under *Run on*: the run goes to the first free runner with that label, so several machines share the queue. A schedule has the same *Run on* choice, so a nightly suite can run on a runner instead of the app's machine.
+
+The REST API accepts `"runner": "lab1"` or `"runner": "label:windows"` when starting a run, and `GET /api/runners` lists the runners.
 
 ## What happens in a run
 
@@ -42,6 +42,5 @@ The REST API accepts `"runner": "lab1"` when starting a run, and `GET /api/runne
 
 - Run the **same version of the code** on the app and the runner (`git pull` on both). The agent and app compare a protocol number and refuse to work together if it differs; the framework code itself comes from the runner's checkout, the test definitions from the app.
 - Saved browser states (*Save the state after every step*, *Run from a step*) are local only and are refused for a remote run: they hold session cookies.
-- Schedules run on this machine for now.
 - If the app is reached through a DNS name or proxy, add it to `AUTOPLAY_ALLOWED_HOSTS` on the app, or the runner's calls are refused.
 - Treat a runner token like a password: whoever has it can take queued runs, including any login values typed for them. Remove and re-add a runner to rotate its token.

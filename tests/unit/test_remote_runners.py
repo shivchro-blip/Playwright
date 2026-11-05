@@ -177,3 +177,64 @@ def test_a_silent_runner_marks_the_run_lost(manager, monkeypatch):
 
 def test_protocol_is_a_positive_int():
     assert isinstance(PROTOCOL, int) and PROTOCOL >= 1
+
+
+# ───── labels ─────
+
+def test_labels_are_checked_stored_and_matched(store):
+    store.add("win1", ["Windows", "chrome", "windows"])
+    store.add("lin1", ["linux"])
+    assert store.labels("win1") == ["windows", "chrome"] and store.all_labels() == ["chrome", "linux", "windows"]
+    assert store.accepts("win1", "win1") and not store.accepts("win1", "lin1")
+    assert store.accepts("label:windows", "win1") and not store.accepts("label:windows", "lin1")
+    assert store.valid_target("label:linux") and store.valid_target("lin1")
+    assert not store.valid_target("label:mac") and not store.valid_target("nobody")
+    for bad in (["a b"], ["-x"], ["y" * 31], [str(i) for i in range(9)]):
+        with pytest.raises(ValueError):
+            store.add("other", bad)
+    assert store.set_labels("lin1", ["linux", "firefox"]) == ["linux", "firefox"]
+    with pytest.raises(ValueError):
+        store.set_labels("nobody", [])
+
+
+def test_a_label_run_goes_to_the_first_free_runner_with_that_label(manager, store):
+    store.set_labels("lab1", ["windows"])
+    store.set_labels("lab2", ["windows"])
+    first, second, third = (manager.start(cfg(runner="label:windows")) for _ in range(3))
+    with pytest.raises(ValueError, match="Unknown runner"):
+        manager.start(cfg(runner="label:mac"))
+    assert manager.claim("lab1") is first and first.claimed_by == "lab1"
+    assert manager.claim("lab1") is None  # busy
+    assert manager.claim("lab2") is second and second.claimed_by == "lab2"
+    assert manager.remote_run(first.id, "lab2") is None and manager.remote_run(first.id, "lab1") is first
+    manager.remote_finish(first, 0)
+    assert manager.claim("lab1") is third
+
+
+def test_claimed_by_is_saved_and_a_named_run_ignores_other_runners(manager, tmp_path, store):
+    named = manager.start(cfg(runner="lab2"))
+    assert manager.claim("lab1") is None
+    assert manager.claim("lab2") is named
+    manager.remote_finish(named, 0)
+    assert json.loads((named.dir / "run.json").read_text())["claimed_by"] == "lab2"
+    again = RunManager(repo_root=tmp_path, workspace=tmp_path, runs_dir=tmp_path / "runs", python_exe=sys.executable,
+                       runners=store)
+    assert again.get(named.id).claimed_by == "lab2"
+
+
+def test_runner_list_shows_what_the_agent_reported(store):
+    store.add("lab1", ["windows"])
+    assert store.list()[0]["host"] == "" and store.list()[0]["last_seen"] == ""
+    store.touch("lab1", {"host": "PC-7", "version": "abc1234", "other": "ignored"})
+    row = store.list()[0]
+    assert (row["host"], row["version"], row["online"], row["labels"]) == ("PC-7", "abc1234", True, ["windows"])
+    assert row["last_seen"]
+
+
+def test_schedules_can_name_a_runner():
+    from webapp.services.schedules import validate
+    base = {"name": "n", "cron": "0 6 * * *", "system": "S", "tags": ["smoke"]}
+    assert validate({**base, "runner": "label:windows"}).runner == "label:windows"
+    assert validate(base).runner == "" and validate({**base, "runner": "lab1"}).to_dict()["runner"] == "lab1"
+    with pytest.raises(ValueError, match="Run on"):
+        validate({**base, "runner": "bad name!"})

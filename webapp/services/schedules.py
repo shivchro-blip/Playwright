@@ -48,6 +48,7 @@ class Schedule:
     enabled: bool = True
     notify_when: str = "failure"  # failure | always | never
     channels: list[dict] = field(default_factory=list)
+    runner: str = ""  # "" = this machine; a remote runner's name, or "label:<x>"
 
     @property
     def trigger(self) -> str:
@@ -85,13 +86,17 @@ def validate(data: dict) -> Schedule:
         workers = max(1, min(16, int(data.get("workers") or 1)))
     except (TypeError, ValueError) as e:
         raise ValueError("Workers must be a number.") from e
+    runner = str(data.get("runner") or "").strip()
+    if runner and not re.fullmatch(r"(label:)?[A-Za-z0-9][\w\-.]{0,39}", runner):
+        raise ValueError("Run on: pick this machine, a runner, or a runner label.")
     sid = str(data.get("id") or "").strip()
     if sid and not re.match(r"^[a-z0-9-]{1,64}$", sid):
         raise ValueError("Invalid schedule id.")
     return Schedule(id=sid or _new_id(name), name=name[:80], cron=cron, system=system,
                     env=str(data.get("env") or "").strip(), tags=tags, browsers=browsers, workers=workers,
                     options=options, test_ids=[str(t) for t in data.get("test_ids") or []],
-                    enabled=bool(data.get("enabled", True)), notify_when=when, channels=channels)
+                    enabled=bool(data.get("enabled", True)), notify_when=when, channels=channels,
+                    runner=runner)
 
 
 def _new_id(name: str) -> str:
@@ -216,7 +221,8 @@ class Scheduler:
                 selected = [t for t in selected if t.test_id in set(schedule.test_ids)]
             config = RunConfig(system=schedule.system, env=schedule.env, tags=list(schedule.tags),
                                browsers=list(schedule.browsers), workers=schedule.workers,
-                               options=dict(schedule.options), test_ids=list(schedule.test_ids))
+                               options=dict(schedule.options), test_ids=list(schedule.test_ids),
+                               runner=schedule.runner)
             run = self.runs.start(config, expected=len(selected) * len(schedule.browsers), trigger=schedule.trigger)
         except (ValueError, RuntimeError, OSError) as e:
             self.errors[schedule.id] = str(e)

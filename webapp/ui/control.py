@@ -114,10 +114,20 @@ class ControlPanel:
                     self._build_run()
                     self._build_history()
 
+    def _sync_compare(self) -> None:
+        """Offer the system's other environments for a side-by-side run."""
+        others = [e for e in self.svc.systems.environments(self.system_select.value) if e != self.env_select.value]
+        keep = [e for e in (self.compare_select.value or []) if e in others]
+        self.compare_select.set_options(others, value=keep)
+
     def _runner_options(self) -> dict[str, str]:
         options = {"": "This machine"}
-        for r in self.svc.runners.list():
+        runners = self.svc.runners.list()
+        for r in runners:
             options[r["name"]] = f"{r['name']} ({'online' if r['online'] else 'offline'})"
+        for label in sorted({x for r in runners for x in r["labels"]}):
+            online = sum(1 for r in runners if label in r["labels"] and r["online"])
+            options[f"label:{label}"] = f"Any runner labelled {label} ({online} online)"
         return options
 
     def _sync_runners(self) -> None:
@@ -146,7 +156,8 @@ class ControlPanel:
                     env = cfg["envConfig"] if cfg["envConfig"] in envs else (envs[0] if envs else None)
                     with field("Environment", "sel-env"):
                         self.env_select = self._select(envs, env, "sel-env",
-                                                       on_change=lambda: self.credentials.refresh())
+                                                       on_change=lambda: (self.credentials.refresh(),
+                                                                          self._sync_compare()))
                 tags = self.catalog.tags_for(_split(cfg["runTags"]), system)  # only tags this system has
                 with field("Tags", "sel-tags"):
                     self.tags_select = self._select(
@@ -179,6 +190,11 @@ class ControlPanel:
                                                       on_click=lambda: self._step(1)) \
                             .props('flat unelevated aria-label="More workers"').classes("any-step-btn")
                     self._on_workers_change()
+                with field("Also run on", "sel-compare", hint="compare environments"):
+                    self.compare_select = self._select([], [], "sel-compare", multiple=True, clearable=True) \
+                        .props("use-chips")
+                    placeholder(self.compare_select, "Another environment")
+                self._sync_compare()
                 self.runner_field = field("Run on", "sel-runner", hint="where the tests run")
                 with self.runner_field:
                     self.runner_select = self._select(self._runner_options(), "", "sel-runner")
@@ -204,6 +220,8 @@ class ControlPanel:
                         self.recording = ui.switch("Record video", value=_truthy(cfg["recording"]))
                         self.tracing = ui.switch("Playwright trace", value=_truthy(cfg["tracing"]))
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
+                        self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
+                            .props('data-testid="sw-a11y"')
 
             with ui.element("section").classes("any-section"):
                 eyebrow("Access")
@@ -600,6 +618,7 @@ class ControlPanel:
         self.excluded.clear()
         envs = self.svc.systems.environments(self.system_select.value)
         self.env_select.set_options(envs, value=envs[0] if envs else None)
+        self._sync_compare()
         self.reload_catalog(system_changed=True)
         self.credentials.refresh()
 
@@ -625,6 +644,7 @@ class ControlPanel:
             "recording": bool(self.recording.value),
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
+            "a11yScan": bool(self.a11y.value),
             "LOG_LEVEL": self.log_level.value or "INFO",
         }
 
@@ -644,6 +664,13 @@ class ControlPanel:
         if status is None:
             ui.notify("No login entry in systemData.json for this system/environment.", type="negative")
             return
+        also = list(self.compare_select.value or [])
+        for other in also:  # the same logins may differ per environment: check each one
+            other_status = self.svc.credential_status(self.system_select.value, other)
+            if other_status is None:
+                ui.notify(f"No login entry in systemData.json for {other}.", type="negative")
+                return
+            status = [*status, *(c for c in other_status if c["key"] not in {x["key"] for x in status})]
         missing = [c["key"] for c in status if not c["set"]]
         typed = {k: self.entered[k] for k in missing if self.entered.get(k)}
         missing = [k for k in missing if k not in typed]
@@ -655,17 +682,27 @@ class ControlPanel:
                            workers=int(self.workers.value or 1), options=self._options(), test_ids=test_ids,
                            runner=self.runner_select.value or "")
         try:
-            run = self.svc.runs.start(config, expected=len(selected) * len(browsers), credentials=typed)
+            runs = self.svc.runs.start_compared(config, also, expected=len(selected) * len(browsers),
+                                                credentials=typed)
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
-        audit("run.start", run.id, system=config.system, env=config.env, tags=config.tags,
-              **({"entered_credentials": sorted(typed)} if typed else {}))
+        run = runs[0]
+        for started in runs:
+            audit("run.start", started.id, system=config.system, env=started.config.env, tags=config.tags,
+                  **({"entered_credentials": sorted(typed)} if typed else {}),
+                  **({"compare_with": run.id} if started is not run else {}))
+        if len(runs) > 1:
+            ui.notify(f"Started {len(runs)} runs to compare: " + ", ".join(r.config.env for r in runs)
+                      + ". Open Compare in History when they finish.", type="info", timeout=6000)
         position = self.svc.runs.queue_position(run.id)
         if config.runner:
-            online = self.svc.runners.online(config.runner)
-            ui.notify(f"Run {run.id} sent to runner {config.runner}" + ("" if online else
-                      " (offline: it waits until the runner connects)"), type="info" if online else "warning")
+            names = [r["name"] for r in self.svc.runners.list() if self.svc.runners.accepts(config.runner, r["name"])]
+            online = any(self.svc.runners.online(n) for n in names)
+            target = config.runner.replace("label:", "a runner labelled ") if config.runner.startswith("label:") \
+                else f"runner {config.runner}"
+            ui.notify(f"Run {run.id} sent to {target}" + ("" if online else
+                      " (offline: it waits until a runner connects)"), type="info" if online else "warning")
         else:
             ui.notify(f"Run {run.id} queued (#{position}); it starts when a slot is free" if position
                       else f"Run {run.id} started", type="info" if position else "positive")
@@ -773,7 +810,7 @@ class ControlPanel:
         self.meta.set_visibility(True)
         self.meta_id.text = run.id
         self.meta_target.text = f"{run.config.system} / {run.config.env}" + (
-            f" on {run.config.runner}" if run.config.runner else "")
+            f" on {run.claimed_by or run.config.runner}" if run.config.runner else "")
         self.meta_tags.text = ", ".join(run.config.tags)
         self.log_view.set_active(run.active)
         self.progress_view.refresh(run)

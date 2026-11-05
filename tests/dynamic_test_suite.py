@@ -12,6 +12,7 @@ from playwright.async_api import async_playwright, expect
 from pages.dynamic_page import DynamicPage
 from utils.test_data_loader import load_test_cases_from_folder, load_all_test_cases
 from utils.data_sets import expand as expand_data_sets
+import utils.a11y as a11y
 import utils.checkpoints as checkpoints
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
@@ -467,6 +468,9 @@ async def run_login_pretest(page, browser, dictionaryContext, system_needed):
     return base_url
 
 
+a11y_scanner = None  # set for the length of one test when a11yScan=true
+
+
 async def run_steps(steps, page, browser, dictionaryContext, testSystem, current_login_state, system_needed, parent_override=None,
                     start_url=None, after_step=None):
     global reportDescription
@@ -613,6 +617,8 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
             screen_name = step["screen"]
             with allure.step(f"- Screen: {screen_name} -"):
                 page = await run_single_step(step, page, base_url, browser, system_needed, dictionaryContext)
+            if a11y_scanner:
+                await a11y_scanner.after_screen(page, screen_name)
 
         if after_step:
             await after_step(step_no, page)
@@ -896,6 +902,8 @@ if test_cases:
         if checkpoints.is_windowed(len(all_steps)) or resume:
             logger.info(f"[steps] Running steps {first}-{last} of {len(all_steps)} of {testCaseId}")
             allure.dynamic.parameter("steps", f"{first}-{last} of {len(all_steps)}")
+        global a11y_scanner
+        a11y_scanner = a11y.Scanner() if a11y.enabled() else None
         after_step = None
         if checkpoints.save_enabled():
             checkpoint_dir = os.environ["checkpointsDir"]
@@ -910,6 +918,7 @@ if test_cases:
                                    after_step=after_step)
 
         finally:
+            a11y_scanner = None
             try:
                 if str(os.getenv("recording", recordingConfig)).lower() == "true" and not is_frozen_run():
                     logger.info("[test_dynamic_execution] Recording is on - Attempting to attach videos to allure report!")

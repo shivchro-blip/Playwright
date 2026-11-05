@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from nicegui import ui
 
 from utils.data_sets import KEY_OK, NAME_OK, DataSetError, validate
+from utils.data_table import from_table, read_table, to_csv
 from webapp.auth import audit, guard
 from webapp.services.json_files import ConflictError, PathError
 from webapp.state import services
@@ -155,6 +156,10 @@ class DataSetEditor:
             with ui.element("div").classes("any-toolbar"):
                 ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
                     .props("no-caps unelevated").classes("any-segmented")
+                icon_button("download", "Export as CSV (opens in Excel)", self.export_csv) \
+                    .props('data-testid="data-export"')
+                icon_button("upload", "Import from CSV or Excel", self.import_dialog) \
+                    .props('data-testid="data-import"')
                 icon_button("trash-2", "Delete data file", self.delete).classes("is-danger")
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save) \
@@ -298,6 +303,53 @@ class DataSetEditor:
         self._set_model(data)
         if dirty:
             self.touch()
+
+    def export_csv(self) -> None:
+        data = self._current()
+        if data is None:
+            return
+        ui.download(("\ufeff" + to_csv(data)).encode("utf-8"), f"{self.name}.csv", "text/csv")
+
+    async def import_dialog(self) -> None:
+        """Replace the sets and columns with those of a CSV or Excel file; nothing is saved until Save."""
+        if not guard("edit", "import data set", self.name or ""):
+            return
+        loaded: dict = {}
+        with ui.dialog() as dialog, ui.card().classes("any-dialog").style("min-width: 28rem"):
+            text("h2", f"Import into {self.name}", "any-title")
+            ui.label("A .csv or .xlsx file: the first row holds the keys, the first column the set names, and a row "
+                     "named #defaults the default values. The sets and columns here are replaced; the data file "
+                     "changes only when you click Save.").classes("any-muted text-sm")
+            summary = ui.label("").classes("text-sm").props('data-testid="data-import-summary"')
+
+            async def picked(e) -> None:
+                loaded.clear()
+                try:
+                    rows = read_table(e.file.name, await e.file.read())
+                    loaded.update(from_table(rows, {"description": self.description, **self.extra}))
+                except DataSetError as err:
+                    summary.text = str(err)
+                    summary.classes(replace="text-sm text-negative")
+                    ok.set_enabled(False)
+                    return
+                keys = set(loaded["defaults"]).union(*loaded["sets"].values())
+                summary.text = f"{len(loaded['sets'])} sets, {len(keys)} keys: ready to import."
+                summary.classes(replace="text-sm")
+                ok.set_enabled(True)
+
+            ui.upload(on_upload=picked, auto_upload=True, max_file_size=10 * 1024 * 1024,
+                      on_rejected=lambda: ui.notify("The file is larger than 10 MB.", type="negative")) \
+                .props('accept=".csv,.xlsx,.txt,.tsv" flat bordered data-testid="data-import-file"') \
+                .classes("w-full")
+            with ui.element("div").classes("any-dialog-actions"):
+                ui.button("Cancel", color=None, on_click=dialog.close).classes("any-btn is-38")
+                ok = ui.button("Import", color=None, on_click=lambda: dialog.submit(True)) \
+                    .props('data-testid="data-import-ok"').classes("any-primary")
+                ok.set_enabled(False)
+        if await dialog and loaded:
+            self._set_model(loaded)
+            self.touch()
+            ui.notify("Imported: review the grid, then Save.", type="positive")
 
     def save(self) -> None:
         data = self._current()

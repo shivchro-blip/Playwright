@@ -25,6 +25,7 @@ class RunRequest(BaseModel):
     options: dict[str, str | int | bool] = Field(default_factory=dict)
     test_ids: list[str] = Field(default_factory=list)
     runner: str = ""  # a registered remote runner; "" runs on the machine hosting the app
+    also_envs: list[str] = Field(default_factory=list)  # run the same selection on these environments, paired
 
 
 @router.get("/systems")
@@ -145,13 +146,20 @@ def list_runs() -> list[dict]:
 def start_run(req: RunRequest) -> dict:
     svc = services()
     selected = svc.catalog.load(req.system).select(req.tags)
+    known = svc.systems.environments(req.system)
+    unknown = [e for e in req.also_envs if e not in known]
+    if unknown:
+        raise HTTPException(400, f"Unknown environment for {req.system}: {', '.join(unknown)}")
     try:
-        run = svc.runs.start(RunConfig(**req.model_dump()), expected=len(selected) * max(len(req.browsers), 1))
+        runs = svc.runs.start_compared(RunConfig(**req.model_dump(exclude={"also_envs"})), req.also_envs,
+                                       expected=len(selected) * max(len(req.browsers), 1))
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
     except RuntimeError as e:  # the queue is full
         raise HTTPException(409, str(e)) from e
-    return {**run.to_dict(), "queue_position": svc.runs.queue_position(run.id)}
+    run = runs[0]
+    return {**run.to_dict(), "queue_position": svc.runs.queue_position(run.id),
+            "compare_runs": [r.id for r in runs[1:]]}
 
 
 @router.get("/runs/{run_id}")

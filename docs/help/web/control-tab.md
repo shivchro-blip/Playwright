@@ -9,9 +9,13 @@
 | **Tags** | Only test cases with at least one matching tag run (case-insensitive). No tags = nothing runs. Type to add a tag that is not in the list. |
 | **Browsers** | `chrome`, `msedge`, `chromium`, `firefox`, `webkit`. Each selected test runs once per browser. |
 | **Parallel workers** | More than 1 runs tests in parallel with pytest-xdist. Live framework prints are hidden in parallel mode; results still update. |
+| **Also run on** | Pick one or more other environments of the system to run the same tests there too, as separate runs started together. When they finish, **Compare** in History opens with the other environment already chosen: *new failure* means a test fails on the later environment that passed on the earlier one. (REST API: `"also_envs": ["test"]`.) |
+| **Run on** | Shown once remote runners exist (see *Remote runners*): this machine, one runner, or any runner with a label. |
 | **Console log level** | What the run prints: *Errors only*, *Warnings and errors*, *Info* (default) or *Debug*. It sets pytest's console level and the framework loggers together (`LOG_LEVEL`, `TestSuiteLoggerLevel`, `PageLoggerLevel`, `FormHandlerLoggerLevel`), so it takes precedence over per-module levels in `.env` for runs started here. Result lines (PASSED/FAILED) always show. *Save as defaults* keeps the choice. |
 
-**Browser & artifacts**: headless, maximized window, slow-mo, page wait condition, video recording, Playwright trace and snapshots. These apply to this run only.
+**Browser & artifacts**: headless, maximized window, slow-mo, page wait condition, video recording, Playwright trace, snapshots and the accessibility scan. These apply to this run only.
+
+**Accessibility scan** checks the page after every screen step for basic problems a tester can raise: images without alt text, form fields, buttons and links without a name, a missing page title or language, duplicate ids, positive tabindex, empty or skipped headings, and focusable elements inside `aria-hidden`. Each finding is logged as `[a11y] <screen>: ...` and attached to the test as *Accessibility: <screen>* (JSON, under the test's details); one is reported once per page however many steps stay on it. It never fails a test and does not check colour contrast, so it is a quick screen, not a full audit.
 
 **Login credentials** lists the env var names the selected system/environment needs and whether each is set in `.env`. Values are never shown.
 

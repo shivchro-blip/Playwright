@@ -69,6 +69,7 @@ A **data set** keeps the values a test types in one file (`Data/TestData/<name>.
 
 - **+** creates a file; the list shows how many sets each has and which test cases use it.
 - The grid has **one row per set and one column per key**. The **defaults** row applies to every set; an empty cell falls back to it. **+ Set**, **+ Column**, duplicate and remove work on rows and columns; **Form / JSON** switches to the raw file. Values are text.
+- **Export** (download icon) saves the file as CSV, which opens in Excel. **Import** (upload icon) replaces the sets and columns with those of a `.csv` or `.xlsx` file: the first row holds the keys, the first column the set names, and a row named `#defaults` the default values; an empty cell means *not set here*. Nothing is written until you click **Save**. Excel numbers are read as written (a zip code with a leading zero should be formatted as text in Excel, or it is already lost there).
 - In a test case, choose the **Data set** (below the ID row of the editor). The value menu (the **{ }** button next to a value) now offers *From the data set*, which writes `DATA.<key>`. **Check** warns if a file is missing, a `DATA.` key is not defined in every set, or the steps use `DATA.` values with no data set.
 - The test case then runs once per set, as `TC-1[austin]`, `TC-1[dallas]`; each shows as its own result. A missing value stops the run with a message naming the set.
 

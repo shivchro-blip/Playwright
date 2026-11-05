@@ -3,6 +3,9 @@ import sys
 from pathlib import Path
 
 args = sys.argv[1:]
+if args[0] == "show-trace":  # the trace viewer: leave a marker next to the trace
+    Path(args[1]).with_suffix(".opened").write_text("opened", encoding="utf-8")
+    sys.exit(0)
 assert args[0] == "codegen", args
 out = Path(args[args.index("-o") + 1])
 url = args[-1]

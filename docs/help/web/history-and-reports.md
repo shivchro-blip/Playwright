@@ -40,3 +40,19 @@ or set `AUTOPLAY_ALLURE_CMD` to the full path of `allure.bat`. New runs then gen
 ## Videos and traces
 
 Turn on **Record video** or **Playwright trace** under *Browser & artifacts* before running. They are attached to the Allure results of the run.
+
+In a test's failure details the video plays in place. For a trace, **Open in trace viewer** opens Playwright's trace viewer (a window, with the timeline, DOM snapshots, network and console for every step). It opens on the computer that runs the app, so it is offered only when the app listens on this machine alone (`AUTOPLAY_HOST=127.0.0.1`); on a shared server, download the trace and open it with `playwright show-trace <file>` or drop it on trace.playwright.dev (it is processed in your browser, not uploaded).
+
+## Hiding sensitive values
+
+Test data looks real, and logs and reports get shared. Social Security numbers (`123-45-6789`) and card numbers (valid ones only, so run ids and timestamps are left alone) are replaced in the console, the results table, the built-in report and the failure details shown in the app. Add your own rules, or turn the built-in ones off, in `Data/maskPatterns.json` in the workspace:
+
+```json
+{ "builtin": ["ssn", "card", "routing"],
+  "custom": [ { "name": "policy", "pattern": "POL-\\d{6}", "replacement": "POL-******" } ] }
+```
+
+- `builtin` lists the rules to use: `ssn`, `card`, and `routing` (nine-digit bank routing numbers with a valid checksum, off by default because any nine digits can look like one). `"builtin": []` turns them off. Without the file, `ssn` and `card` are on.
+- Each custom rule is a regular expression (`pattern`), an optional `name` and an optional `replacement` (default `[masked <name>]`).
+- Changes apply to new output at once. A bad file is ignored with a warning in the app's log.
+- **Not changed:** screenshots, DOM snapshots, videos, traces and the raw files in the run folder. Treat those as sensitive.

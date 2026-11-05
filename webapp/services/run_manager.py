@@ -20,7 +20,7 @@ import sys
 import re
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -30,6 +30,7 @@ from webapp.pytest_events import PREFIX
 from webapp.services.archives import extract_safely
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.json_files import NAME_RE
+from webapp.services.masking import Masker
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_insights import build_report
 from webapp.services.runners import RunnerStore
@@ -60,7 +61,8 @@ class RunConfig:
     options: dict[str, object] = field(default_factory=dict)
     # Optional: run only these testCaseIDs (still filtered by tags first)
     test_ids: list[str] = field(default_factory=list)
-    # "" = this machine; otherwise the name of a registered remote runner (webapp/services/runners.py)
+    # "" = this machine; otherwise a registered remote runner's name, or "label:<x>" for any free runner with that
+    # label (webapp/services/runners.py)
     runner: str = ""
 
 
@@ -90,6 +92,8 @@ class Run:
     report_status: str = ""  # "" | generating | ready | unavailable | failed
     report_message: str = ""
     trigger: str = ""  # "" = started by a person; "schedule:<id>" = started by a schedule
+    claimed_by: str = ""  # remote runs: the runner that took it
+    compare_with: str = ""  # a run started together with this one on another environment, to compare with
     results: dict[str, TestResult] = field(default_factory=dict)
     log: list[str] = field(default_factory=list, repr=False)
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
@@ -99,12 +103,13 @@ class Run:
     _finishing: bool = field(default=False, repr=False)
     # Login values typed into the app for this run: memory only, never saved, logged or serialized
     _secrets: dict[str, str] = field(default_factory=dict, repr=False)
+    _masker: Masker | None = field(default=None, repr=False)  # hides SSNs, card numbers and the like
 
     def scrub(self, text: str) -> str:
         for value in self._secrets.values():
             if len(value) >= 3:
                 text = text.replace(value, "***")
-        return text
+        return self._masker.mask(text) if self._masker else text
 
     @property
     def results_dir(self) -> Path:
@@ -150,6 +155,8 @@ class Run:
             "report_status": self.report_status,
             "report_message": self.report_message,
             "trigger": self.trigger,
+            "claimed_by": self.claimed_by,
+            "compare_with": self.compare_with,
             "results": [asdict(r) for r in list(self.results.values())],
         }
 
@@ -215,7 +222,9 @@ class RunManager:
         self.allure_cmd = allure_cmd
         self.max_concurrent = max_concurrent
         self.runners = runners
+        self.masker = Masker(self.workspace / "Data" / "maskPatterns.json")
         self._watchdog: threading.Thread | None = None
+        self._save_lock = threading.Lock()  # run.json is written from the run's thread and from callers
         self._runs: dict[str, Run] = {}
         self._queue: list[Run] = []  # FIFO: runs waiting for one of max_concurrent slots
         self._lock = threading.Lock()
@@ -237,8 +246,25 @@ class RunManager:
 
     # ───────────── commands ─────────────
 
+    def start_compared(self, config: RunConfig, envs: list[str], expected: int = 0, trigger: str = "",
+                       credentials: dict[str, str] | None = None) -> list[Run]:
+        """Start `config` and the same selection on each environment in `envs`; the runs are paired so the
+        comparison opens with its partner. Returns the main run first."""
+        extra = [e for e in dict.fromkeys(str(e).strip() for e in envs) if e and e != config.env]
+        first = self.start(config, expected, trigger, credentials)
+        runs = [first]
+        for env in extra:
+            other = replace(config, env=env, tags=list(config.tags), browsers=list(config.browsers),
+                            options=dict(config.options), test_ids=list(config.test_ids))
+            run = self.start(other, expected, trigger, credentials, compare_with=first.id)
+            if not first.compare_with:
+                first.compare_with = run.id
+                self._save(first)
+            runs.append(run)
+        return runs
+
     def start(self, config: RunConfig, expected: int = 0, trigger: str = "",
-              credentials: dict[str, str] | None = None) -> Run:
+              credentials: dict[str, str] | None = None, compare_with: str = "") -> Run:
         """`credentials`: env var name -> value for this run only, held in memory. A variable the
         environment already has is left alone."""
         credentials = {k: v for k, v in (credentials or {}).items() if v}
@@ -254,7 +280,7 @@ class RunManager:
             raise ValueError(f"Invalid system: {config.system!r}")
         config.runner = (config.runner or "").strip()
         if config.runner:
-            if not self.runners or config.runner not in self.runners.names():
+            if not self.runners or not self.runners.valid_target(config.runner):
                 raise ValueError(f"Unknown runner: {config.runner!r}")
             local_only = [k for k in ("saveCheckpoints", "resumeCheckpoint") if config.options.get(k)]
             if local_only:
@@ -281,9 +307,11 @@ class RunManager:
             if len(self._queue) >= MAX_QUEUED:
                 raise RuntimeError(f"{MAX_QUEUED} runs are already waiting; try again when some have finished.")
             run_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(2)
-            run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger)
+            run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger,
+                      compare_with=compare_with)
             run.dir.mkdir(parents=True)
             run._secrets = credentials
+            run._masker = self.masker
             self._runs[run_id] = run
             self._queue.append(run)
         self._save(run)
@@ -461,13 +489,14 @@ class RunManager:
     def claim(self, runner: str) -> Run | None:
         """The next queued run for this runner, now marked running. A runner does one run at a time."""
         with self._lock:
-            if any(r.status == "running" and r.config.runner == runner for r in self._runs.values()):
+            if any(r.status == "running" and r.claimed_by == runner for r in self._runs.values()):
                 return None
-            run = next((r for r in self._queue if r.config.runner == runner), None)
+            run = next((r for r in self._queue
+                        if r.config.runner and self.runners and self.runners.accepts(r.config.runner, runner)), None)
             if run is None:
                 return None
             self._queue.remove(run)
-            run.status, run.started_at, run._last_seen = "running", _now(), time.monotonic()
+            run.status, run.started_at, run._last_seen, run.claimed_by = "running", _now(), time.monotonic(), runner
         self._append(run, f"[webapp] Started on runner {runner}")
         self._save(run)
         return run
@@ -475,7 +504,7 @@ class RunManager:
     def remote_run(self, run_id: str, runner: str) -> Run | None:
         """The running run `run_id` if it was claimed by this runner."""
         run = self._runs.get(run_id)
-        return run if run and run.status == "running" and run.config.runner == runner and not run._finishing else None
+        return run if run and run.status == "running" and run.claimed_by == runner and not run._finishing else None
 
     def remote_events(self, run: Run, lines: list[str]) -> bool:
         """Output lines from the runner. True when the run was cancelled and the runner should stop."""
@@ -520,7 +549,7 @@ class RunManager:
             now = time.monotonic()
             for run in remote:
                 if run.status == "running" and now - run._last_seen > RUNNER_SILENCE_SECONDS:
-                    self.remote_finish(run, None, f"Runner {run.config.runner} stopped responding.")
+                    self.remote_finish(run, None, f"Runner {run.claimed_by or run.config.runner} stopped responding.")
 
     def _final_status(self, run: Run) -> str:
         if run._cancelled:
@@ -624,9 +653,10 @@ class RunManager:
 
     def _save(self, run: Run) -> None:
         try:
-            tmp = run.dir / "run.json.tmp"
-            tmp.write_text(json.dumps(run.to_dict(), indent=2), encoding="utf-8")
-            tmp.replace(run.dir / "run.json")
+            with self._save_lock:
+                tmp = run.dir / "run.json.tmp"
+                tmp.write_text(json.dumps(run.to_dict(), indent=2), encoding="utf-8")
+                tmp.replace(run.dir / "run.json")
         except OSError:
             logger.exception("Could not save run %s", run.id)
 
@@ -641,7 +671,8 @@ class RunManager:
                     finished_at=data.get("finished_at", ""), exit_code=data.get("exit_code"),
                     error=data.get("error", ""), collected=data.get("collected"),
                     report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
-                    trigger=data.get("trigger", ""),
+                    trigger=data.get("trigger", ""), claimed_by=data.get("claimed_by", ""),
+                    compare_with=data.get("compare_with", ""),
                     results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
                 )
             except (OSError, ValueError, KeyError, TypeError):

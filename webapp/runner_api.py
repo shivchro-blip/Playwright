@@ -59,6 +59,8 @@ def _claimed(run_id: str, name: str) -> Run:
 
 class ClaimRequest(BaseModel):
     protocol: int = 0
+    host: str = ""
+    version: str = ""
 
 
 class EventsRequest(BaseModel):
@@ -75,6 +77,7 @@ def claim(body: ClaimRequest, name: str = Depends(runner_name)):
     if body.protocol != PROTOCOL:
         raise HTTPException(409, f"This runner speaks protocol {body.protocol}, the app {PROTOCOL}: "
                                  "update the runner (git pull) so both run the same version.")
+    services().runners.touch(name, {"host": body.host, "version": body.version})
     run = services().runs.claim(name)
     if run is None:
         return Response(status_code=204)

@@ -204,6 +204,18 @@ class SchedulesPanel:
                         [b.strip().lower() for b in defaults["browsers"].split(",") if b.strip()] or ["chromium"])
                     browsers = ui.select(sorted(set(BROWSERS) | set(browser0)), value=browser0, multiple=True) \
                         .props('for="sch-browsers" use-chips').classes("w-full")
+            runner_options = {"": "This machine"}
+            for r in svc.runners.list():
+                runner_options[r["name"]] = r["name"]
+            for label in svc.runners.all_labels():
+                runner_options[f"label:{label}"] = f"Any runner labelled {label}"
+            if existing and existing.runner and existing.runner not in runner_options:
+                runner_options[existing.runner] = f"{existing.runner} (removed)"
+            runner = None
+            if len(runner_options) > 1:
+                with field("Run on", "sch-runner"):
+                    runner = ui.select(runner_options, value=existing.runner if existing else "") \
+                        .props('for="sch-runner" data-testid="sch-runner"').classes("w-full")
             matched = ui.label("").classes("any-muted text-sm")
             with ui.element("div").classes("any-switch-row"):
                 headless = ui.switch("Headless", value=bool(opts0.get("headlessMode", True)))
@@ -312,7 +324,8 @@ class SchedulesPanel:
                         "options": {"headlessMode": bool(headless.value), "tracing": bool(tracing.value),
                                     "recording": bool(video.value)},
                         "test_ids": existing.test_ids if existing else [], "enabled": bool(enabled.value),
-                        "notify_when": notify_when.value, "channels": channels}
+                        "notify_when": notify_when.value, "channels": channels,
+                        "runner": (runner.value if runner else existing.runner if existing else "") or ""}
 
             saved_id = {"id": existing.id if existing else ""}  # a test notification saves a new schedule first
 

@@ -67,8 +67,8 @@ def test_a_run_goes_to_a_runner_and_comes_back_with_results(workspace, tmp_path)
     with running_app(tmp_path) as url:
         run_id = new_run(url, "lab1")
         assert call(f"{url}api/runs/{run_id}")[1]["status"] == "queued"  # nothing runs here
-        assert call(f"{url}api/runners")[1] == [{"name": "lab1", "created": store.list()[0]["created"],
-                                                 "online": False}]
+        listed = call(f"{url}api/runners")[1]
+        assert [(r["name"], r["online"], r["labels"], r["host"]) for r in listed] == [("lab1", False, [], "")]
         agent = start_agent(url, token, tmp_path)
         run = wait_finished(url, run_id, agent, tmp_path)
         agent_log = (tmp_path / "agent.log").read_text(encoding="utf-8")
@@ -160,3 +160,64 @@ def test_run_on_menu_sends_a_run_to_the_chosen_runner(workspace, tmp_path):
     runs = list((tmp_path / "runs").glob("*/run.json"))
     assert len(runs) == 1 and json.loads(runs[0].read_text(encoding="utf-8"))["config"]["runner"] == "lab1"
     assert json.loads(runs[0].read_text(encoding="utf-8"))["status"] == "queued"
+
+
+def test_runners_dialog_adds_labels_and_removes_a_runner(workspace, tmp_path):
+    with running_app(tmp_path) as url, sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.goto(url, wait_until="networkidle")
+        page.get_by_test_id("runners").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog.get_by_test_id("runners-empty")).to_be_visible()
+        dialog.get_by_test_id("runner-name").fill("bad name!")
+        dialog.get_by_test_id("runner-add").click()
+        expect(page.get_by_text("A runner name has letters")).to_be_visible()
+
+        dialog.get_by_test_id("runner-name").fill("lab9")
+        dialog.get_by_test_id("runner-new-labels").fill("Windows, chrome")
+        dialog.get_by_test_id("runner-add").click()
+        token = dialog.get_by_test_id("runner-token").inner_text().strip()
+        assert token.startswith("apr_")
+        expect(dialog.get_by_test_id("runner-command")).to_contain_text(f"--token {token}")
+        row = dialog.get_by_test_id("runner-lab9")
+        expect(row).to_contain_text("windows, chrome")
+        expect(row).to_contain_text("offline")
+        assert token not in (tmp_path / "runners.json").read_text(encoding="utf-8")
+
+        row.get_by_role("button", name="Labels of lab9").click()
+        labels = page.get_by_role("dialog").last.get_by_test_id("runner-labels")
+        labels.fill("windows edge")
+        page.get_by_test_id("runner-labels-save").click()
+        expect(dialog.get_by_test_id("runner-lab9")).to_contain_text("windows, edge")
+
+        row.get_by_role("button", name="Remove lab9").click()
+        page.get_by_role("button", name="Remove", exact=True).click()
+        expect(dialog.get_by_test_id("runners-empty")).to_be_visible()
+        browser.close()
+    assert RunnerStore(tmp_path / "runners.json").names() == []
+    audit_lines = (tmp_path / "audit.jsonl").read_text(encoding="utf-8").splitlines()
+    assert any(json.loads(line)["action"] == "runner.add" for line in audit_lines)
+
+
+def test_run_on_offers_labels_and_a_labelled_run_waits_for_a_matching_runner(workspace, tmp_path):
+    store = RunnerStore(tmp_path / "runners.json")
+    token = store.add("win1", ["windows"])
+    store.add("lin1", ["linux"])
+    with running_app(tmp_path) as url:
+        run_id = new_run(url, "label:windows")
+        assert call(f"{url}api/runs/{run_id}")[1]["config"]["runner"] == "label:windows"
+        assert call(f"{url}api/runs", "POST", {"system": "SMOKE", "env": "dev", "tags": ["smoke"],
+                                               "runner": "label:mac"})[0] == 400
+        # the linux runner never sees it; the windows runner takes it
+        lin = store.add("lin2", ["linux"])
+        assert call(f"{url}runner-api/claim", "POST", {"protocol": PROTOCOL}, token=lin)[0] == 204
+        status, claimed = call(f"{url}runner-api/claim", "POST",
+                               {"protocol": PROTOCOL, "host": "PC-7", "version": "abc"}, token=token)
+        assert status == 200 and claimed["run"]["id"] == run_id
+        _, runners = call(f"{url}api/runners")
+        win = next(r for r in runners if r["name"] == "win1")
+        assert (win["host"], win["version"], win["labels"]) == ("PC-7", "abc", ["windows"])
+        assert call(f"{url}api/runs/{run_id}")[1]["claimed_by"] == "win1"
+        call(f"{url}api/runs/{run_id}/cancel", "POST")
+        call(f"{url}runner-api/runs/{run_id}/finish", "POST", {"exit_code": -15}, token=token)
