@@ -220,6 +220,8 @@ class ControlPanel:
                         self.recording = ui.switch("Record video", value=_truthy(cfg["recording"]))
                         self.tracing = ui.switch("Playwright trace", value=_truthy(cfg["tracing"]))
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
+                        self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
+                            .props('data-testid="sw-a11y"')
 
             with ui.element("section").classes("any-section"):
                 eyebrow("Access")
@@ -642,6 +644,7 @@ class ControlPanel:
             "recording": bool(self.recording.value),
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
+            "a11yScan": bool(self.a11y.value),
             "LOG_LEVEL": self.log_level.value or "INFO",
         }
 
