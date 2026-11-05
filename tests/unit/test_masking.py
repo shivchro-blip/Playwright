@@ -78,7 +78,7 @@ def test_run_scrub_hides_typed_secrets_and_sensitive_values(tmp_path):
 def test_failure_details_are_masked_when_shown(tmp_path):
     results = tmp_path / "allure-results"
     results.mkdir()
-    (results / "aaaaaaaa-0000-attachment.txt").write_text("typed 123-45-6789\n", encoding="utf-8")
+    (results / "aaaaaaaa-0000-attachment.txt").write_bytes(b"typed 123-45-6789\n")  # bytes: no Windows newline change
     (results / "bbbbbbbb-0000-attachment.txt").write_text("card 4111111111111111", encoding="utf-8")
     result = {"name": "TC-1 [chromium]", "status": "failed",
               "statusDetails": {"message": "expected 123-45-6789", "trace": "at ssn 123-45-6789"},
