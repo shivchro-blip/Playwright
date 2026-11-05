@@ -716,3 +716,7 @@
 
 /* Locator suggestions */
 .any-suggest { display: flex; align-items: center; gap: 10px; margin: 6px 0 0 8px; padding: 6px 10px; border: 1px dashed var(--border-control); border-radius: var(--r-ctl); background: var(--surface-subtle); }
+
+/* A short notice inside a dialog */
+.any-note { display: flex; gap: 6px; align-items: baseline; padding: 8px 12px; border: 1px solid var(--warn-border); border-radius: var(--r-ctl); background: var(--warn-bg); color: var(--warn-body); font-size: 13px; }
+.any-note a { color: var(--accent-deep); font-weight: 600; }

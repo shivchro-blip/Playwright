@@ -18,6 +18,7 @@ from webapp.services.pom_service import PomService
 from webapp.services.recorder import Recorder
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
+from webapp.services.issue_tracker import IssueTracker
 from webapp.services.quarantine_service import QuarantineService
 from webapp.services.runners import RunnerStore
 from webapp.services.schedules import Scheduler, ScheduleStore
@@ -38,6 +39,7 @@ class Services:
     runners: RunnerStore
     quarantine: QuarantineService
     common: CommonActionService
+    issues: IssueTracker
     pom: PomService
     tests: TestCaseService
     help: HelpService
@@ -81,6 +83,17 @@ class Services:
 
 def env_flag(env: EnvConfigService, key: str) -> bool:
     return env.load().get(key, "false").strip().lower() in ("1", "true", "yes", "on")
+
+
+def prefixed_lookup(env: EnvConfigService, prefix: str):
+    """Values of <prefix>* keys from the environment or .env, for the services that need them (never shown)."""
+    def lookup(key: str) -> str | None:
+        if not key.startswith(prefix):
+            return None
+        if os.environ.get(key):
+            return os.environ[key]
+        return dotenv_values(env.env_path).get(key) if env.env_path.is_file() else None
+    return lookup
 
 
 def notify_lookup(env: EnvConfigService):
@@ -130,4 +143,5 @@ def services() -> Services:
         audit=AuditLog(s.resolved_runs_dir.parent / "audit.jsonl"),
         datasets=DataSetService(s.workspace, tests_service),
         common=CommonActionService(s.workspace, tests_service),
+        issues=IssueTracker(prefixed_lookup(env, "ISSUE_")),
     )

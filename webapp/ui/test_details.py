@@ -16,6 +16,7 @@ from webapp.state import services
 from webapp.ui.ai_panels import ai_enabled, triage_section
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
 from webapp.ui.console_view import ConsoleView
+from webapp.ui.issue_dialog import issue_button
 from webapp.ui.theme import icon
 
 LOG_LINES = 1500
@@ -101,7 +102,9 @@ def open_test_details(run: Run, row: dict) -> None:
                     if duration:
                         text("span", fmt_seconds(float(duration)), "v")
                     text("span", f"Run {run.id}", "v")
-            icon_button("x", "Close", dialog.close)
+            with ui.element("div").classes("any-toolbar"):
+                issue_button(run, row, item)
+                icon_button("x", "Close", dialog.close)
 
         point = item.failure if item else None
         if point:
