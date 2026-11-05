@@ -114,6 +114,19 @@ class ControlPanel:
                     self._build_run()
                     self._build_history()
 
+    def _runner_options(self) -> dict[str, str]:
+        options = {"": "This machine"}
+        for r in self.svc.runners.list():
+            options[r["name"]] = f"{r['name']} ({'online' if r['online'] else 'offline'})"
+        return options
+
+    def _sync_runners(self) -> None:
+        options = self._runner_options()
+        if options != self.runner_select.options:
+            keep = self.runner_select.value if self.runner_select.value in options else ""
+            self.runner_select.set_options(options, value=keep)
+        self.runner_field.set_visibility(len(options) > 1)
+
     def _select(self, options, value, for_id: str, **kwargs) -> ui.select:
         return ui.select(options, value=value, **kwargs).props(
             f'outlined dense options-dense for="{for_id}" dropdown-icon="{icon("chevron-down")}" '
@@ -166,6 +179,10 @@ class ControlPanel:
                                                       on_click=lambda: self._step(1)) \
                             .props('flat unelevated aria-label="More workers"').classes("any-step-btn")
                     self._on_workers_change()
+                self.runner_field = field("Run on", "sel-runner", hint="where the tests run")
+                with self.runner_field:
+                    self.runner_select = self._select(self._runner_options(), "", "sel-runner")
+                self.runner_field.set_visibility(bool(self.svc.runners.names()))
 
                 with field("Console log level", "sel-loglevel", hint="what the run prints"):
                     level = cfg["LOG_LEVEL"] if cfg["LOG_LEVEL"] in LEVELS else "INFO"
@@ -635,7 +652,8 @@ class ControlPanel:
                       "Login credentials; login steps may fail.", type="warning", timeout=8000)
         config = RunConfig(system=self.system_select.value or "", env=self.env_select.value or "",
                            tags=list(tags), browsers=list(browsers),
-                           workers=int(self.workers.value or 1), options=self._options(), test_ids=test_ids)
+                           workers=int(self.workers.value or 1), options=self._options(), test_ids=test_ids,
+                           runner=self.runner_select.value or "")
         try:
             run = self.svc.runs.start(config, expected=len(selected) * len(browsers), credentials=typed)
         except (ValueError, RuntimeError) as e:
@@ -644,8 +662,13 @@ class ControlPanel:
         audit("run.start", run.id, system=config.system, env=config.env, tags=config.tags,
               **({"entered_credentials": sorted(typed)} if typed else {}))
         position = self.svc.runs.queue_position(run.id)
-        ui.notify(f"Run {run.id} queued (#{position}); it starts when a slot is free" if position
-                  else f"Run {run.id} started", type="info" if position else "positive")
+        if config.runner:
+            online = self.svc.runners.online(config.runner)
+            ui.notify(f"Run {run.id} sent to runner {config.runner}" + ("" if online else
+                      " (offline: it waits until the runner connects)"), type="info" if online else "warning")
+        else:
+            ui.notify(f"Run {run.id} queued (#{position}); it starts when a slot is free" if position
+                      else f"Run {run.id} started", type="info" if position else "positive")
         self.view_run(run.id)
         self.history.refresh()
 
@@ -727,6 +750,7 @@ class ControlPanel:
         self.tick()
 
     def tick(self) -> None:
+        self._sync_runners()
         run = self._run()
         self._update_buttons(run)
         if not run:
@@ -748,7 +772,8 @@ class ControlPanel:
         self.headline.text = headline
         self.meta.set_visibility(True)
         self.meta_id.text = run.id
-        self.meta_target.text = f"{run.config.system} / {run.config.env}"
+        self.meta_target.text = f"{run.config.system} / {run.config.env}" + (
+            f" on {run.config.runner}" if run.config.runner else "")
         self.meta_tags.text = ", ".join(run.config.tags)
         self.log_view.set_active(run.active)
         self.progress_view.refresh(run)

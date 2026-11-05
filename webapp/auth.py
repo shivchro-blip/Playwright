@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 SESSION_HOURS = 12
 PUBLIC_PATHS = ("/login", "/logout", "/favicon.ico")
-PUBLIC_PREFIXES = ("/_nicegui", "/assets/")  # framework and app assets (no data), and the websocket
+PUBLIC_PREFIXES = ("/_nicegui", "/assets/",   # framework and app assets (no data), and the websocket
+                   "/runner-api/")  # remote runners: each call is checked against its runner token instead
 MAX_FAILURES, FAILURE_WINDOW = 5, 300  # sign-in attempts per user name / client per 5 minutes
 _failures: dict[str, deque] = defaultdict(deque)
 
