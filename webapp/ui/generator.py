@@ -9,7 +9,7 @@ from typing import Callable
 from nicegui import ui
 
 from webapp.services.env_config import FIELDS as ENV_FIELDS
-from webapp.services.json_files import ConflictError, PathError
+from webapp.services.json_files import ConflictError, PathError, safe_path
 from utils.data_sets import DataSetError
 from utils.data_sets import load_file as load_data_file
 from webapp.services.checkpoints import CheckpointStore
@@ -25,6 +25,7 @@ from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.data_sets_panel import DataSetEditor
+from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_scan_dialog import open_page_scan
@@ -275,6 +276,8 @@ class TestEditor:
                 ui.button("Check", icon=icon("list-checks"), color=None, on_click=lambda: self.validate(True)) \
                     .classes("any-btn is-38")
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
+                    .props('data-testid="tc-history"').classes("any-btn is-38").tooltip("Earlier versions of this file")
                 ui.button("Copy", icon=icon("copy"), color=None, on_click=self.copy_dialog) \
                     .classes("any-btn is-38").tooltip("Save as a new test case")
                 icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")
@@ -840,6 +843,22 @@ class TestEditor:
         self.dirty = False
         await self.open(self.file, self.index)
 
+    def open_history(self) -> None:
+        if self.file is None:
+            return
+        path = safe_path(self.svc.tests.suite_dir(self.gen.system), self.file)
+
+        async def reload() -> None:
+            self.dirty = False
+            self.list_view.refresh()
+            try:
+                await self.open(self.file, self.index)
+            except (ValueError, IndexError, OSError):
+                self.file = None
+                self.editor.refresh()
+
+        open_file_history(f"{self.file}", path, reload)
+
     async def delete(self) -> None:
         if self.file is None or not guard("edit", "delete test case"):
             return
@@ -1073,6 +1092,9 @@ class PageEditor:
                         ui.menu_item("Check all locators on the live page...",
                                      on_click=lambda: open_locator_health(self))
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
+                    .props('data-testid="page-history"').classes("any-btn is-38") \
+                    .tooltip("Earlier versions of this page")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
         self.usage_view()
         if self.json_mode:
@@ -1482,6 +1504,16 @@ class PageEditor:
         if self.rel is not None:
             self.dirty = False
             await self.open(self.rel)
+
+    def open_history(self) -> None:
+        if self.rel is None:
+            return
+
+        async def reload() -> None:
+            self.dirty = False
+            await self.open(self.rel)
+
+        open_file_history(self.rel, safe_path(self.svc.pom.pages_dir(self.gen.system), self.rel), reload)
 
     async def new_page_dialog(self) -> None:
         system = self.gen.system

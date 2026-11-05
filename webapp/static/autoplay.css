@@ -689,3 +689,10 @@
 /* A labelled button that deletes (run headers in Control and History) */
 .any-app .any-btn.is-danger { color: var(--fail); border-color: var(--fail-border); }
 .any-app .any-btn.is-danger:hover { background: var(--fail-hover); }
+
+/* Edit history diff */
+.any-diff { font-family: var(--font-mono); font-size: 12px; line-height: 1.5; border: 1px solid var(--border); border-radius: var(--r-ctl); background: var(--surface); max-height: 52vh; overflow: auto; padding: 8px 0; }
+.any-diff-line { white-space: pre; padding: 0 12px; }
+.any-diff-line.is-add { background: var(--pass-bg); color: var(--pass-ink); }
+.any-diff-line.is-del { background: var(--fail-tile); color: var(--fail); }
+.any-diff-line.is-hunk { color: var(--muted); }

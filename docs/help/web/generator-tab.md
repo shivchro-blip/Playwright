@@ -127,3 +127,8 @@ Rename and Tidy each ask you to **Preview** first: it lists the files that would
 - If a file changed on disk after you opened it (another tab, a teammate, `git pull`), saving is refused - click **Revert** to reload.
 - Writes are atomic and keep the file's indentation.
 - Leaving an editor with unsaved changes asks first.
+
+## Edit history
+
+Every save of a page, a test file or a data set keeps the version it replaces, in `.history/` in the workspace (git-ignored; the last 40 versions of each file). Click **History** in the editor (the clock icon for a data set) to pick a version, see what differs from the file now (red lines were removed, green lines added) and **Restore this version**. A restore is itself a save, so the version it replaces is kept and it can be undone the same way. It also brings back test cases you deleted (a test file's history covers all its cases). The first save of a file can show the whole file as changed when the editor re-indents it.
+

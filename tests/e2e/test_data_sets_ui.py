@@ -106,3 +106,32 @@ def test_export_csv_and_import_csv_and_excel(workspace, tmp_path):
         expect(dialog.get_by_test_id("data-import-summary")).to_contain_text("Column header")
         expect(dialog.get_by_test_id("data-import-ok")).to_be_disabled()
         browser.close()
+
+
+def test_history_lists_versions_shows_the_diff_and_restores_one(workspace, tmp_path):
+    with running_app(tmp_path) as url, sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.goto(url, wait_until="networkidle")
+        page.get_by_role("tab", name="Generator").click()
+
+        # a page: change a locator, save, then bring the old one back from History
+        expect(page.get_by_test_id("page-history")).to_be_visible()  # the first page opens by itself
+        page.get_by_test_id("page-history").click()
+        expect(page.get_by_test_id("history-empty")).to_be_visible()  # nothing saved yet
+        page.keyboard.press("Escape")
+        page.get_by_label("Locator", exact=True).first.fill("#changed")
+        page.get_by_role("button", name="Save").click()
+        expect(page.get_by_text("Saved SmokeHome")).to_be_visible()
+        page.get_by_test_id("page-history").click()
+        diff = page.get_by_test_id("history-diff")
+        expect(diff).to_contain_text("#changed")
+        expect(diff.locator(".is-del", has_text='"#q"').first).to_be_visible()  # saving also re-indents the file
+        page.get_by_test_id("history-restore").click()
+        expect(page.get_by_text("Restored the version")).to_be_visible()
+        expect(page.get_by_label("Locator", exact=True).first).to_have_value("#q")
+        browser.close()
+    saved = json.loads((workspace / "Pages" / "SMOKE" / "SmokeHome.json").read_text(encoding="utf-8"))
+    assert saved["fields"]["searchBox"]["locator"] == "#q"
+    kept = list((workspace / ".history" / "Pages" / "SMOKE" / "SmokeHome.json").glob("*.json"))
+    assert len(kept) == 2  # the original and the "#changed" version that the restore replaced
