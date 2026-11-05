@@ -67,8 +67,8 @@ def test_a_run_goes_to_a_runner_and_comes_back_with_results(workspace, tmp_path)
     with running_app(tmp_path) as url:
         run_id = new_run(url, "lab1")
         assert call(f"{url}api/runs/{run_id}")[1]["status"] == "queued"  # nothing runs here
-        assert call(f"{url}api/runners")[1] == [{"name": "lab1", "created": store.list()[0]["created"],
-                                                 "online": False}]
+        listed = call(f"{url}api/runners")[1]
+        assert [(r["name"], r["online"], r["labels"], r["host"]) for r in listed] == [("lab1", False, [], "")]
         agent = start_agent(url, token, tmp_path)
         run = wait_finished(url, run_id, agent, tmp_path)
         agent_log = (tmp_path / "agent.log").read_text(encoding="utf-8")
