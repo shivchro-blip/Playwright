@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -133,8 +134,9 @@ def _walk_attachments(node: dict) -> list[dict]:
 class RunArtifacts:
     """Cached reader: re-parses a run's results only when files were added or changed."""
 
-    def __init__(self, runs_url: str = "/runs"):
+    def __init__(self, runs_url: str = "/runs", mask: Callable[[str], str] | None = None):
         self.runs_url = runs_url.rstrip("/")
+        self.mask = mask or (lambda text: text)  # hides sensitive values in the text shown in the app
         self._cache: dict[Path, tuple[tuple, dict]] = {}
 
     def details(self, run_id: str, results_dir: Path) -> dict[tuple[str, str], TestDetails]:
@@ -167,8 +169,8 @@ class RunArtifacts:
         test_id, browser = (m.group("test_id"), m.group("browser")) if m else (name, "")
         status_details = data.get("statusDetails") or {}
         details = TestDetails(test_id=test_id, browser=browser, status=str(data.get("status") or ""),
-                              message=str(status_details.get("message") or "").strip(),
-                              trace=str(status_details.get("trace") or "").strip())
+                              message=self.mask(str(status_details.get("message") or "").strip()),
+                              trace=self.mask(str(status_details.get("trace") or "").strip()))
         for att in _walk_attachments(data):
             item = self._attachment(run_id, results_dir, att)
             if item == "log":
@@ -176,6 +178,11 @@ class RunArtifacts:
             elif item:
                 details.attachments.append(item)
         details.failure = self._failure(run_id, results_dir, data)
+        if details.failure:
+            for f in fields(details.failure):
+                value = getattr(details.failure, f.name)
+                if isinstance(value, str) and value:
+                    setattr(details.failure, f.name, self.mask(value))
         return details
 
     def _attachment(self, run_id: str, results_dir: Path, att: dict):
@@ -193,12 +200,11 @@ class RunArtifacts:
         item = Attachment(name=label, url=f"{self.runs_url}/{run_id}/allure-results/{source}", kind=kind,
                           size=path.stat().st_size)
         if kind == "text":
-            item.text = _read_text(path, TEXT_LIMIT)
+            item.text = self.mask(_read_text(path, TEXT_LIMIT))
         return item
 
-    @staticmethod
-    def _log(results_dir: Path, att: dict) -> str:
-        return _read_text(results_dir / str(att.get("source") or ""), LOG_LIMIT, tail=True)
+    def _log(self, results_dir: Path, att: dict) -> str:
+        return self.mask(_read_text(results_dir / str(att.get("source") or ""), LOG_LIMIT, tail=True))
 
     def _failure(self, run_id: str, results_dir: Path, data: dict) -> FailurePoint | None:
         chain = _failed_chain(data)

@@ -30,6 +30,7 @@ from webapp.pytest_events import PREFIX
 from webapp.services.archives import extract_safely
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.json_files import NAME_RE
+from webapp.services.masking import Masker
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_insights import build_report
 from webapp.services.runners import RunnerStore
@@ -101,12 +102,13 @@ class Run:
     _finishing: bool = field(default=False, repr=False)
     # Login values typed into the app for this run: memory only, never saved, logged or serialized
     _secrets: dict[str, str] = field(default_factory=dict, repr=False)
+    _masker: Masker | None = field(default=None, repr=False)  # hides SSNs, card numbers and the like
 
     def scrub(self, text: str) -> str:
         for value in self._secrets.values():
             if len(value) >= 3:
                 text = text.replace(value, "***")
-        return text
+        return self._masker.mask(text) if self._masker else text
 
     @property
     def results_dir(self) -> Path:
@@ -218,6 +220,7 @@ class RunManager:
         self.allure_cmd = allure_cmd
         self.max_concurrent = max_concurrent
         self.runners = runners
+        self.masker = Masker(self.workspace / "Data" / "maskPatterns.json")
         self._watchdog: threading.Thread | None = None
         self._runs: dict[str, Run] = {}
         self._queue: list[Run] = []  # FIFO: runs waiting for one of max_concurrent slots
@@ -287,6 +290,7 @@ class RunManager:
             run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger)
             run.dir.mkdir(parents=True)
             run._secrets = credentials
+            run._masker = self.masker
             self._runs[run_id] = run
             self._queue.append(run)
         self._save(run)

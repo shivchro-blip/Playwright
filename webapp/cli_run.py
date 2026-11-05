@@ -106,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
             del run.results[key]
         run.status = "error"
     manager.write_summary(run)
-    details = RunArtifacts().details(run.id, run.results_dir)
+    details = RunArtifacts(mask=manager.masker.mask).details(run.id, run.results_dir)
     markdown = build_markdown(run, details)
     (run.dir / "summary.md").write_text(markdown + "\n", encoding="utf-8")
     summary_file = os.environ.get("GITHUB_STEP_SUMMARY")

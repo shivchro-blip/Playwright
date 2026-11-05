@@ -109,7 +109,7 @@ def services() -> Services:
         pom=pom,
         tests=tests_service,
         help=HelpService(s.repo_root / "docs" / "help"),
-        artifacts=RunArtifacts("/runs"),
+        artifacts=RunArtifacts("/runs", mask=runs.masker.mask),
         recorder=Recorder(s.python_exe, s.recorder_command or None),
         settings=s,
         env=env,

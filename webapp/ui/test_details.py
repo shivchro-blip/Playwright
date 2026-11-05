@@ -10,6 +10,8 @@ from nicegui import ui
 from webapp.services.run_artifacts import TestDetails
 from webapp.services.run_insights import trends
 from webapp.services.run_manager import Run
+from webapp.services.trace_viewer import blocker as trace_blocker
+from webapp.services.trace_viewer import open_trace
 from webapp.state import services
 from webapp.ui.ai_panels import ai_enabled, triage_section
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
@@ -50,6 +52,26 @@ def _link(label: str, url: str, icon_name: str, download: bool = False) -> None:
     with ui.element("a").classes("any-artifact-link").props(props):
         ui.icon(icon(icon_name)).props('aria-hidden="true"')
         text("span", label)
+
+
+def _trace_actions(run: Run, traces: list) -> None:
+    """Open the trace in Playwright's viewer when the app runs on this machine; otherwise say how."""
+    svc = services()
+    reason = trace_blocker(svc.settings.host)
+    if not reason:
+        with ui.element("div").classes("any-artifact-row"):
+            for att in traces:
+                def open_it(att=att) -> None:
+                    try:
+                        open_trace(run.results_dir, att.url, svc.recorder.command)
+                    except ValueError as e:
+                        ui.notify(str(e), type="negative")
+                    else:
+                        ui.notify("Opening the trace viewer on this computer...", type="info")
+                ui.button("Open in trace viewer", icon=icon("play"), color=None, on_click=open_it) \
+                    .props('flat unelevated no-caps data-testid="open-trace"').classes("any-btn is-38")
+    ui.label("Or open the downloaded file with `playwright show-trace <file>`, or drop it on trace.playwright.dev "
+             "(it is processed in your browser, not uploaded).").classes("any-muted text-xs")
 
 
 def open_test_details(run: Run, row: dict) -> None:
@@ -136,8 +158,7 @@ def open_test_details(run: Run, row: dict) -> None:
                                  else att.name or att.kind)
                         _link(label, att.url, ico, download)
                 if item and item.by_kind("trace"):
-                    ui.label("Open a trace with `playwright show-trace <file>`, or drop it on trace.playwright.dev "
-                             "(the file is processed in your browser, not uploaded).").classes("any-muted text-xs")
+                    _trace_actions(run, item.by_kind("trace"))
 
         texts = item.by_kind("text") if item else []
         for att in texts:
