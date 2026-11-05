@@ -196,7 +196,8 @@ def test_runners_dialog_adds_labels_and_removes_a_runner(workspace, tmp_path):
         expect(dialog.get_by_test_id("runners-empty")).to_be_visible()
         browser.close()
     assert RunnerStore(tmp_path / "runners.json").names() == []
-    assert any(e["action"] == "runner.add" for e in map(json.loads, (tmp_path / "audit.jsonl").read_text().splitlines()))
+    audit_lines = (tmp_path / "audit.jsonl").read_text(encoding="utf-8").splitlines()
+    assert any(json.loads(line)["action"] == "runner.add" for line in audit_lines)
 
 
 def test_run_on_offers_labels_and_a_labelled_run_waits_for_a_matching_runner(workspace, tmp_path):

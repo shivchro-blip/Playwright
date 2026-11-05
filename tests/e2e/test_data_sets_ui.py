@@ -58,9 +58,12 @@ def test_export_csv_and_import_csv_and_excel(workspace, tmp_path):
     xlsx_file = tmp_path / "people.xlsx"
     ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
     with zipfile.ZipFile(xlsx_file, "w") as z:
+        def cell(ref, value):
+            return f'<c r="{ref}" t="inlineStr"><is><t>{value}</t></is></c>'
+
         z.writestr("xl/worksheets/sheet1.xml", f'<worksheet {ns}><sheetData>'
-                   '<row r="1"><c r="A1" t="inlineStr"><is><t>set</t></is></c><c r="B1" t="inlineStr"><is><t>City</t></is></c></row>'
-                   '<row r="2"><c r="A2" t="inlineStr"><is><t>houston</t></is></c><c r="B2" t="inlineStr"><is><t>Houston</t></is></c></row>'
+                   f'<row r="1">{cell("A1", "set")}{cell("B1", "City")}</row>'
+                   f'<row r="2">{cell("A2", "houston")}{cell("B2", "Houston")}</row>'
                    '</sheetData></worksheet>')
     with running_app(tmp_path) as url, sync_playwright() as p:
         browser = p.chromium.launch()

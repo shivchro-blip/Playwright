@@ -32,7 +32,8 @@ def xlsx(rows: list[list[str]], shared: bool = True) -> bytes:
     ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as z:
-        z.writestr("xl/worksheets/sheet1.xml", f'<worksheet {ns}><sheetData>{"".join(sheet_rows)}</sheetData></worksheet>')
+        z.writestr("xl/worksheets/sheet1.xml",
+                   f'<worksheet {ns}><sheetData>{"".join(sheet_rows)}</sheetData></worksheet>')
         z.writestr("xl/sharedStrings.xml", f'<sst {ns}>{"".join(f"<si><t>{s}</t></si>" for s in strings)}</sst>')
     return out.getvalue()
 
