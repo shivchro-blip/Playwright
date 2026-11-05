@@ -166,6 +166,14 @@ def summarize(rows: list[CompareRow]) -> dict[str, int]:
     return {c: n for c, n in counts.items() if n}
 
 
+def partner_run(runs: Iterable[Run], target: Run) -> Run | None:
+    """The finished run started together with `target` on another environment, if there is one."""
+    wanted = {target.compare_with} - {""}
+    candidates = [r for r in runs if r.id != target.id and (r.id in wanted or r.compare_with == target.id)]
+    done = [r for r in candidates if r.status not in ("queued", "running")]
+    return done[0] if done else None
+
+
 def previous_run(runs: Iterable[Run], target: Run) -> Run | None:
     """The latest finished run before `target` on the same system and environment."""
     earlier = [r for r in finished(runs, target.config.system, target.config.env)

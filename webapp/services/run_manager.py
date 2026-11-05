@@ -20,7 +20,7 @@ import sys
 import re
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Callable
@@ -93,6 +93,7 @@ class Run:
     report_message: str = ""
     trigger: str = ""  # "" = started by a person; "schedule:<id>" = started by a schedule
     claimed_by: str = ""  # remote runs: the runner that took it
+    compare_with: str = ""  # a run started together with this one on another environment, to compare with
     results: dict[str, TestResult] = field(default_factory=dict)
     log: list[str] = field(default_factory=list, repr=False)
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
@@ -155,6 +156,7 @@ class Run:
             "report_message": self.report_message,
             "trigger": self.trigger,
             "claimed_by": self.claimed_by,
+            "compare_with": self.compare_with,
             "results": [asdict(r) for r in list(self.results.values())],
         }
 
@@ -222,6 +224,7 @@ class RunManager:
         self.runners = runners
         self.masker = Masker(self.workspace / "Data" / "maskPatterns.json")
         self._watchdog: threading.Thread | None = None
+        self._save_lock = threading.Lock()  # run.json is written from the run's thread and from callers
         self._runs: dict[str, Run] = {}
         self._queue: list[Run] = []  # FIFO: runs waiting for one of max_concurrent slots
         self._lock = threading.Lock()
@@ -243,8 +246,25 @@ class RunManager:
 
     # ───────────── commands ─────────────
 
+    def start_compared(self, config: RunConfig, envs: list[str], expected: int = 0, trigger: str = "",
+                       credentials: dict[str, str] | None = None) -> list[Run]:
+        """Start `config` and the same selection on each environment in `envs`; the runs are paired so the
+        comparison opens with its partner. Returns the main run first."""
+        extra = [e for e in dict.fromkeys(str(e).strip() for e in envs) if e and e != config.env]
+        first = self.start(config, expected, trigger, credentials)
+        runs = [first]
+        for env in extra:
+            other = replace(config, env=env, tags=list(config.tags), browsers=list(config.browsers),
+                            options=dict(config.options), test_ids=list(config.test_ids))
+            run = self.start(other, expected, trigger, credentials, compare_with=first.id)
+            if not first.compare_with:
+                first.compare_with = run.id
+                self._save(first)
+            runs.append(run)
+        return runs
+
     def start(self, config: RunConfig, expected: int = 0, trigger: str = "",
-              credentials: dict[str, str] | None = None) -> Run:
+              credentials: dict[str, str] | None = None, compare_with: str = "") -> Run:
         """`credentials`: env var name -> value for this run only, held in memory. A variable the
         environment already has is left alone."""
         credentials = {k: v for k, v in (credentials or {}).items() if v}
@@ -287,7 +307,8 @@ class RunManager:
             if len(self._queue) >= MAX_QUEUED:
                 raise RuntimeError(f"{MAX_QUEUED} runs are already waiting; try again when some have finished.")
             run_id = datetime.now().strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(2)
-            run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger)
+            run = Run(id=run_id, config=config, dir=self.runs_dir / run_id, expected=expected, trigger=trigger,
+                      compare_with=compare_with)
             run.dir.mkdir(parents=True)
             run._secrets = credentials
             run._masker = self.masker
@@ -632,9 +653,10 @@ class RunManager:
 
     def _save(self, run: Run) -> None:
         try:
-            tmp = run.dir / "run.json.tmp"
-            tmp.write_text(json.dumps(run.to_dict(), indent=2), encoding="utf-8")
-            tmp.replace(run.dir / "run.json")
+            with self._save_lock:
+                tmp = run.dir / "run.json.tmp"
+                tmp.write_text(json.dumps(run.to_dict(), indent=2), encoding="utf-8")
+                tmp.replace(run.dir / "run.json")
         except OSError:
             logger.exception("Could not save run %s", run.id)
 
@@ -650,6 +672,7 @@ class RunManager:
                     error=data.get("error", ""), collected=data.get("collected"),
                     report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
                     trigger=data.get("trigger", ""), claimed_by=data.get("claimed_by", ""),
+                    compare_with=data.get("compare_with", ""),
                     results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
                 )
             except (OSError, ValueError, KeyError, TypeError):
