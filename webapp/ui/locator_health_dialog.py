@@ -5,9 +5,13 @@ from typing import TYPE_CHECKING
 
 from nicegui import run, ui
 
-from webapp.auth import guard
+from webapp.auth import audit, guard
 from webapp.services.locator_check import page_url
-from webapp.services.locator_health import LABELS, OK, PROBLEMS, SKIPPED, PageHealth, check_fields
+from webapp.services.locator_health import (
+    HIDDEN, LABELS, MISSING, OK, OUT_OF_RANGE, ERROR, PROBLEMS, SKIPPED, PageHealth, check_fields,
+)
+from webapp.services.locator_suggest import KEYS as LOCATOR_KEYS
+from webapp.services.locator_suggest import signature, suggest
 from webapp.state import services
 from webapp.ui.components import field as labelled
 from webapp.ui.components import icon_button, text
@@ -18,6 +22,7 @@ if TYPE_CHECKING:
     from webapp.ui.generator import PageEditor
 
 PILLS = {OK: "passed", SKIPPED: "idle"}  # everything else is a problem and shows as failed
+BROKEN = (MISSING, HIDDEN, OUT_OF_RANGE, ERROR)  # fields a replacement can be suggested for
 
 
 def open_locator_health(editor: PageEditor) -> None:
@@ -88,6 +93,10 @@ def open_locator_health(editor: PageEditor) -> None:
                                 text("span", f"{counts[status]} {LABELS[status]}")
                     text("span", f"{health.seconds:.1f} s", "any-muted text-sm")
                 text("div", f"{health.title} - {health.final_url}", "any-muted text-sm")
+                if any(f.status in BROKEN for f in health.fields):
+                    ui.button("Suggest fixes", icon=icon("sparkles"), color=None, on_click=lambda: do_suggest()) \
+                        .props('data-testid="health-suggest"').classes("any-btn is-38") \
+                        .tooltip("Scan the page and rank the elements that could replace each missing locator")
                 rank = {s: i for i, s in enumerate(PROBLEMS)}
                 shown = [f for f in health.fields if not problems_only.value or f.status in PROBLEMS]
                 shown.sort(key=lambda f: rank.get(f.status, len(rank)))
@@ -105,6 +114,60 @@ def open_locator_health(editor: PageEditor) -> None:
                                 text("div", _describe(f.cfg), "any-small mono truncate")
                                 if f.detail:
                                     text("div", f.detail, "any-muted text-xs")
+                                suggestions(f.name)
+
+        def suggestions(name: str) -> None:
+            found = state.get("suggest")
+            if found is None or name not in found.by_field:
+                return
+            options = found.by_field[name]
+            if not options:
+                text("div", "No element on the page looks like this field.", "any-muted text-xs")
+                return
+            for s in options:
+                with ui.element("div").classes("any-suggest").props(f'data-testid="suggest-{name}"'):
+                    text("span", f"{s.score}%", "any-pill pill-idle")
+                    with ui.element("div").classes("min-w-0 flex-1"):
+                        text("div", _describe(s.cfg) + (f"  \"{s.label}\"" if s.label else ""),
+                             "any-small mono truncate")
+                        text("div", s.reason, "any-muted text-xs")
+                    ui.button("Use", color=None, on_click=lambda s=s, n=name: use(n, s)) \
+                        .props(f'flat dense no-caps data-testid="suggest-use-{name}"').classes("any-btn")
+
+        def use(name: str, s) -> None:
+            if not guard("edit", "use a locator suggestion", name):
+                return
+            row = next((r for r in editor.rows if r.name == name), None)
+            if row is None:
+                ui.notify(f"{name} is no longer on this page.", type="warning")
+                return
+            for key in LOCATOR_KEYS:
+                row.cfg.pop(key, None)
+            row.cfg.update(s.cfg)
+            editor.touch()
+            editor.fields_view.refresh()
+            audit("page.locator_suggestion", f"{system}/{editor.rel}", field=name)
+            ui.notify(f"{name} now uses {_describe(s.cfg)}. Save the page to keep it.", type="positive")
+
+        async def do_suggest() -> None:
+            health = state["health"]
+            if state["busy"] or health is None or not guard("check", "suggest locators"):
+                return
+            broken = {f.name: f.cfg for f in health.fields if f.status in BROKEN}
+            taken = {signature(f.cfg) for f in health.fields if f.status == OK}
+            state["busy"] = True
+            try:
+                storage = session_file if use_session is not None and use_session.value else None
+                state["suggest"] = await run.io_bound(suggest, (url_input.value or "").strip(), broken, taken,
+                                                      storage_state=storage)
+                if not state["suggest"].ok:
+                    ui.notify(state["suggest"].error, type="negative", multi_line=True)
+                    state["suggest"] = None
+                render(health)
+            except Exception as e:  # e.g. Playwright's browser isn't installed
+                ui.notify(f"{type(e).__name__}: {e}", type="negative", multi_line=True)
+            finally:
+                state["busy"] = False
 
         async def do_check() -> None:
             if state["busy"] or not guard("check", "check locators"):
@@ -117,6 +180,7 @@ def open_locator_health(editor: PageEditor) -> None:
             start.props("loading")
             try:
                 storage = session_file if use_session is not None and use_session.value else None
+                state["suggest"] = None
                 state["health"] = await run.io_bound(check_fields, (url_input.value or "").strip(), fields,
                                                      storage_state=storage)
                 render(state["health"])

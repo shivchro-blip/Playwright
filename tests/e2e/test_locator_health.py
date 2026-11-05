@@ -74,3 +74,39 @@ def test_dialog_lists_problems_first_and_can_show_everything(workspace, tmp_path
         dialog.get_by_test_id("health-filter").click()
         expect(results).to_contain_text("begin")
         browser.close()
+
+
+def test_suggest_fixes_ranks_replacements_and_use_updates_the_field(workspace, tmp_path, site_url: str):
+    import json
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from tests.e2e.test_ui import running_app
+
+    (workspace / "Pages" / "SMOKE" / "AfterRedesign.json").write_text(json.dumps({
+        "fullpath": f"{site_url}/renamed.html",
+        "fields": {"zip": {"locator": "#zip-code", "type": "text"},
+                   "phone": {"locator": "#phone", "type": "text"},
+                   "birthDate": {"locator": "#dob", "type": "text"},
+                   "notes": {"locator": "#notes-box", "type": "text"}}}), encoding="utf-8")
+    with running_app(tmp_path) as url, sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.goto(url, wait_until="networkidle")
+        page.get_by_role("tab", name="Generator").click()
+        page.get_by_role("tab", name="Pages").click()
+        expect(page.get_by_role("heading", name="AfterRedesign", level=2)).to_be_visible()  # opens itself
+        page.get_by_test_id("page-maintain").click()
+        page.get_by_text("Check all locators on the live page...").click()
+        dialog = page.get_by_role("dialog", name="Check all locators")
+        dialog.get_by_test_id("health-start").click()
+        expect(dialog.get_by_test_id("health-summary")).to_contain_text("3 not found", timeout=60_000)
+        dialog.get_by_test_id("health-suggest").click()
+        zip_row = dialog.get_by_test_id("suggest-zip")
+        expect(zip_row).to_contain_text("#applicantZipCode", timeout=60_000)
+        expect(zip_row).to_contain_text("Zip code")
+        expect(dialog.get_by_test_id("suggest-phone")).to_contain_text("#contactPhone")
+        expect(dialog.get_by_text("No element on the page looks like this field.")).to_be_visible()  # birthDate
+        dialog.get_by_test_id("suggest-use-zip").click()
+        expect(page.get_by_text("zip now uses")).to_be_visible()
+        browser.close()

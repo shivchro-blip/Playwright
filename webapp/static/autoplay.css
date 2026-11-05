@@ -713,3 +713,6 @@
 .any-hbar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
 .any-hbar-val { color: var(--muted); font-size: 12px; }
 @media (max-width: 720px) { .any-hbar-row { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Locator suggestions */
+.any-suggest { display: flex; align-items: center; gap: 10px; margin: 6px 0 0 8px; padding: 6px 10px; border: 1px dashed var(--border-control); border-radius: var(--r-ctl); background: var(--surface-subtle); }
