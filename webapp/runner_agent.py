@@ -14,6 +14,7 @@ import json
 import os
 import queue
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -79,6 +80,16 @@ class Client:
     def download(self, path: str, target: Path) -> None:
         _, raw = self.call("GET", path)
         target.write_bytes(raw)
+
+
+def agent_info() -> dict:
+    version = ""
+    try:
+        version = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT, capture_output=True,
+                                 text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return {"host": socket.gethostname(), "version": version}
 
 
 def _output_reader(proc: subprocess.Popen, lines: queue.Queue) -> None:
@@ -197,11 +208,12 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     env_file = Path(args.env_file) if args.env_file else Path(resolve_dotenv_path(str(REPO_ROOT / "workspace")))
     client = Client(args.server, args.token)
+    info = agent_info()
     log(f"Waiting for work from {args.server}")
     idle_since, delay = time.monotonic(), args.poll
     while True:
         try:
-            claimed = client.json("POST", "/runner-api/claim", {"protocol": PROTOCOL})
+            claimed = client.json("POST", "/runner-api/claim", {"protocol": PROTOCOL, **info})
             delay = args.poll
         except ApiError as e:
             if e.status in (401, 409):

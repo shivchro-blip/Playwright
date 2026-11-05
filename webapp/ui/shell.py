@@ -5,6 +5,7 @@ from nicegui import ui
 
 from webapp.auth import guard, ui_user
 from webapp.ui.activity import open_activity
+from webapp.ui.runners_dialog import open_runners
 from webapp.ui.ai_panels import open_ai_settings
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
@@ -43,6 +44,8 @@ def register() -> None:
                 .props('flat unelevated no-caps aria-label="AI assist settings" data-testid="ai-settings"') \
                 .classes("any-nav-btn")
             if user and user.can("users"):
+                ui.button("Runners", icon=icon("server"), color=None, on_click=open_runners) \
+                    .props('flat unelevated no-caps data-testid="runners"').classes("any-nav-btn")
                 ui.button("Activity", icon=icon("history"), color=None, on_click=open_activity) \
                     .props('flat unelevated no-caps data-testid="activity"').classes("any-nav-btn is-next")
             if services().settings.login_required and user:

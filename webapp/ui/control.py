@@ -116,8 +116,12 @@ class ControlPanel:
 
     def _runner_options(self) -> dict[str, str]:
         options = {"": "This machine"}
-        for r in self.svc.runners.list():
+        runners = self.svc.runners.list()
+        for r in runners:
             options[r["name"]] = f"{r['name']} ({'online' if r['online'] else 'offline'})"
+        for label in sorted({x for r in runners for x in r["labels"]}):
+            online = sum(1 for r in runners if label in r["labels"] and r["online"])
+            options[f"label:{label}"] = f"Any runner labelled {label} ({online} online)"
         return options
 
     def _sync_runners(self) -> None:
@@ -663,9 +667,12 @@ class ControlPanel:
               **({"entered_credentials": sorted(typed)} if typed else {}))
         position = self.svc.runs.queue_position(run.id)
         if config.runner:
-            online = self.svc.runners.online(config.runner)
-            ui.notify(f"Run {run.id} sent to runner {config.runner}" + ("" if online else
-                      " (offline: it waits until the runner connects)"), type="info" if online else "warning")
+            names = [r["name"] for r in self.svc.runners.list() if self.svc.runners.accepts(config.runner, r["name"])]
+            online = any(self.svc.runners.online(n) for n in names)
+            target = config.runner.replace("label:", "a runner labelled ") if config.runner.startswith("label:") \
+                else f"runner {config.runner}"
+            ui.notify(f"Run {run.id} sent to {target}" + ("" if online else
+                      " (offline: it waits until a runner connects)"), type="info" if online else "warning")
         else:
             ui.notify(f"Run {run.id} queued (#{position}); it starts when a slot is free" if position
                       else f"Run {run.id} started", type="info" if position else "positive")
@@ -773,7 +780,7 @@ class ControlPanel:
         self.meta.set_visibility(True)
         self.meta_id.text = run.id
         self.meta_target.text = f"{run.config.system} / {run.config.env}" + (
-            f" on {run.config.runner}" if run.config.runner else "")
+            f" on {run.claimed_by or run.config.runner}" if run.config.runner else "")
         self.meta_tags.text = ", ".join(run.config.tags)
         self.log_view.set_active(run.active)
         self.progress_view.refresh(run)
