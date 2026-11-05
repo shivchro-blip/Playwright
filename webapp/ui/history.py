@@ -19,6 +19,7 @@ from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.ai_panels import open_run_summary
 from webapp.ui.quarantine_dialog import toggle_quarantine
+from webapp.ui.trends_dialog import open_trends
 from webapp.ui.run_compare import open_compare
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.theme import icon
@@ -61,6 +62,9 @@ class HistoryPanel:
                         text("h2", "Runs", "any-title")
                         self.count_pill = text("span", "", "any-count-pill")
                     with ui.element("div").classes("any-head-right"):
+                        ui.button("Trends", icon=icon("chart-column"), color=None,
+                                  on_click=lambda: open_trends(self.system)) \
+                            .props('flat unelevated no-caps data-testid="open-trends"').classes("any-btn is-38")
                         icon_button("rotate-cw", "Reload runs", self.refresh)
                 with ui.element("div").classes("any-filters"):
                     select(sorted({r.config.system for r in self.svc.runs.list()}), "System", "hist-system",

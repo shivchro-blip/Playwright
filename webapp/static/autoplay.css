@@ -696,3 +696,20 @@
 .any-diff-line.is-add { background: var(--pass-bg); color: var(--pass-ink); }
 .any-diff-line.is-del { background: var(--fail-tile); color: var(--fail); }
 .any-diff-line.is-hunk { color: var(--muted); }
+
+/* Trends */
+.any-trend { display: flex; flex-direction: column; gap: 8px; }
+.any-trend-sum { font-size: 14px; color: var(--ink); }
+.any-bars { display: flex; align-items: flex-end; gap: 3px; height: 140px; border-bottom: 1px solid var(--border); padding: 0 2px; }
+.any-bar { flex: 1 1 0; min-width: 4px; height: 100%; display: flex; align-items: flex-end; }
+.any-bar-stack { width: 100%; display: flex; flex-direction: column; border-radius: 3px 3px 0 0; overflow: hidden; }
+.any-bar-stack i { display: block; min-height: 2px; }
+.any-bar-stack i.is-pass { background: var(--pass-dot); }
+.any-bar-stack i.is-fail { background: var(--fail); }
+.any-bar-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.any-hbar-row { display: grid; grid-template-columns: minmax(10rem, 22rem) 1fr minmax(12rem, 18rem); align-items: center; gap: 12px; font-size: 13px; }
+.any-hbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); }
+.any-hbar { height: 10px; background: var(--chip-bg); border-radius: 5px; overflow: hidden; }
+.any-hbar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+.any-hbar-val { color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) { .any-hbar-row { grid-template-columns: 1fr; gap: 4px; } }

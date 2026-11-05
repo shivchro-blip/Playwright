@@ -61,3 +61,11 @@ Test data looks real, and logs and reports get shared. Social Security numbers (
 
 The **Flaky tests** panel lists tests whose result flipped between pass and fail in their recent runs, or that passed only after a retry. For each, **Quarantine** keeps the test case running but stops its failures from failing the run: it is reported as *xfailed* with your reason, the run stays green, and a pass shows as *xpassed*. **Release** puts it back to normal. The same **Quarantine / Release** button is in the Generator's test case editor. Quarantined test cases are listed in `Data/quarantine.json` in the workspace (a test case with a data set is matched by its ID without the `[set]` part). Quarantine hides a problem: fix the test or the portal, then release it.
 
+## Trends
+
+**Trends** (top right of the Runs list) shows how the suite is doing over time for a system, and optionally one environment, over the last 7 to 90 days:
+
+- **Pass rate by day**: a bar per day, green for passed and red for failed test results, with the overall rate for the period. Days without a run are empty.
+- **Slowest tests**: the tests with the longest average duration over their last 20 runs, with the slowest and latest time, so creeping slowness shows before it causes timeouts.
+- **Where tests fail**: failures of the last 15 runs grouped by screen, field and action, so one broken locator or one unstable screen stands out from a long list of red tests.
+
