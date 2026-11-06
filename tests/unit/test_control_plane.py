@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import sys
 import threading
 import time
@@ -38,7 +39,13 @@ def test_store_tokens_and_validation(tmp_path):
         with pytest.raises(TenantError):
             check_url(bad)
     t = store.get("team-a")
-    assert t.url == "http://127.0.0.1:8101" and store.next_port(8101) == 8102
+    assert t.url == "http://127.0.0.1:8101"
+    with socket.socket() as busy:  # a port something on the machine holds is skipped too
+        busy.bind(("127.0.0.1", 0))
+        held = busy.getsockname()[1]
+        store.add(Tenant("held", "Held", f"http://127.0.0.1:{held - 1}", port=held - 1))
+        assert store.next_port(held - 1) not in (held - 1, held)
+    store.remove("held")
     store.set_token(t, "any_abcdefgh123")
     assert store.token(t) == "any_abcdefgh123"
     if os.name != "nt":

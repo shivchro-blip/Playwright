@@ -11,7 +11,9 @@ from pathlib import Path
 from webapp.control.portfolio import Portfolio
 from webapp.control.settings import ControlSettings, get_control_settings
 from webapp.control.supervisor import Supervisor
-from webapp.control.tenants import Tenant, TenantError, TenantStore, check_url, create_accounts, create_workspace, slug
+from webapp.control.tenants import (
+    Tenant, TenantError, TenantStore, check_url, create_accounts, create_workspace, port_free, slug,
+)
 from webapp.services.audit import AuditLog
 from webapp.services.users import UserStore
 
@@ -37,7 +39,7 @@ class ControlPlane:
         if not re.fullmatch(r"[\w.@-]{1,64}", admin or ""):
             raise TenantError("Name the tenant's first admin (letters, digits and . _ @ -).")
         port = port or self.tenants.next_port(self.settings.first_port)
-        if any(t.port == port for t in self.tenants.list()) or not 1024 <= port <= 65535:
+        if any(t.port == port for t in self.tenants.list()) or not 1024 <= port <= 65535 or not port_free(port):
             raise TenantError(f"Port {port} is taken or not allowed.")
         folder = Path(workspace) if workspace else self.settings.dir / "tenants" / tid
         existed = folder.exists()

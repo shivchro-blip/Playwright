@@ -10,6 +10,7 @@ import os
 import re
 import secrets as pysecrets
 import shutil
+import socket
 import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -43,6 +44,15 @@ class Tenant:
     @property
     def token_key(self) -> str:
         return f"TENANT_{self.id.upper().replace('-', '_')}_TOKEN"
+
+
+def port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(("127.0.0.1", port))
+        except OSError:
+            return False
+    return True
 
 
 def slug(name: str) -> str:
@@ -126,10 +136,14 @@ class TenantStore:
             return gone
 
     def next_port(self, first: int) -> int:
+        """The first port from `first` that no tenant has and nothing on this machine listens on or holds (on
+        Windows, outgoing connections take ports one after another, so the next number is often taken)."""
         used = {t.port for t in self.list()}
         port = first
-        while port in used:
+        while port in used or not port_free(port):
             port += 1
+            if port > 65535:
+                raise TenantError(f"No free port from {first}.")
         return port
 
     # ───── tokens ─────

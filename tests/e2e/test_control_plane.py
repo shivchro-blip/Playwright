@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -41,9 +42,16 @@ def wait_for(check, what: str, seconds: float = 90):
 
 def test_tenants_run_isolated_and_the_portfolio_reads_them(workspace: Path, tmp_path: Path):
     cp_dir = tmp_path / "cp"
+    first = free_port()
+    # something else holds the port after the first tenant's (on Windows an outgoing connection often does):
+    # the next tenant must get a port that is really free
+    held = socket.socket()
+    try:
+        held.bind(("127.0.0.1", first + 1))
+    except OSError:
+        pass  # already taken by something else: just as good
     env = {k: v for k, v in os.environ.items() if not k.startswith(("PYTEST_", "AUTOPLAY_"))}
-    env.update({"AUTOPLAY_CP_DIR": str(cp_dir), "AUTOPLAY_CP_FIRST_PORT": str(free_port()),
-                "PYTHONUNBUFFERED": "1"})
+    env.update({"AUTOPLAY_CP_DIR": str(cp_dir), "AUTOPLAY_CP_FIRST_PORT": str(first), "PYTHONUNBUFFERED": "1"})
     created = subprocess.run([sys.executable, "-m", "webapp.control", "tenant", "create", "Licensing team",
                               "--admin", "lead", "--owner", "QA", "--template", str(workspace)],
                              cwd=REPO_ROOT, env=env, capture_output=True, text=True, timeout=120)
@@ -129,6 +137,7 @@ def test_tenants_run_isolated_and_the_portfolio_reads_them(workspace: Path, tmp_
         proc.kill()  # the hardest way to end it: no shutdown handlers run
         proc.wait(20)
         log.close()
+        held.close()
     # its tenants notice and stop too (their stdin, a pipe from the control plane, closed)
     wait_for(lambda: call(f"{tenant_url}/api/summary")[0] == 0, "the tenants to stop with it", 30)
     wait_for(lambda: call(f"{second_url}/api/summary")[0] == 0, "the second tenant to stop with it", 30)
