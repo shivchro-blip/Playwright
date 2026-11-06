@@ -187,6 +187,9 @@ def result_slots(table: ui.table) -> None:
             <span v-if="props.row.retries && ['passed', 'xpassed'].includes(props.row.outcome)" class="any-flaky-chip"
                   :title="'Failed, then passed when run again (' + props.row.retries + ' retries)'"
             >Passed on retry</span>
+            <span v-if="props.row.healed" class="any-flaky-chip"
+                  :title="props.row.healed + ' locator(s) found nothing and were healed: review them in History'"
+            >Healed</span>
             <span v-else-if="props.row.flaky" class="any-flaky-chip"
                   title="Passed and failed in recent runs, or passed only after a retry">Flaky</span>
           </div>

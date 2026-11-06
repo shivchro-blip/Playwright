@@ -89,6 +89,9 @@ def decide(journeys: list[dict], policy: Policy) -> tuple[str, list[str], list[s
             elif t["outcome"] in PASSING and t.get("retries"):
                 warnings.append(f"{name}: {t['test_id']} passed only after {t['retries']} retr"
                                 f"{'y' if t['retries'] == 1 else 'ies'} (flaky)")
+            if t["outcome"] in PASSING and t.get("healed"):
+                warnings.append(f"{name}: {t['test_id']} passed with {t['healed']} healed locator"
+                                f"{'s' if t['healed'] != 1 else ''}: review them before trusting this result")
     return ("no-go" if reasons else "go"), reasons, warnings
 
 
@@ -217,7 +220,7 @@ class ReleaseService:
             tests = []
             for t in st.tests:
                 tests.append({"test_id": t.test_id, "outcome": t.outcome, "run_id": t.run_id, "at": t.at,
-                              "browser": t.browser, "where": t.where, "retries": t.retries,
+                              "browser": t.browser, "where": t.where, "retries": t.retries, "healed": t.healed,
                               "message": t.message, "quarantined": t.test_id in quarantined})
                 if t.run_id:
                     run_ids.add(t.run_id)
@@ -324,7 +327,7 @@ sign-off: <b>{_e(OUTCOME_LABELS[state])}</b></div>
 <h2>Policy</h2>
 <p>Blocking journeys: {_e(', '.join(policy['block']) or 'none')}. Evidence must be at most
 {_e(policy['max_age_days'])} days old{_e(', from runs since ' + policy['since']) if policy['since'] else ''}.
-Quarantined test cases and tests that passed only after a retry are listed as warnings.</p>
+Quarantined test cases, tests that passed only after a retry and tests with healed locators are listed as warnings.</p>
 <h2>Journeys</h2>{''.join(rows) or '<p class="muted">None.</p>'}
 <h2>Runs used as evidence</h2><table><thead><tr><th>Run</th><th>Status</th><th>Started</th><th>Tags</th>
 <th>Browsers</th><th>Ran on</th></tr></thead><tbody>{runs}</tbody></table>

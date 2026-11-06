@@ -75,6 +75,7 @@ class TestResult:
     duration: float = 0.0
     message: str = ""
     retries: int = 0  # times a failed attempt was run again (retryFailed); passed with retries > 0 = flaky
+    healed: int = 0  # locators that found nothing and were healed during the run (selfHeal)
 
 
 @dataclass
@@ -470,6 +471,14 @@ class RunManager:
 
     def _finish(self, run: Run) -> None:
         """After pytest has ended (here or on a runner): status, reports, notifications, next queued run."""
+        try:
+            from webapp.services.heals import after_run  # late: heals imports the page scanner, which imports us
+            healed = after_run(run, self.workspace)
+            if healed:
+                self._append(run, f"[webapp] {healed} locator{'s were' if healed != 1 else ' was'} healed during "
+                                  "this run: review them in History > Healed locators.")
+        except Exception:  # heal bookkeeping must never break finishing a run
+            logger.exception("Could not read the heal records of %s", run.id)
         run.status = self._final_status(run)
         run.finished_at = _now()
         # Tests still marked running never reported back (crash/cancel)

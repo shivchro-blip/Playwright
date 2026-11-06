@@ -7,7 +7,7 @@ from typing import Callable
 from nicegui import ui
 
 from webapp.services.run_manager import Run
-from webapp.auth import audit, guard
+from webapp.auth import audit, guard, ui_user
 from webapp.state import services
 from webapp.services.run_insights import flaky_tests
 from webapp.services.schedules import TRIGGER
@@ -19,6 +19,7 @@ from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.ai_panels import open_run_summary
 from webapp.ui.quarantine_dialog import toggle_quarantine
+from webapp.ui.recorder_dialog import _describe
 from webapp.ui.trends_dialog import open_trends
 from webapp.ui.run_compare import open_compare
 from webapp.ui.test_details import open_test_details, result_rows
@@ -55,6 +56,7 @@ class HistoryPanel:
                                    .props(f'for="{for_id}"').classes("w-44"), "All")
 
         with ui.element("div").classes("any-page-inner is-wide"):
+            self.heals_view()
             self.flaky_view()
             with ui.element("section").classes("any-card").props('aria-label="Runs"'):
                 with ui.element("div").classes("any-card-head"):
@@ -81,6 +83,68 @@ class HistoryPanel:
         setattr(self, key, value)
         self.flaky_view.refresh()
         self.table_view.refresh()
+
+    @ui.refreshable_method
+    def heals_view(self) -> None:
+        """Locators the runner healed: accept (the page is updated) or reject (never used again)."""
+        items = self.svc.heals.pending(self.system or None)
+        if not items:
+            return
+        with ui.element("section").classes("any-card").props('aria-label="Healed locators" data-testid="heals"'):
+            with ui.element("div").classes("any-card-head"):
+                with ui.element("div").classes("any-head-left"):
+                    text("h2", "Healed locators", "any-title")
+                    text("span", str(len(items)), "any-count-pill")
+                ui.label("These locators found nothing in a run, and the element that best matched them was used "
+                         "instead. Accept to put the new locator in the page, or reject so it is never used "
+                         "again.").classes("any-muted text-sm")
+            with ui.element("div").classes("any-table-wrap"):
+                with ui.element("table").classes("any-table any-jr-table w-full"):
+                    with ui.element("thead"):
+                        with ui.element("tr"):
+                            for head in ("Field", "Was", "Healed to", "Score", "Seen", ""):
+                                text("th", head)
+                    with ui.element("tbody"):
+                        for h in items:
+                            with ui.element("tr").props(f'data-testid="heal-{h.screen}-{h.field}"'):
+                                with ui.element("td"):
+                                    text("div", f"{h.screen}.{h.field}", "any-tc-name mono")
+                                    text("div", h.system, "any-tc-code")
+                                text("td", _describe(h.old), "mono any-small")
+                                with ui.element("td"):
+                                    text("div", _describe(h.new), "mono any-small")
+                                    if h.label:
+                                        text("div", f"\"{h.label}\"", "any-muted text-xs")
+                                with ui.element("td"):
+                                    text("div", f"{h.score}%", "any-num")
+                                    text("div", h.reason, "any-muted text-xs")
+                                text("td", f"{h.count}x in {len(h.runs)} run{'s' if len(h.runs) != 1 else ''}"
+                                           f" ({', '.join(h.tests[:3])})", "any-small")
+                                with ui.element("td"):
+                                    ui.button("Accept", color=None, on_click=lambda h=h: self._heal(h, True)) \
+                                        .props(f'flat dense no-caps data-testid="heal-accept-{h.field}"') \
+                                        .classes("any-btn")
+                                    ui.button("Reject", color=None, on_click=lambda h=h: self._heal(h, False)) \
+                                        .props(f'flat dense no-caps data-testid="heal-reject-{h.field}"') \
+                                        .classes("any-btn")
+
+    def _heal(self, item, accept: bool) -> None:
+        if not guard("edit", "review a healed locator", f"{item.screen}.{item.field}"):
+            return
+        user = ui_user()
+        try:
+            if accept:
+                self.svc.heals.accept(item.key, user.username if user else "anonymous")
+            else:
+                self.svc.heals.reject(item.key, user.username if user else "anonymous")
+        except (ValueError, OSError) as e:
+            ui.notify(str(e), type="negative", multi_line=True)
+            return
+        audit("heal.accept" if accept else "heal.reject", f"{item.system}/{item.screen}.{item.field}",
+              locator=_describe(item.new))
+        ui.notify(f"{item.screen}.{item.field} now uses {_describe(item.new)}" if accept else
+                  f"{_describe(item.new)} will not be used for {item.field} again", type="positive")
+        self.heals_view.refresh()
 
     @ui.refreshable_method
     def flaky_view(self) -> None:
@@ -130,6 +194,7 @@ class HistoryPanel:
 
     def refresh(self) -> None:
         self.signature = self._signature()  # a refresh made here must not be repeated by the next timer tick
+        self.heals_view.refresh()
         self.flaky_view.refresh()
         self.table_view.refresh()
         self.details.refresh()

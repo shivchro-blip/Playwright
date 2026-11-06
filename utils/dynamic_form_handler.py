@@ -9,6 +9,7 @@ from utils.errors import RequiredFieldError, addWarn, attach_allure_failure_deta
 import utils.custom_field_helper as customFieldHelper
 import utils.action_helper as actionHelper
 import utils.executables as executables
+import utils.self_heal as self_heal
 import pytest
 import warnings
 import re
@@ -621,6 +622,13 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
                 elif action_type not in ['keyboard','Payment']:
                     element = await get_element(dictionaryContext, target, page, locator, role, index, placeholder, contains, name, text,
                                                 label, nested, hasTextDirty)
+                    if loop is None and self_heal.enabled():
+                        async def locate(cfg, target=target):
+                            return await get_element(dictionaryContext, target, page, cfg.get("locator"), cfg.get("role"),
+                                                     cfg.get("index"), cfg.get("placeholder"), cfg.get("contains"),
+                                                     cfg.get("name"), cfg.get("text"), cfg.get("label"), None, False)
+                        element = await self_heal.resolve(page, element, target, pomFields.get(target, {}), action_type,
+                                                          locate)
 
                 logger.info(f"Performing {action_type.upper()} on '{target}' (locator: {locator})")
                 await page.wait_for_load_state()

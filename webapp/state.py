@@ -21,6 +21,7 @@ from webapp.services.run_manager import RunManager
 from webapp.services.issue_tracker import IssueTracker
 from webapp.services.journeys import JourneyService, JourneyStore
 from webapp.services.releases import ReleaseService, ReleaseStore
+from webapp.services.heals import HealService
 from webapp.services.quarantine_service import QuarantineService
 from webapp.services.runners import RunnerStore
 from webapp.services.vault import Vault, missing_credentials
@@ -44,6 +45,7 @@ class Services:
     common: CommonActionService
     journeys: JourneyService
     releases: ReleaseService
+    heals: HealService
     issues: IssueTracker
     vault: Vault
     pom: PomService
@@ -200,6 +202,7 @@ def services() -> Services:
         datasets=DataSetService(s.workspace, tests_service),
         common=common,
         journeys=journeys,
+        heals=HealService(s.workspace, runs, pom),
         releases=ReleaseService(ReleaseStore(s.resolved_runs_dir.parent / "releases"), journeys, runs, quarantine,
                                 s.resolved_public_url),
         issues=IssueTracker(prefixed_lookup(env, "ISSUE_")),

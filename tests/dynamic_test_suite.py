@@ -15,6 +15,7 @@ from utils.data_sets import expand as expand_data_sets
 import utils.a11y as a11y
 import utils.checkpoints as checkpoints
 import utils.retry_trace as retry_trace
+import utils.self_heal as self_heal
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -629,6 +630,8 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
 async def run_single_step(step, page, base_url, browser, systemConfig, dictionaryContext):
     screen_name = step["screen"]
     logger.info("Executing Screen: %s", screen_name)
+    root = dictionaryContext.get_root() or ""
+    self_heal.CURRENT.update(system=systemConfig, screen=screen_name, test=root.rsplit("_", 1)[0])
 
     screen_config_path = screen_config_cache.get(screen_name)
     if not screen_config_path:
