@@ -58,7 +58,8 @@ def test_actions_become_fields_and_one_step_in_order():
     assert rec.start_url == "https://shop.test/login" and rec.actions == 8
     assert rec.fields == {
         "email": {"label": "Email", "type": "text"},
-        "signInButton": {"role": "button", "name": "Sign in", "type": "button"},
+        # exact=True stays exact (role + name would also match "Sign in with Google")
+        "signInButton": {"locator": 'internal:role=button[name="Sign in"s]', "type": "button"},
         "redShoesLink": {"role": "link", "name": "Red shoes", "index": 0, "type": "link"},
         "sizeSelect": {"locator": '[data-testid="size"]', "type": "select"},
         "giftWrapCheckbox": {"role": "checkbox", "name": "Gift wrap", "type": "checkbox"},
@@ -169,7 +170,7 @@ def test_session_runs_codegen_and_parses_its_output():
     recorder = Recorder(command=[sys.executable, str(FAKE_CODEGEN)])
     with pytest.raises(RecorderError):
         recorder.start("file:///etc/passwd")
-    session = recorder.start("http://127.0.0.1:1/index.html")
+    session = recorder.start("http://127.0.0.1:1/index.html", mode="codegen")
     workdir = session.workdir
     session = wait_done(recorder)
     assert session.status == "finished", session.error
@@ -181,7 +182,7 @@ def test_session_reports_a_browser_closed_without_recording(tmp_path):
     script = tmp_path / "noop.py"
     script.write_text("print('no display')\n", encoding="utf-8")
     recorder = Recorder(command=[sys.executable, str(script)])
-    recorder.start("http://127.0.0.1:1/")
+    recorder.start("http://127.0.0.1:1/", mode="codegen")
     session = wait_done(recorder)
     assert session.status == "failed" and "without a recording" in session.error and "no display" in session.error
 
@@ -190,10 +191,10 @@ def test_cancel_ends_the_codegen_process_and_discards_the_recording(tmp_path):
     script = tmp_path / "slow.py"
     script.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
     recorder = Recorder(command=[sys.executable, str(script)])
-    session = recorder.start("http://127.0.0.1:1/")
+    session = recorder.start("http://127.0.0.1:1/", mode="codegen")
     assert recorder.active
     with pytest.raises(RecorderError):  # one recording at a time
-        recorder.start("http://127.0.0.1:1/")
+        recorder.start("http://127.0.0.1:1/", mode="codegen")
     recorder.cancel()
     assert session.proc.wait(timeout=10) is not None
     deadline = time.monotonic() + 10
@@ -276,7 +277,7 @@ def test_recorder_passes_the_id_attribute_to_codegen():
     fake = Path(tempfile.mkdtemp()) / "fake.py"
     fake.write_text(f"import sys\nopen({str(seen)!r}, 'w').write(' '.join(sys.argv[1:]))\n", encoding="utf-8")
     recorder = Recorder(command=[sys.executable, str(fake)])
-    recorder.start("http://127.0.0.1:1/", options=RecordOptions(id_attribute="data-attribute-id"))
+    recorder.start("http://127.0.0.1:1/", options=RecordOptions(id_attribute="data-attribute-id"), mode="codegen")
     deadline = time.monotonic() + 15
     while recorder.active and time.monotonic() < deadline:
         time.sleep(0.05)

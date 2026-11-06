@@ -80,10 +80,35 @@ Details, including what a reused test or common action sees, are in *Form Data a
 Record a test by clicking through the site instead of writing locators by hand. It is **off by default**: turn on the **Recorder** switch next to the section tabs (saved as `recorderEnabled` in `.env`), then click **Record**.
 
 1. Pick the environment and start URL (the system's `base_url`), optionally starting logged in from `Data/session.json`, and click **Start recording**.
-2. A Chromium window opens on this computer (Playwright codegen). Click and type through the flow, then close the window.
+2. A Chromium window opens on this computer. Click and type through the flow, then close the window.
 3. Review what was recorded: the fields (locators), the step's form data and any warnings, then pick a page (a new one, or an existing page to add fields to; fields with the same locator are reused) and a test file, and **Save page and test case**.
 
 The whole recording becomes one page step; a field used again gets a pipe suffix (`q|`).
+
+### Smart capture (the default)
+
+**How to record > Smart capture** records with the full picture of every element you touch, so the test still finds it on the next run. At the moment of each click or entry the recorder notes the element's id, `name`, `data-testid` (also `data-test`, `data-cy`, `data-qa`), your site's ID attribute, `aria-label`, label text, placeholder, role and text, and every locator that could find it with how many elements that locator matches right then. It keeps the most stable one that matches **exactly one** element:
+
+| Order | Kept as | Example |
+|---|---|---|
+| 1 | your site's ID attribute | `[data-attribute-id='LSI_APP_TaxNotPaid'] button:text-is('No')` |
+| 2 | a test id | `[data-testid="phone-number"]` |
+| 3 | a fixed id | `[id="email"]` |
+| 4 | `name` (with the value for radios and checkboxes) | `input[name="contact"][value="phone"]` |
+| 5 | `aria-label` | `input[aria-label="Search"]` |
+| 6 | the label, matched exactly | `internal:label="Name"s` (does not also match *First name*) |
+| 7 | the placeholder | `input[placeholder="Email address"]` |
+| 8 | a button's or link's text, exactly | `internal:role=button[name="Continue"s]` |
+| 9 | its place inside an element with a fixed id | `#billing > button` (two *Save* buttons on the page) |
+
+- **Generated ids are never used**: ids with long numbers or hashes, framework prefixes (`mat-`, `mui-`, `ember`, `j_idt`, `react-select-`...) or React's `:r1:` change on every page load, which is the usual reason a recorded test fails the next day.
+- **Field names come from what a person sees**: the label, `aria-label`, placeholder or `name` (`firstName`, `emailAddress`, `stateSelect`, `saveButton`), not from the locator.
+- Clicks that only focus a text box are dropped; checkboxes and radios are recorded as *check*; a select records the option you picked; Enter is recorded as a key press; a value typed again before leaving the field keeps only the last value.
+- A field it could only locate by its position on the page, or with an index, is listed in a warning to check before saving.
+- What each element looked like is saved as its **locator profile** (`Data/locatorProfiles/<SYSTEM>.json`), so self-healing can find it from the first run if the page changes later.
+- Password fields are never read, and values that look like credentials are not saved.
+
+**Playwright codegen** (the other choice) keeps the locators codegen writes, as before; an `exact=True` locator now stays exact.
 
 ### Multi-screen flows (wizard mode)
 

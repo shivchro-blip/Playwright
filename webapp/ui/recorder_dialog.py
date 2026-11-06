@@ -48,6 +48,7 @@ def open_recorder(gen: GeneratorPanel) -> None:
 
     session_file = svc.settings.workspace / "Data" / "session.json"
     state: dict = {"recording": None, "env": env_default, "wizard": False, "breaks": ", ".join(DEFAULT_BREAKS),
+                   "mode": "capture",
                    "id_attr": "", "id_prefix": ""}
 
     with ui.dialog().props("persistent") as dialog, ui.card().classes("any-app any-dialog any-details").props(
@@ -90,6 +91,11 @@ def open_recorder(gen: GeneratorPanel) -> None:
                     url = ui.input(value=base_url(state["env"])).props('for="rec-url"').classes("w-full mono-input")
             use_session = ui.switch("Start logged in (saved session, Data/session.json)", value=True) \
                 if session_file.is_file() else None
+            with labelled("How to record", "rec-mode"):
+                ui.select({"capture": "Smart capture (recommended): full element details, stable locators",
+                           "codegen": "Playwright codegen: the locators codegen writes"},
+                          value=state["mode"], on_change=lambda e: state.update(mode=e.value)) \
+                    .props('for="rec-mode" data-testid="rec-mode"').classes("w-full")
             with ui.expansion("Multi-screen flows and site ids", icon=icon("list-checks")).classes("any-disclosure"):
                 with ui.element("div").classes("any-disclosure-body"):
                     ui.switch("Split into one page per screen (wizard mode)", value=state["wizard"],
@@ -116,7 +122,7 @@ def open_recorder(gen: GeneratorPanel) -> None:
                         if state["wizard"] else (),
                         id_attribute=state["id_attr"], id_prefix=state["id_prefix"])
                     try:
-                        svc.recorder.start((url.value or "").strip(), storage, options)
+                        svc.recorder.start((url.value or "").strip(), storage, options, mode=state["mode"])
                     except RecorderError as e:
                         ui.notify(str(e), type="warning", multi_line=True)
                         return
@@ -166,7 +172,9 @@ def open_recorder(gen: GeneratorPanel) -> None:
             steps_json = {s.name: s.steps[0] for s in rec.screens} if rec.screens else rec.steps
             with ui.expansion("Steps (formData)", icon=icon("braces")).classes("any-disclosure"):
                 text("pre", json.dumps(steps_json, indent=2, ensure_ascii=False), "any-pre")
-            with ui.expansion("Recorded code (credentials masked)", icon=icon("terminal")).classes("any-disclosure"):
+            with ui.expansion("Recorded code (credentials masked)" if not rec.profiles else
+                              "Recorded actions and elements (credentials masked)",
+                              icon=icon("terminal")).classes("any-disclosure"):
                 text("pre", rec.source, "any-pre")
             if not rec.field_count:
                 with ui.element("div").classes("any-dialog-actions is-start"):

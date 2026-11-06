@@ -80,6 +80,7 @@ class Recording:
     actions: int = 0
     assertions: int = 0
     source: str = ""  # the generated code, with credential values masked
+    profiles: list[dict] = field(default_factory=list)  # smart capture: per page, field -> element description
 
     @property
     def field_count(self) -> int:
@@ -175,7 +176,11 @@ def field_config(segments: list[tuple[str, list, dict]], warnings: list[str], at
     if cfg is None and len(segments) == 1:
         method, args, kwargs = segments[0]
         value = _literal(args[0], warnings) if args else None
-        if method == "locator" and value and not kwargs:
+        exact = "exact" in kwargs and bool(_literal(kwargs["exact"], warnings))
+        if exact and method in ("get_by_role", "get_by_label", "get_by_placeholder", "get_by_text") and value:
+            # the runner's role/label/text keys match substrings ("Name" also finds "First name"): keep it exact
+            cfg = {"locator": _selector(method, args, kwargs, warnings, attr)}
+        elif method == "locator" and value and not kwargs:
             cfg = {"locator": str(value)}
         elif method == "get_by_role" and value:
             cfg = {"role": str(value)}
@@ -236,8 +241,9 @@ def _words(cfg: dict) -> list[str]:
     source = cfg.get("name") or cfg.get("label") or cfg.get("placeholder") or cfg.get("text") or ""
     if not source:
         loc = str(cfg.get("locator") or "")
+        exact = re.search(r'internal:(?:label|text)="([^"]+)"|\[name="([^"]+)"s?\]', loc)  # kept exact: its words
         m = re.search(r'(?:#|name=|data-testid=|"|\')([A-Za-z][\w-]*)', loc)
-        source = m.group(1) if m else ""
+        source = next(g for g in exact.groups() if g) if exact else (m.group(1) if m else "")
     return re.findall(r"[A-Za-z0-9]+", source)[:5]
 
 
@@ -510,10 +516,11 @@ class Session:
     error: str = ""
     recording: Recording | None = None
     options: RecordOptions = field(default_factory=RecordOptions)
+    mode: str = "capture"  # capture (smart capture, the default) | codegen
 
     @property
     def output(self) -> Path:
-        return self.workdir / "recording.py"
+        return self.workdir / ("events.jsonl" if self.mode == "capture" else "recording.py")
 
 
 class Recorder:
@@ -522,6 +529,7 @@ class Recorder:
     def __init__(self, python_exe: str = sys.executable, command: list[str] | None = None):
         # command: argv prefix that runs the Playwright CLI (tests swap in a fake)
         self.command = command or [python_exe, "-m", "playwright"]
+        self.capture_command = [python_exe, "-m", "webapp.recorder_capture"]
         self.session: Session | None = None
         self._lock = threading.Lock()
 
@@ -529,7 +537,8 @@ class Recorder:
     def active(self) -> bool:
         return bool(self.session and self.session.status in ("starting", "recording"))
 
-    def start(self, url: str, storage_state: Path | None = None, options: RecordOptions | None = None) -> Session:
+    def start(self, url: str, storage_state: Path | None = None, options: RecordOptions | None = None,
+              mode: str = "capture") -> Session:
         parts = urlsplit(url or "")
         if parts.scheme not in ("http", "https") or not parts.netloc:
             raise RecorderError("Enter a full http(s) URL to start recording from.")
@@ -537,13 +546,22 @@ class Recorder:
             if self.active:
                 raise RecorderError("A recording is already in progress. Close its browser window first.")
             workdir = Path(tempfile.mkdtemp(prefix="autoplay-rec-"))
-            session = Session(url=url, workdir=workdir, options=options or RecordOptions())
-            argv = [*self.command, "codegen", "--target", "python", "-o", str(session.output)]
-            if session.options.id_attribute:
-                argv += ["--test-id-attribute", session.options.id_attribute]
-            if storage_state and Path(storage_state).is_file():
-                argv += ["--load-storage", str(storage_state)]
-            argv.append(url)
+            session = Session(url=url, workdir=workdir, options=options or RecordOptions(),
+                              mode="codegen" if mode == "codegen" else "capture")
+            has_storage = bool(storage_state and Path(storage_state).is_file())
+            if session.mode == "capture":
+                argv = [*self.capture_command, "--url", url, "--out", str(session.output)]
+                if session.options.id_attribute:
+                    argv += ["--id-attribute", session.options.id_attribute]
+                if has_storage:
+                    argv += ["--storage", str(storage_state)]
+            else:
+                argv = [*self.command, "codegen", "--target", "python", "-o", str(session.output)]
+                if session.options.id_attribute:
+                    argv += ["--test-id-attribute", session.options.id_attribute]
+                if has_storage:
+                    argv += ["--load-storage", str(storage_state)]
+                argv.append(url)
             # Own process group, so cancelling also ends the Node driver and the browser it started
             group = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if sys.platform == "win32" \
                 else {"start_new_session": True}
@@ -570,7 +588,17 @@ class Recorder:
             if not source.strip():
                 tail = out.decode("utf-8", "replace").strip()[-800:]
                 raise RecorderError("The browser closed without a recording." + (f"\n{tail}" if tail else ""))
-            session.recording = parse_codegen(source, session.options)
+            if session.mode == "capture":
+                from webapp.services.capture import events_to_recording
+                events = []
+                for line in source.splitlines():
+                    try:
+                        events.append(json.loads(line))
+                    except ValueError:
+                        continue
+                session.recording = events_to_recording(events, session.url, session.options)
+            else:
+                session.recording = parse_codegen(source, session.options)
             session.status = "finished"
         except RecorderError as e:
             session.status, session.error = "failed", str(e)
@@ -598,6 +626,28 @@ def suggest_page_name(url: str) -> str:
     if name[:1].isdigit():
         name = "Page" + name
     return name if name.endswith("Page") else name + "Page"
+
+
+def save_profiles(workspace: Path, system: str, screen: str, profiles: dict[str, dict],
+                  renames: dict[str, str]) -> None:
+    """What each recorded element looked like, where self-healing reads it (Data/locatorProfiles/<SYSTEM>.json),
+    so a locator that stops matching later can be healed from the first run on."""
+    from datetime import datetime
+    path = Path(workspace) / "Data" / "locatorProfiles" / f"{system}.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except (OSError, ValueError):
+        data = {}
+    stamp = datetime.now().isoformat(timespec="seconds")
+    for name, profile in profiles.items():
+        data.setdefault(screen, {})[renames.get(name, name)] = {**profile, "seen": stamp, "run": "recording"}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+    except OSError:
+        logger.warning("Could not save the recorded locator profiles", exc_info=True)
 
 
 @dataclass
@@ -640,6 +690,8 @@ def save_recording(pom, tests, system: str, recording: Recording, *, page_name: 
                  "module": "", "tags": list(tags or [system]),
                  "steps": build_steps(page_name, recording.steps, renames)}
     index, _ = tests.save(system, test_file, None, test_case, None)
+    if recording.profiles:
+        save_profiles(pom.workspace, system, page_name, recording.profiles[0], renames)
     return SavedRecording(rel, created, test_file, index, renames)
 
 
@@ -672,6 +724,8 @@ def save_wizard(pom, tests, system: str, recording: Recording, *, page_names: li
         extra = {k: v for k, v in first_page.items() if k != "fields"} if i == 0 else {}  # only screen 1 navigates
         rel, created, renames = _write_page(pom, system, name, screen.fields, extra)
         pages.append((name, rel, created))
+        if i < len(recording.profiles):
+            save_profiles(pom.workspace, system, name, recording.profiles[i], renames)
         steps += build_steps(name, screen.steps, renames)
     test_case = {"testCaseID": test_id.strip(), "description": description, "system": system, "env": env,
                  "module": "", "tags": list(tags or [system]), "steps": steps}
