@@ -21,7 +21,7 @@ ROLES = ("viewer", "runner", "editor", "admin")
 PERMISSIONS = {
     "viewer": {"view"},
     "runner": {"run", "check", "ai.read"},
-    "editor": {"edit", "record", "ai.write", "schedule", "delete"},
+    "editor": {"edit", "record", "ai.write", "schedule", "delete", "signoff"},
     "admin": {"settings", "users"},
 }
 ROLE_LABELS = {"viewer": "Viewer: sees everything", "runner": "Runner: also starts and cancels runs",

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -37,6 +38,11 @@ def finished_pair(workspace: Path, tmp_path: Path, monkeypatch) -> list:
     deadline = time.monotonic() + 20
     while any(r.active for r in runs) and time.monotonic() < deadline:
         time.sleep(0.05)
+    # The run threads save run.json after setting the status: wait for them, or a read can meet a file being
+    # replaced (Windows refuses to open it then).
+    for thread in threading.enumerate():
+        if thread.name in {f"run-{r.id}" for r in runs}:
+            thread.join(timeout=20)
     return runs
 
 

@@ -20,6 +20,7 @@ from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
 from webapp.services.issue_tracker import IssueTracker
 from webapp.services.journeys import JourneyService, JourneyStore
+from webapp.services.releases import ReleaseService, ReleaseStore
 from webapp.services.quarantine_service import QuarantineService
 from webapp.services.runners import RunnerStore
 from webapp.services.vault import Vault, missing_credentials
@@ -42,6 +43,7 @@ class Services:
     quarantine: QuarantineService
     common: CommonActionService
     journeys: JourneyService
+    releases: ReleaseService
     issues: IssueTracker
     vault: Vault
     pom: PomService
@@ -173,6 +175,9 @@ def services() -> Services:
     artifacts = RunArtifacts("/runs", mask=runs.masker.mask)
     systems = SystemDataService(s.systemdata_path)
     common = CommonActionService(s.workspace, tests_service)
+    quarantine = QuarantineService(s.workspace)
+    journeys = JourneyService(JourneyStore(s.workspace), tests_service, common, catalog, systems, runs,
+                              lambda run: artifacts.details(run.id, run.results_dir))
     svc = Services(
         pom=pom,
         tests=tests_service,
@@ -185,7 +190,7 @@ def services() -> Services:
         catalog=catalog,
         runs=runs,
         runners=runners,
-        quarantine=QuarantineService(s.workspace),
+        quarantine=quarantine,
         schedules=schedules,
         scheduler=Scheduler(schedules, runs, catalog, notifier),
         ai=AIAssist(lambda: env_flag(env, "aiAssistEnabled"), env.env_path,
@@ -194,8 +199,9 @@ def services() -> Services:
         audit=AuditLog(s.resolved_runs_dir.parent / "audit.jsonl"),
         datasets=DataSetService(s.workspace, tests_service),
         common=common,
-        journeys=JourneyService(JourneyStore(s.workspace), tests_service, common, catalog, systems, runs,
-                                lambda run: artifacts.details(run.id, run.results_dir)),
+        journeys=journeys,
+        releases=ReleaseService(ReleaseStore(s.resolved_runs_dir.parent / "releases"), journeys, runs, quarantine,
+                                s.resolved_public_url),
         issues=IssueTracker(prefixed_lookup(env, "ISSUE_")),
         vault=Vault(prefixed_lookup(env, "SECRET_")),
     )

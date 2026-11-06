@@ -146,6 +146,8 @@ class TestState:
     at: str = ""
     browser: str = ""
     where: str = ""  # failing screen > field (action), when it failed
+    retries: int = 0  # times it was run again before this result (passed with retries = flaky)
+    message: str = ""
 
 
 @dataclass
@@ -169,12 +171,14 @@ def _base(test_id: str) -> str:
 
 
 def status(journey: Journey, runs: Iterable, env: str, *, now: datetime | None = None,
-           details_for: Callable | None = None, stale_days: int = STALE_DAYS, window: int = WINDOW) -> JourneyStatus:
-    """The journey on one environment, from the finished runs of its system there (newest wins)."""
+           details_for: Callable | None = None, stale_days: int = STALE_DAYS, window: int = WINDOW,
+           since: str | None = None) -> JourneyStatus:
+    """The journey on one environment, from the finished runs of its system there (newest wins).
+    `since` (ISO time): only runs started from then on count, e.g. since the release was deployed."""
     now = now or datetime.now()
     wanted = set(journey.tests)
     mine = sorted((r for r in runs if r.status in FINISHED_RUNS and r.config.system == journey.system
-                   and r.config.env == env), key=lambda r: r.created_at)
+                   and r.config.env == env and (not since or r.created_at >= since)), key=lambda r: r.created_at)
     latest: dict[str, TestState] = {t: TestState(t) for t in journey.tests}
     verdicts: list[bool] = []
     for run in mine:
@@ -189,7 +193,7 @@ def status(journey: Journey, runs: Iterable, env: str, *, now: datetime | None =
             if state.run_id != run.id or r.outcome in FAILING:
                 state.outcome, state.run_id, state.browser = r.outcome, run.id, r.browser
                 state.at = run.finished_at or run.started_at or run.created_at
-                state.where = ""
+                state.where, state.retries, state.message = "", r.retries, (r.message or "")[:300]
                 if r.outcome in FAILING and details_for:
                     item = details_for(run).get((r.test_id, r.browser))
                     state.where = item.failure.short if item and item.failure else ""
@@ -360,6 +364,22 @@ class JourneyService:
             out.append(Overview(journey, {env: status(journey, runs, env, details_for=details) for env in envs},
                                 cov))
         return out
+
+    def evaluate(self, system: str, env: str, journey_ids: list[str] | None = None, since: str | None = None,
+                 stale_days: int = STALE_DAYS) -> list[tuple[Journey, JourneyStatus, Coverage]]:
+        """Each chosen journey (all of the system's when None) on one environment, for a release check."""
+        runs = self.runs.list()
+        steps, fields = self._steps_index(system), self._fields_index(system)
+        cache: dict[str, dict] = {}
+
+        def details(run):
+            if run.id not in cache:
+                cache[run.id] = self.details_for(run)
+            return cache[run.id]
+
+        chosen = [j for j in self.store.list(system) if journey_ids is None or j.id in journey_ids]
+        return [(j, status(j, runs, env, details_for=details, since=since, stale_days=stale_days),
+                 coverage(j, steps.get, fields.get, self._action_steps)) for j in chosen]
 
     def unassigned(self, system: str) -> list[str]:
         taken = {t for j in self.store.list(system) for t in j.tests}
