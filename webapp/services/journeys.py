@@ -44,10 +44,14 @@ class Journey:
     owner: str = ""
     description: str = ""
     tests: list[str] = field(default_factory=list)
+    monitor_safe: bool = False  # its tests may run against production (they create no real records)
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "name": self.name, "system": self.system, "criticality": self.criticality,
-                "owner": self.owner, "description": self.description, "tests": list(self.tests)}
+        out = {"id": self.id, "name": self.name, "system": self.system, "criticality": self.criticality,
+               "owner": self.owner, "description": self.description, "tests": list(self.tests)}
+        if self.monitor_safe:
+            out["monitor_safe"] = True
+        return out
 
 
 def slug(name: str) -> str:
@@ -73,7 +77,7 @@ def validate(data: dict) -> Journey:
     return Journey(id=jid, name=name, system=system, criticality=criticality,
                    owner=str(data.get("owner") or "").strip()[:80],
                    description=str(data.get("description") or "").strip()[:500],
-                   tests=list(dict.fromkeys(tests)))
+                   tests=list(dict.fromkeys(tests)), monitor_safe=bool(data.get("monitor_safe", False)))
 
 
 class JourneyStore:

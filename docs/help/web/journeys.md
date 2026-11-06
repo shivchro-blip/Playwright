@@ -36,3 +36,7 @@ Click a row for the details: each test case's latest result per environment (cli
 
 - `GET /api/journeys?system=PORTAL`: every journey with its status per environment, the latest result of each test case, and coverage.
 - `POST /api/journeys/<id>/run?env=dev`: runs the journey (needs the *runner* role).
+
+## Safe to monitor
+
+Turn on **Safe to monitor** in a journey's dialog when its test cases create no real records. Only such journeys can be watched by a monitor, which runs them on production every few minutes. See the Monitoring help page.
