@@ -742,3 +742,6 @@
 .any-mon { display: flex; flex-direction: column; gap: 8px; }
 .any-mon-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .any-error { color: var(--fail); }
+
+/* Change impact */
+.any-impact-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 0 20px 16px; }

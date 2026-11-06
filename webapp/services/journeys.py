@@ -397,11 +397,16 @@ class JourneyService:
 
     def run_selection(self, journey: Journey) -> tuple[list[str], list[str]]:
         """(tags, test IDs) that run exactly the journey's test cases. Raises JourneyError if none can run."""
-        known = {t.test_id: t for t in self.catalog.load(journey.system).tests}
-        runnable = [t for t in journey.tests if t in known and known[t].steps]
+        return self.selection(journey.system, journey.tests, "this journey's")
+
+    def selection(self, system: str, test_ids: list[str], whose: str = "the") -> tuple[list[str], list[str]]:
+        """(tags, test IDs) that run exactly these test cases of a system. Raises JourneyError if none can run."""
+        known = {t.test_id: t for t in self.catalog.load(system).tests}
+        runnable = [t for t in test_ids if t in known and known[t].steps]
         if not runnable:
-            raise JourneyError("None of this journey's test cases can run (missing or without steps).")
+            raise JourneyError(f"None of {whose} test cases can run (missing or without steps).")
         tags = sorted({tag for t in runnable for tag in known[t].tags}, key=str.casefold)
         if not tags:
-            raise JourneyError("The journey's test cases have no tags, and the framework only runs tagged tests.")
+            raise JourneyError(f"{whose.capitalize()} test cases have no tags, and the framework only runs "
+                               "tagged tests.")
         return tags, runnable
