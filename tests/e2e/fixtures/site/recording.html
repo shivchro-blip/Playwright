@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Application</title>
+<style>section{border:1px solid #ccc;margin:8px;padding:8px} label{display:block;margin:4px 0}</style></head>
+<body>
+<h1>Application</h1>
+<!-- Like many real portals: every element gets a new generated id on each page load, so an id-based locator
+     recorded today finds nothing tomorrow. Labels that contain each other and two "Save" buttons make loose
+     matching pick the wrong element. Continue only works when every field was filled in correctly. -->
+<form id="application" onsubmit="return false">
+  <label data-for="first">First name</label><input data-key="first" name="firstName">
+  <label>Last name <input data-key="last"></label>
+  <label data-for="business">Name</label><input data-key="business">
+  <input data-key="email" placeholder="Email address">
+  <input data-key="phone" data-testid="phone-number">
+  <label data-for="state">State</label>
+  <select data-key="state" name="state"><option value="">Choose</option><option value="NY">New York</option>
+    <option value="TX">Texas</option></select>
+  <label><input type="checkbox" data-key="agree" name="agree" value="yes"> I agree to the terms</label>
+  <label><input type="radio" data-key="byEmail" name="contact" value="email"> Contact me by email</label>
+  <label><input type="radio" data-key="byPhone" name="contact" value="phone"> Contact me by phone</label>
+  <label data-for="secret">Password</label><input type="password" data-key="secret">
+  <section id="mailing"><h2>Mailing address</h2><button type="button" data-key="saveMailing">Save</button></section>
+  <section id="billing"><h2>Billing address</h2><button type="button" data-key="saveBilling">Save</button></section>
+  <p id="saved"></p>
+  <button type="button" data-key="continue">Continue</button>
+  <p id="result"></p>
+  <button type="button" data-key="finish" hidden>Finish</button>
+</form>
+<script>
+  const el = k => document.querySelector(`[data-key="${k}"]`);
+  // a new generated id for every element on every load
+  document.querySelectorAll('[data-key]').forEach(e => { e.id = 'input-' + Math.floor(1000 + Math.random() * 9000); });
+  document.querySelectorAll('label[data-for]').forEach(l => { l.htmlFor = el(l.dataset.for).id; });
+  let billingSaved = false, mailingSaved = false;
+  el('saveBilling').addEventListener('click', () => { billingSaved = true; document.getElementById('saved').textContent = 'Billing saved'; });
+  el('saveMailing').addEventListener('click', () => { mailingSaved = true; });
+  el('finish').addEventListener('click', () => { document.title = 'Done'; });
+  el('continue').addEventListener('click', () => {
+    const ok = el('first').value === 'Ann' && el('last').value === 'Lee' && el('business').value === 'Lee Bakery'
+      && el('email').value === 'ann@example.com' && el('phone').value === '5185550100' && el('state').value === 'TX'
+      && el('agree').checked && el('byPhone').checked && !el('byEmail').checked && billingSaved && !mailingSaved;
+    document.getElementById('result').textContent = ok ? 'Application complete' : 'Something is wrong';
+    el('finish').hidden = !ok;   // only a correct application can be finished: a wrong entry fails the next click
+  });
+</script>
+</body>
+</html>

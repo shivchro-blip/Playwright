@@ -132,6 +132,8 @@ def test_recorder_is_off_by_default_and_records_a_test(app_url: str, tmp_path: P
 
         page.get_by_test_id("record-button").click()
         dialog = page.get_by_role("dialog", name="Record a test")
+        dialog.get_by_test_id("rec-mode").click()
+        page.get_by_role("option", name=re.compile("Playwright codegen")).click()
         dialog.get_by_test_id("rec-start").click()  # the fake codegen records three fields and exits
         expect(dialog.get_by_text("3 fields")).to_be_visible(timeout=30_000)
         dialog.get_by_label("Test case ID").fill("TC-SMOKE-REC-UI")
@@ -162,6 +164,8 @@ def test_wizard_recording_saves_a_page_per_screen(workspace: Path, tmp_path: Pat
         dialog.get_by_test_id("rec-wizard").click()
         dialog.get_by_label("ID attribute (optional)").fill("data-attribute-id")
         dialog.get_by_label("Remove this prefix from field names").fill("LSI_DEMO_")
+        dialog.get_by_test_id("rec-mode").click()
+        page.get_by_role("option", name=re.compile("Playwright codegen")).click()
         dialog.get_by_test_id("rec-start").click()
         expect(dialog.get_by_text("3 screens")).to_be_visible(timeout=30_000)
         expect(dialog.get_by_text("Screen2: 3 fields")).to_be_visible()
