@@ -15,7 +15,7 @@ FAKE_CODEGEN = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake
 
 def test_recorded_test_runs_and_passes(workspace: Path, site_url: str, tmp_path: Path):
     recorder = Recorder(command=[sys.executable, str(FAKE_CODEGEN)])
-    recorder.start(f"{site_url}/index.html")
+    recorder.start(f"{site_url}/index.html", mode="codegen")  # the fake stands in for Playwright codegen
     deadline = time.monotonic() + 30
     while recorder.active and time.monotonic() < deadline:
         time.sleep(0.1)
@@ -39,7 +39,7 @@ def test_recorded_wizard_becomes_a_page_per_screen_and_runs(workspace: Path, sit
     fake = Path(__file__).resolve().parent / "fixtures" / "recorder" / "fake_codegen_wizard.py"
     recorder = Recorder(command=[sys.executable, str(fake)])
     recorder.start(f"{site_url}/wizard.html", options=RecordOptions(
-        break_on=("Save & Continue",), id_attribute="data-attribute-id", id_prefix="LSI_DEMO_"))
+        break_on=("Save & Continue",), id_attribute="data-attribute-id", id_prefix="LSI_DEMO_"), mode="codegen")
     deadline = time.monotonic() + 30
     while recorder.active and time.monotonic() < deadline:
         time.sleep(0.1)
