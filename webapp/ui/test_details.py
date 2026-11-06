@@ -45,7 +45,7 @@ def result_rows(run: Run) -> list[dict]:
                      if (r.test_id, r.browser) in details and details[(r.test_id, r.browser)].failure else "",
                      "has_details": has_details(details, r.test_id, r.browser),
                      "recent": trend.outcomes if trend else [], "flaky": bool(trend and trend.flaky),
-                     "retries": r.retries})
+                     "retries": r.retries, "healed": r.healed})
     return rows
 
 

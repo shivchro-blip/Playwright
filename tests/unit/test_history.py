@@ -94,3 +94,11 @@ def test_a_folder_named_data_inside_tests_does_not_confuse_the_root(ws):
     save(nested, {"a": 2})
     assert history.workspace_root(nested) == ws.resolve()
     assert history.versions(nested)
+
+
+def test_saves_in_the_same_millisecond_keep_separate_versions(ws, monkeypatch):
+    page = ws / "Pages" / "S" / "Fast.json"
+    monkeypatch.setattr(history.time, "time", lambda: 1762430000.5)  # the clock does not move
+    for n in range(4):
+        save(page, {"n": n})
+    assert [json.loads(history.read_version(page, v.id))["n"] for v in history.versions(page)] == [2, 1, 0]

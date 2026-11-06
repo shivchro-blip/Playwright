@@ -30,6 +30,7 @@ start.cmd
 | **AI** (top bar) | Optional, off by default: Claude explains failures, suggests locator fixes (verified before you see them), drafts test cases from plain English and summarizes runs. It only suggests; everything is applied by a click and logged. Needs `ANTHROPIC_API_KEY`; secrets are redacted before sending. |
 | **Journeys** | Name the business transactions a system serves (registration, filing, renewal), pick the test cases that prove each one, and see per environment whether it works, where it fails and how much of its pages the tests cover. |
 | **Releases** | GO / NO-GO for a release from its journeys, with the reasons, tamper-evident evidence, sign-off by editors (overrides need a written reason), a printable report, and an API gate for CI. |
+| **Self-healing locators** | Opt-in per run: a locator that finds nothing is replaced by the best-matching element of the same kind (from what the field says and how its element looked when it last worked). Every heal is listed in History to accept (the page is updated) or reject. |
 | **Remote runners** | Run tests on other machines: `python -m webapp.runners add NAME`, then `python -m webapp.runner_agent --server <url> --token <token>` there. Pick **Run on** in Run setup. See the Remote runners help page. |
 | **Activity** (top bar, admins) | Audit trail: sign-ins, refused actions and every change to runs, tests, pages, schedules and settings. |
 | **Help** | Framework and app documentation (`docs/help/`). |

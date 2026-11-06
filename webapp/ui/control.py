@@ -226,6 +226,10 @@ class ControlPanel:
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
                         self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
                             .props('data-testid="sw-a11y"')
+                        self.heal = ui.switch("Self-heal locators", value=_truthy(cfg["selfHeal"])) \
+                            .props('data-testid="sw-heal"') \
+                            .tooltip("When a locator finds nothing, use the element that best matches it, and list "
+                                     "the heal for review in History")
 
             with ui.element("section").classes("any-section"):
                 eyebrow("Access")
@@ -655,6 +659,7 @@ class ControlPanel:
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
             "a11yScan": bool(self.a11y.value),
+            "selfHeal": bool(self.heal.value),
             "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
         }
