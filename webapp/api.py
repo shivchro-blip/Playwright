@@ -341,6 +341,74 @@ def run_journey(journey_id: str, env: str) -> dict:
     return run.to_dict()
 
 
+class ReleaseRequest(BaseModel):
+    name: str
+    system: str
+    env: str
+    journeys: list[str] | None = None  # ids; all of the system's when left out
+    block: list[str] = Field(default_factory=lambda: ["critical", "high"])
+    max_age_days: int = 7
+    since: str = ""
+
+
+@router.post("/releases", status_code=201)
+def create_release(req: ReleaseRequest, user=require("run")) -> dict:
+    """Check a release: the decision ("go" / "no-go") with its reasons. A CI pipeline can stop on "no-go"."""
+    from webapp.services.releases import Policy, ReleaseError
+    svc = services()
+    try:
+        policy = Policy.from_dict({"block": req.block, "max_age_days": req.max_age_days, "since": req.since})
+        pack = svc.releases.create(req.name, req.system, req.env, req.journeys, policy, user.username)
+    except ReleaseError as e:
+        raise HTTPException(400, str(e)) from e
+    svc.audit.record(user.username, "release.check", pack["id"], decision=pack["decision"], via="api")
+    return {**svc.releases.summary(pack), "report": f"/api/releases/{pack['id']}/report"}
+
+
+@router.get("/releases")
+def list_releases(system: str = "") -> list[dict]:
+    svc = services()
+    return [svc.releases.summary(p) for p in svc.releases.store.list(system or None)]
+
+
+@router.get("/releases/{release_id}")
+def get_release(release_id: str) -> dict:
+    svc = services()
+    pack = svc.releases.store.get(release_id)
+    if pack is None:
+        raise HTTPException(404, "No such release check")
+    return {**pack, "signoffs": svc.releases.store.signoffs(release_id), **svc.releases.store.verify(pack)}
+
+
+@router.get("/releases/{release_id}/report", include_in_schema=False)
+def release_report(release_id: str):
+    from fastapi.responses import HTMLResponse
+    svc = services()
+    pack = svc.releases.store.get(release_id)
+    if pack is None:
+        raise HTTPException(404, "No such release check")
+    return HTMLResponse(svc.releases.report_html(pack), headers={
+        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+        "X-Content-Type-Options": "nosniff"})
+
+
+class SignoffRequest(BaseModel):
+    decision: str
+    comment: str = ""
+
+
+@router.post("/releases/{release_id}/signoff")
+def signoff_release(release_id: str, req: SignoffRequest, user=require("signoff")) -> dict:
+    from webapp.services.releases import ReleaseError
+    svc = services()
+    try:
+        entry = svc.releases.store.add_signoff(release_id, user.username, user.role, req.decision, req.comment)
+    except ReleaseError as e:
+        raise HTTPException(400, str(e)) from e
+    svc.audit.record(user.username, "release.signoff", release_id, decision=req.decision, via="api")
+    return entry
+
+
 @router.post("/runs/{run_id}/cancel", dependencies=[require("run")])
 def cancel_run(run_id: str) -> dict:
     if not services().runs.cancel(run_id):

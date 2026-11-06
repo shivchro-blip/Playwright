@@ -38,6 +38,7 @@ ACTIONS = {  # permission -> what the refusal message says
     "run": "start or cancel runs", "check": "check locators", "edit": "change test cases or pages",
     "record": "record tests", "schedule": "change schedules", "delete": "delete runs", "settings": "change settings",
     "ai.read": "use AI triage and summaries", "ai.write": "apply AI suggestions", "users": "manage users",
+    "signoff": "sign off a release",
 }
 
 

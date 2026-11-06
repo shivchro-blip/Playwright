@@ -729,3 +729,11 @@
 .any-jr-env { font-weight: 500; }
 .any-jr-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .any-jr-env-block { display: flex; flex-direction: column; gap: 8px; }
+
+/* Release checks */
+.any-rl-banner { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 18px; border-radius: var(--r-card); font-size: 14px; }
+.any-rl-banner.is-go { background: var(--pass-bg); color: var(--pass-ink); }
+.any-rl-banner.is-nogo { background: var(--fail-tile); color: var(--fail); }
+.any-rl-decision { font-size: 18px; font-weight: 700; letter-spacing: .02em; }
+.any-rl-list { margin: 0; padding-left: 20px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.any-rl-list.is-warn { color: var(--warn-body); }

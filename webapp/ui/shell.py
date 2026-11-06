@@ -6,6 +6,7 @@ from nicegui import ui
 from webapp.auth import guard, ui_user
 from webapp.ui.activity import open_activity
 from webapp.ui.journeys import JourneysPanel
+from webapp.ui.releases import ReleasesPanel
 from webapp.ui.runners_dialog import open_runners
 from webapp.ui.ai_panels import open_ai_settings
 from webapp.ui.control import ControlPanel
@@ -29,7 +30,8 @@ def register() -> None:
         apply_brand()
         # Panels own their padding (the Control tab is full-bleed)
         ui.query(".nicegui-content").classes("any-content")
-        tab_defs = [("Control", "circle-play"), ("Journeys", "circle-check"), ("Generator", "list-plus"),
+        tab_defs = [("Control", "circle-play"), ("Journeys", "circle-check"), ("Releases", "shield"),
+                    ("Generator", "list-plus"),
                     ("History", "history"),
                     ("Schedules", "calendar-clock"), ("Help", "circle-help")]
         with ui.header().classes(replace="any-nav"):
@@ -59,7 +61,8 @@ def register() -> None:
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
-        control_tab, journeys_tab, generator_tab, history_tab, schedules_tab, help_tab = tab_elems.values()
+        control_tab, journeys_tab, releases_tab, generator_tab, history_tab, schedules_tab, help_tab = \
+            tab_elems.values()
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -93,6 +96,8 @@ def register() -> None:
                 panels["control"] = ControlPanel()
             with ui.tab_panel(journeys_tab).classes("any-app any-page"):
                 panels["journeys"] = JourneysPanel(on_watch=watch)
+            with ui.tab_panel(releases_tab).classes("any-app any-page"):
+                ReleasesPanel()
             with ui.tab_panel(generator_tab).classes("any-app any-page"):
                 panels["generator"] = GeneratorPanel(on_run=watch)
             with ui.tab_panel(history_tab).classes("any-app any-page"):
