@@ -15,6 +15,7 @@ from webapp.services.json_files import ConflictError, PathError
 from webapp.state import services
 from webapp.ui.components import field as labelled
 from webapp.ui.components import icon_button, styled_table, text
+from webapp.ui.history_dialog import open_file_history
 from webapp.ui.theme import icon
 
 if TYPE_CHECKING:
@@ -160,6 +161,8 @@ class DataSetEditor:
                     .props('data-testid="data-export"')
                 icon_button("upload", "Import from CSV or Excel", self.import_dialog) \
                     .props('data-testid="data-import"')
+                icon_button("history", "Earlier versions of this data file", self.open_history) \
+                    .props('data-testid="data-history"')
                 icon_button("trash-2", "Delete data file", self.delete).classes("is-danger")
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save) \
@@ -303,6 +306,13 @@ class DataSetEditor:
         self._set_model(data)
         if dirty:
             self.touch()
+
+    def open_history(self) -> None:
+        async def reload() -> None:
+            self.dirty = False
+            await self.open(self.name)
+
+        open_file_history(f"{self.name}.json", self.svc.datasets._path(self.name), reload)
 
     def export_csv(self) -> None:
         data = self._current()

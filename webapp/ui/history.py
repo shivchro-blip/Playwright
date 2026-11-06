@@ -18,6 +18,8 @@ from webapp.ui.components import (
 from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.ai_panels import open_run_summary
+from webapp.ui.quarantine_dialog import toggle_quarantine
+from webapp.ui.trends_dialog import open_trends
 from webapp.ui.run_compare import open_compare
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.theme import icon
@@ -60,6 +62,9 @@ class HistoryPanel:
                         text("h2", "Runs", "any-title")
                         self.count_pill = text("span", "", "any-count-pill")
                     with ui.element("div").classes("any-head-right"):
+                        ui.button("Trends", icon=icon("chart-column"), color=None,
+                                  on_click=lambda: open_trends(self.system)) \
+                            .props('flat unelevated no-caps data-testid="open-trends"').classes("any-btn is-38")
                         icon_button("rotate-cw", "Reload runs", self.refresh)
                 with ui.element("div").classes("any-filters"):
                     select(sorted({r.config.system for r in self.svc.runs.list()}), "System", "hist-system",
@@ -93,7 +98,8 @@ class HistoryPanel:
             name, code = split_test_id(t.test_id)
             rows.append({"key": f"{system}/{env}/{t.test_id}/{t.browser}", "test_id": t.test_id, "name": name,
                          "code": code, "target": f"{system}/{env}", "browser": t.browser, "recent": t.outcomes,
-                         "flips": t.flips, "failures": f"{t.failures} of {len(t.outcomes)}", "flaky": False})
+                         "flips": t.flips, "failures": f"{t.failures} of {len(t.outcomes)}", "flaky": False,
+                         "quarantined": self.svc.quarantine.is_quarantined(t.test_id)})
         with ui.element("section").classes("any-card").props('aria-label="Flaky tests"'):
             with ui.element("div").classes("any-card-head"):
                 with ui.element("div").classes("any-head-left"):
@@ -109,10 +115,16 @@ class HistoryPanel:
                     {"name": "recent", "label": "Recent", "field": "recent", "align": "left"},
                     {"name": "flips", "label": "Changes", "field": "flips", "align": "right", "sortable": True},
                     {"name": "failures", "label": "Failed", "field": "failures", "align": "right"},
+                    {"name": "actions", "label": "", "field": "actions", "align": "right"},
                 ]).classes("w-full")
                 styled_table(table, len(rows), wide=True)
                 result_slots(table)
                 table.classes(remove="is-clickable")
+                table.add_slot("body-cell-actions", '''<q-td :props="props" class="text-right">
+                    <q-btn flat dense no-caps :label="props.row.quarantined ? 'Release' : 'Quarantine'"
+                           :data-testid="'quarantine-' + props.row.test_id"
+                           @click="() => $parent.$emit('quarantine', props.row)" /></q-td>''')
+                table.on("quarantine", lambda e: toggle_quarantine(e.args["test_id"], self.refresh))
                 for col in ("flips", "failures"):
                     table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
 

@@ -9,7 +9,7 @@ from typing import Callable
 from nicegui import ui
 
 from webapp.services.env_config import FIELDS as ENV_FIELDS
-from webapp.services.json_files import ConflictError, PathError
+from webapp.services.json_files import ConflictError, PathError, safe_path
 from utils.data_sets import DataSetError
 from utils.data_sets import load_file as load_data_file
 from webapp.services.checkpoints import CheckpointStore
@@ -24,8 +24,11 @@ from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
+from webapp.ui.common_actions_panel import CommonActionEditor
 from webapp.ui.data_sets_panel import DataSetEditor
+from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
+from webapp.ui.quarantine_dialog import toggle_quarantine
 from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.recorder_dialog import open_recorder
@@ -275,6 +278,15 @@ class TestEditor:
                 ui.button("Check", icon=icon("list-checks"), color=None, on_click=lambda: self.validate(True)) \
                     .classes("any-btn is-38")
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                quarantined = self.svc.quarantine.is_quarantined(str(self.meta.get("testCaseID") or ""))
+                ui.button("Release" if quarantined else "Quarantine", icon=icon("shield"), color=None,
+                          on_click=lambda: toggle_quarantine(str(self.meta.get("testCaseID") or ""),
+                                                             self.editor.refresh)) \
+                    .props('data-testid="tc-quarantine"').classes("any-btn is-38") \
+                    .tooltip("Release this test case: its failures fail runs again" if quarantined else
+                             "Quarantine: keep running it, but don't let its failures fail the run")
+                ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
+                    .props('data-testid="tc-history"').classes("any-btn is-38").tooltip("Earlier versions of this file")
                 ui.button("Copy", icon=icon("copy"), color=None, on_click=self.copy_dialog) \
                     .classes("any-btn is-38").tooltip("Save as a new test case")
                 icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")
@@ -684,9 +696,13 @@ class TestEditor:
                    and f.key != "del_allure"}
         options.update(extra or {})
         browsers = [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] or ["chrome"]
+        credentials, missing, vault_errors = self.svc.prepare_credentials(system, [env])
+        for key, why in vault_errors.items():
+            ui.notify(f"{key} could not be fetched from the secret store: {why}", type="warning", timeout=8000)
         try:
             run = self.svc.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
-                                                options=options, test_ids=[test_id]), expected=len(browsers))
+                                                options=options, test_ids=[test_id]), expected=len(browsers),
+                                      credentials=credentials)
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
@@ -839,6 +855,22 @@ class TestEditor:
             return
         self.dirty = False
         await self.open(self.file, self.index)
+
+    def open_history(self) -> None:
+        if self.file is None:
+            return
+        path = safe_path(self.svc.tests.suite_dir(self.gen.system), self.file)
+
+        async def reload() -> None:
+            self.dirty = False
+            self.list_view.refresh()
+            try:
+                await self.open(self.file, self.index)
+            except (ValueError, IndexError, OSError):
+                self.file = None
+                self.editor.refresh()
+
+        open_file_history(f"{self.file}", path, reload)
 
     async def delete(self) -> None:
         if self.file is None or not guard("edit", "delete test case"):
@@ -1073,6 +1105,9 @@ class PageEditor:
                         ui.menu_item("Check all locators on the live page...",
                                      on_click=lambda: open_locator_health(self))
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
+                ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
+                    .props('data-testid="page-history"').classes("any-btn is-38") \
+                    .tooltip("Earlier versions of this page")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
         self.usage_view()
         if self.json_mode:
@@ -1483,6 +1518,16 @@ class PageEditor:
             self.dirty = False
             await self.open(self.rel)
 
+    def open_history(self) -> None:
+        if self.rel is None:
+            return
+
+        async def reload() -> None:
+            self.dirty = False
+            await self.open(self.rel)
+
+        open_file_history(self.rel, safe_path(self.svc.pom.pages_dir(self.gen.system), self.rel), reload)
+
     async def new_page_dialog(self) -> None:
         system = self.gen.system
         if not system:
@@ -1555,6 +1600,7 @@ class GeneratorPanel:
                         tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
                         pages_tab = ui.tab("Pages", icon=icon("app-window"))
                         data_tab = ui.tab("Data sets", icon=icon("braces")).props('data-testid="tab-data"')
+                        common_tab = ui.tab("Common actions", icon=icon("copy")).props('data-testid="tab-common"')
                 self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
@@ -1563,6 +1609,8 @@ class GeneratorPanel:
                     self.pages = PageEditor(self)
                 with ui.tab_panel(data_tab).classes("p-0"):
                     self.data = DataSetEditor(self)
+                with ui.tab_panel(common_tab).classes("p-0"):
+                    self.common = CommonActionEditor(self)
         self.tests.load_refs()
 
     async def open_page(self, name: str) -> None:

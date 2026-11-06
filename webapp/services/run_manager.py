@@ -74,6 +74,7 @@ class TestResult:
     outcome: str  # running | passed | failed | skipped | error | xfailed | xpassed | cancelled
     duration: float = 0.0
     message: str = ""
+    retries: int = 0  # times a failed attempt was run again (retryFailed); passed with retries > 0 = flaky
 
 
 @dataclass
@@ -178,6 +179,9 @@ def pytest_command(run: Run, python_exe: str, repo_root: Path) -> list[str]:
         f"--alluredir={run.results_dir}",
         "--clean-alluredir",
     ]
+    retries = int(cfg.options.get("retryFailed") or 0)
+    if retries > 0:  # pytest-rerunfailures: run a failed test again, up to this many times
+        cmd += ["--reruns", str(retries)]
     if cfg.workers > 1:
         cmd += ["-n", str(cfg.workers)]
     else:
@@ -577,6 +581,11 @@ class RunManager:
             run.collected = int(evt.get("count") or 0)
             if run.collected:
                 run.expected = run.collected
+        elif kind == "retry":
+            nodeid = str(evt.get("nodeid", ""))
+            if nodeid in run.results:
+                run.results[nodeid].retries = int(evt.get("attempt") or 0)
+                run.results[nodeid].message = "failed; running it again"
         elif kind in ("start", "test"):
             nodeid = str(evt.get("nodeid", ""))
             test_id, browser = self.split_nodeid(nodeid, run.config.browsers)
@@ -588,6 +597,7 @@ class RunManager:
                 result.outcome = outcome
                 result.duration = float(evt.get("duration") or 0)
                 result.message = run.scrub(str(evt.get("message") or ""))
+                result.retries = int(evt.get("retries") or result.retries or 0)
             run.results[nodeid] = result
 
     @staticmethod

@@ -14,6 +14,7 @@ from utils.test_data_loader import load_test_cases_from_folder, load_all_test_ca
 from utils.data_sets import expand as expand_data_sets
 import utils.a11y as a11y
 import utils.checkpoints as checkpoints
+import utils.retry_trace as retry_trace
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -855,7 +856,7 @@ if test_cases:
         indirect=True,
     )
     @pytest.mark.asyncio
-    async def test_dynamic_execution(test_case, browser_context, suite_browser, pytestconfig):
+    async def test_dynamic_execution(test_case, browser_context, suite_browser, pytestconfig, request):
         global reportDescription, envConfig
 
         # del_allure cleanup runs once per session (conftest.py / --clean-alluredir), not per test
@@ -893,7 +894,8 @@ if test_cases:
 
         logger.info("LOGIN IF NEEDED - systemConfig: %s  - envConfig: %s", testSystem, envConfig)
         current_login_state = {"system": None, "base_url": None}
-        if tracingConfig == "true":
+        retry_trace.ACTIVE = int(getattr(request.node, "execution_count", 1) or 1) > 1  # a retry is traced
+        if retry_trace.tracing_on():
             await page.context.tracing.start(screenshots=True, snapshots=True)
 
         all_steps = test_case["steps"]
@@ -919,6 +921,7 @@ if test_cases:
 
         finally:
             a11y_scanner = None
+            retry_trace.ACTIVE = False
             try:
                 if str(os.getenv("recording", recordingConfig)).lower() == "true" and not is_frozen_run():
                     logger.info("[test_dynamic_execution] Recording is on - Attempting to attach videos to allure report!")

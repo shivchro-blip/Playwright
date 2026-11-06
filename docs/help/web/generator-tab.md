@@ -115,6 +115,7 @@ The **Maintain** menu works on the whole page and the tests that use it:
 - **Rename a field...** renames it on the page and in every step that uses it, keeping pipe suffixes.
 - **Tidy up this page...** finds fields that are exactly the same (merged into one, with `name`, `name|`, `name||` in the steps that used several), fields no test uses (removed), redundant `autoGen: "click"` on buttons, links, checkboxes and radios, and fields that differ only by `index` (a hint to use `indexed` and a step index).
 - **Check all locators on the live page...** opens the page once in headless Chromium and resolves every field the way a run does: *found*, *not found*, *hidden*, *several matches* (set `index`), *index too high*, or *not checked* (fields whose option comes from the test, table cells, nested chains, `DICT.`/`ENV.` values). Problems are listed first; **Problems only** can be turned off. It checks what is in the editor, saved or not. After a site change it turns "the nightly run failed somewhere" into a short list. A page you reach by clicking through earlier screens shows its later fields as not found or hidden: that describes the page as loaded, not always a broken locator.
+- **Suggest fixes** (in that dialog, when fields are *not found*, *hidden* or *index too high*) scans the live page and ranks the elements that could replace each one, by what the field still says: its name, its old locator (a renamed id such as `#zip-code` → `#applicantZipCode` scores high), its label, placeholder or text, and its type. Up to three suggestions per field are listed with a score and the reason; elements a working field already uses are left out. **Use** puts the locator into the field in the editor (type, autoGen and the other keys are kept); nothing is saved until you click Save. A field with no good match says so. Treat a suggestion as a lead to check, not a fix: a redesign can move a label to a different field.
 
 Rename and Tidy each ask you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
 
@@ -127,3 +128,18 @@ Rename and Tidy each ask you to **Preview** first: it lists the files that would
 - If a file changed on disk after you opened it (another tab, a teammate, `git pull`), saving is refused - click **Revert** to reload.
 - Writes are atomic and keep the file's indentation.
 - Leaving an editor with unsaved changes asks first.
+
+## Edit history
+
+Every save of a page, a test file or a data set keeps the version it replaces, in `.history/` in the workspace (git-ignored; the last 40 versions of each file). Click **History** in the editor (the clock icon for a data set) to pick a version, see what differs from the file now (red lines were removed, green lines added) and **Restore this version**. A restore is itself a save, so the version it replaces is kept and it can be undone the same way. It also brings back test cases you deleted (a test file's history covers all its cases). The first save of a file can show the whole file as changed when the editor re-indents it.
+
+## Common actions
+
+A **common action** is a list of steps that many test cases call by name (for example *login as applicant*): `{"commonAction": "login as applicant"}`. They live in `Tests/com/*.json` and the **Common actions** tab edits them:
+
+- The list shows each action's file, number of steps and how many test steps call it. **+** creates one in a file of your choice.
+- The editor shows the action's steps as JSON (`{"steps": [{"screen": "<page>", "formData": {...}}]}`), who calls it, and **Values a test can change**: every field of its steps, with the `override` text a test step uses to use another value for one call (`"override": "<page>|<field>|<value>"`; `"loop": N` repeats the call).
+- **Check** reports errors that block saving (a step without a `screen`, `formData` that is not an object) and warnings (a page or field that does not exist in any system).
+- **Rename** changes the name and every test step that calls it, after showing how many calls will change. The old versions of those files stay in **History**, which is also how you undo a change to an action.
+- **Delete** is refused while a test calls the action.
+

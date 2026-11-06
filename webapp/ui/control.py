@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 
+from nicegui import run as nrun
 from nicegui import ui
 
 from webapp.services.env_config import LEVELS
@@ -190,6 +191,9 @@ class ControlPanel:
                                                       on_click=lambda: self._step(1)) \
                             .props('flat unelevated aria-label="More workers"').classes("any-step-btn")
                     self._on_workers_change()
+                with field("Retry failed tests", "sel-retries", hint="a retry is traced"):
+                    self.retries = self._select({0: "No retry", 1: "Once", 2: "Up to twice"},
+                                                min(max(_int(cfg["retryFailed"], 0), 0), 2), "sel-retries")
                 with field("Also run on", "sel-compare", hint="compare environments"):
                     self.compare_select = self._select([], [], "sel-compare", multiple=True, clearable=True) \
                         .props("use-chips")
@@ -266,6 +270,12 @@ class ControlPanel:
                 if status and any(not c["set"] for c in status):
                     ui.label("Values typed here are used for this run only if the key is not in .env. "
                              "They are kept in memory, never saved.").classes("any-cred-line")
+                    if self.svc.vault.configured():
+                        problem = self.svc.vault.blocker()
+                        ui.label(problem or f"Anything still missing is fetched from the secret store "
+                                 f"({self.svc.vault.provider}) when you run.") \
+                            .classes("any-cred-line" + (" is-warn" if problem else "")) \
+                            .props('data-testid="vault-note"')
 
     def _build_tests(self) -> None:
         with ui.element("section").classes("any-card").props('aria-label="Tests"'):
@@ -645,10 +655,11 @@ class ControlPanel:
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
             "a11yScan": bool(self.a11y.value),
+            "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
         }
 
-    def start_run(self) -> None:
+    async def start_run(self) -> None:
         if not guard("run", "start run"):
             return
         tags = self.tags_select.value or []
@@ -671,12 +682,15 @@ class ControlPanel:
                 ui.notify(f"No login entry in systemData.json for {other}.", type="negative")
                 return
             status = [*status, *(c for c in other_status if c["key"] not in {x["key"] for x in status})]
-        missing = [c["key"] for c in status if not c["set"]]
-        typed = {k: self.entered[k] for k in missing if self.entered.get(k)}
-        missing = [k for k in missing if k not in typed]
+        typed, missing, vault_errors = await nrun.io_bound(
+            self.svc.prepare_credentials, self.system_select.value, [self.env_select.value, *also], self.entered,
+            not (self.runner_select.value or ""))  # a remote runner uses its own secret store
+        for key, why in vault_errors.items():
+            ui.notify(f"{key} could not be fetched from the secret store: {why}", type="warning", timeout=8000)
         if missing:
-            ui.notify(f"Missing credentials: {', '.join(missing)} - add them to .env or type them in "
-                      "Login credentials; login steps may fail.", type="warning", timeout=8000)
+            ui.notify(f"Missing credentials: {', '.join(missing)} - add them to .env, type them in "
+                      "Login credentials or put them in the secret store; login steps may fail.",
+                      type="warning", timeout=8000)
         config = RunConfig(system=self.system_select.value or "", env=self.env_select.value or "",
                            tags=list(tags), browsers=list(browsers),
                            workers=int(self.workers.value or 1), options=self._options(), test_ids=test_ids,

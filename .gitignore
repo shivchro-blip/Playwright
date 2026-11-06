@@ -5,6 +5,7 @@ OLDENV.txt
 workspace/.env
 workspace/Data/session.json
 workspace/reports/
+workspace/.history/
 workspace/logs/
 
 .pytest_cache/

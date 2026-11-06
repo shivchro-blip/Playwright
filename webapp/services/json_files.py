@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from webapp.services import history
+
 NAME_RE = re.compile(r"^[\w .()\-]+$")
 DEFAULT_INDENT = "  "
 
@@ -77,6 +79,8 @@ def write_json(path: Path, data: Any, expected_hash: str | None, indent: str | N
         indent = detect_indent(path.read_text(encoding="utf-8-sig")) if on_disk else DEFAULT_INDENT
 
     text = json.dumps(data, indent=indent, ensure_ascii=False) + "\n"
+    if on_disk:
+        history.snapshot(path, path.read_text(encoding="utf-8-sig"))  # the version this save replaces
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")

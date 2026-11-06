@@ -157,6 +157,8 @@ class Scheduler:
                  clock: Callable[[], datetime] = datetime.now):
         self.store, self.runs, self.catalog, self.notifier, self.clock = store, runs, catalog, notifier, clock
         self.errors: dict[str, str] = {}  # schedule id -> why its last start failed
+        # (system, env, use the secret store) -> login values to run with; set by the app when a store is set up
+        self.credentials_for: Callable[[str, str, bool], dict[str, str]] | None = None
         self._fired: dict[str, str] = {}  # schedule id -> minute it last fired ("YYYY-MM-DDTHH:MM")
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -223,7 +225,15 @@ class Scheduler:
                                browsers=list(schedule.browsers), workers=schedule.workers,
                                options=dict(schedule.options), test_ids=list(schedule.test_ids),
                                runner=schedule.runner)
-            run = self.runs.start(config, expected=len(selected) * len(schedule.browsers), trigger=schedule.trigger)
+            credentials = None
+            if self.credentials_for:
+                try:
+                    credentials = self.credentials_for(schedule.system, schedule.env, not schedule.runner)
+                except Exception:  # a secret store that is down must not stop the schedule from trying
+                    logger.warning("Schedule %s: could not fetch login values", schedule.name, exc_info=True)
+            extra = {"credentials": credentials} if credentials else {}
+            run = self.runs.start(config, expected=len(selected) * len(schedule.browsers), trigger=schedule.trigger,
+                                  **extra)
         except (ValueError, RuntimeError, OSError) as e:
             self.errors[schedule.id] = str(e)
             logger.warning("Schedule %s could not start: %s", schedule.name, e)

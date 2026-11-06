@@ -45,6 +45,7 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("recording", "bool", "false", "Artifacts", "Record video"),
     EnvField("tracing", "bool", "false", "Artifacts", "Playwright trace"),
     EnvField("snapshots", "bool", "false", "Artifacts", "Snapshots"),
+    EnvField("retryFailed", "int", "0", "Debug", "Run a failed test again (up to 2 times)"),
     EnvField("a11yScan", "bool", "false", "Artifacts", "Accessibility scan of each screen"),
     EnvField("del_allure", "bool", "true", "Artifacts", "Clear old Allure results"),
     EnvField("LOG_LEVEL", "choice", "INFO", "Logging", "Log level", LEVELS),

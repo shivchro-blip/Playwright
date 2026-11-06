@@ -37,6 +37,12 @@ def pytest_configure(config):
                 pass
 
 
+def pytest_collection_modifyitems(config, items):
+    # Quarantined test cases still run, but their failures do not fail the run (utils/quarantine.py)
+    from utils import quarantine
+    quarantine.mark(items, resolve_workspace_dir())
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
    # Hook to access test result

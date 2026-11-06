@@ -16,6 +16,7 @@ from webapp.state import services
 from webapp.ui.ai_panels import ai_enabled, triage_section
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
 from webapp.ui.console_view import ConsoleView
+from webapp.ui.issue_dialog import issue_button
 from webapp.ui.theme import icon
 
 LOG_LINES = 1500
@@ -43,7 +44,8 @@ def result_rows(run: Run) -> list[dict]:
                      "where": details[(r.test_id, r.browser)].failure.short
                      if (r.test_id, r.browser) in details and details[(r.test_id, r.browser)].failure else "",
                      "has_details": has_details(details, r.test_id, r.browser),
-                     "recent": trend.outcomes if trend else [], "flaky": bool(trend and trend.flaky)})
+                     "recent": trend.outcomes if trend else [], "flaky": bool(trend and trend.flaky),
+                     "retries": r.retries})
     return rows
 
 
@@ -100,7 +102,9 @@ def open_test_details(run: Run, row: dict) -> None:
                     if duration:
                         text("span", fmt_seconds(float(duration)), "v")
                     text("span", f"Run {run.id}", "v")
-            icon_button("x", "Close", dialog.close)
+            with ui.element("div").classes("any-toolbar"):
+                issue_button(run, row, item)
+                icon_button("x", "Close", dialog.close)
 
         point = item.failure if item else None
         if point:
