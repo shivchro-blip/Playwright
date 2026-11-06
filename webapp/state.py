@@ -19,6 +19,7 @@ from webapp.services.recorder import Recorder
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
 from webapp.services.issue_tracker import IssueTracker
+from webapp.services.journeys import JourneyService, JourneyStore
 from webapp.services.quarantine_service import QuarantineService
 from webapp.services.runners import RunnerStore
 from webapp.services.vault import Vault, missing_credentials
@@ -40,6 +41,7 @@ class Services:
     runners: RunnerStore
     quarantine: QuarantineService
     common: CommonActionService
+    journeys: JourneyService
     issues: IssueTracker
     vault: Vault
     pom: PomService
@@ -81,6 +83,29 @@ class Services:
             if key:
                 status.append({"key": key, "set": bool(os.environ.get(key)) or self.env.is_set(key)})
         return status
+
+    def start_journey(self, journey_id: str, env: str, browsers: list[str] | None = None):
+        """Run every test case of a journey on one environment, with the saved browser options from .env."""
+        from webapp.services.env_config import FIELDS
+        from webapp.services.journeys import JourneyError
+        from webapp.services.run_manager import RunConfig
+
+        journey = self.journeys.store.get(journey_id)
+        if journey is None:
+            raise JourneyError("That journey no longer exists.")
+        if env not in self.systems.environments(journey.system):
+            raise JourneyError(f"{journey.system} has no environment {env!r} in systemData.json.")
+        tags, test_ids = self.journeys.run_selection(journey)
+        defaults = self.env.load()
+        options = {f.key: defaults[f.key] for f in FIELDS if f.group in ("Browser", "Artifacts")
+                   and f.key != "del_allure" and f.key in defaults}
+        browsers = browsers or [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] \
+            or ["chromium"]
+        credentials, _, _ = self.prepare_credentials(journey.system, [env])
+        return self.runs.start(RunConfig(system=journey.system, env=env, tags=tags, browsers=browsers,
+                                         options=options, test_ids=test_ids),
+                               expected=len(test_ids) * len(browsers), trigger=f"journey:{journey.id}",
+                               credentials=credentials)
 
     def prepare_credentials(self, system: str | None, envs: list[str | None], typed: dict[str, str] | None = None,
                             use_vault: bool = True) -> tuple[dict[str, str], list[str], dict[str, str]]:
@@ -145,15 +170,18 @@ def services() -> Services:
     schedules = ScheduleStore(s.workspace / "Data" / "schedules.json")
     notifier = Notifier(notify_lookup(env), s.resolved_public_url)
     tests_service = TestCaseService(s.workspace, pom)
+    artifacts = RunArtifacts("/runs", mask=runs.masker.mask)
+    systems = SystemDataService(s.systemdata_path)
+    common = CommonActionService(s.workspace, tests_service)
     svc = Services(
         pom=pom,
         tests=tests_service,
         help=HelpService(s.repo_root / "docs" / "help"),
-        artifacts=RunArtifacts("/runs", mask=runs.masker.mask),
+        artifacts=artifacts,
         recorder=Recorder(s.python_exe, s.recorder_command or None),
         settings=s,
         env=env,
-        systems=SystemDataService(s.systemdata_path),
+        systems=systems,
         catalog=catalog,
         runs=runs,
         runners=runners,
@@ -165,7 +193,9 @@ def services() -> Services:
         users=UserStore(s.resolved_users_file),
         audit=AuditLog(s.resolved_runs_dir.parent / "audit.jsonl"),
         datasets=DataSetService(s.workspace, tests_service),
-        common=CommonActionService(s.workspace, tests_service),
+        common=common,
+        journeys=JourneyService(JourneyStore(s.workspace), tests_service, common, catalog, systems, runs,
+                                lambda run: artifacts.details(run.id, run.results_dir)),
         issues=IssueTracker(prefixed_lookup(env, "ISSUE_")),
         vault=Vault(prefixed_lookup(env, "SECRET_")),
     )

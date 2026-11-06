@@ -720,3 +720,12 @@
 /* A short notice inside a dialog */
 .any-note { display: flex; gap: 6px; align-items: baseline; padding: 8px 12px; border: 1px solid var(--warn-border); border-radius: var(--r-ctl); background: var(--warn-bg); color: var(--warn-body); font-size: 13px; }
 .any-note a { color: var(--accent-deep); font-weight: 600; }
+
+/* Journeys */
+.any-jr-intro, .any-jr-pad { padding: 0 24px; }
+.any-jr-summary { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--ink-2); padding: 10px 24px 14px; }
+.any-app .any-jr-table thead th, .any-app .any-jr-table td { text-align: left; padding: 10px 16px; vertical-align: middle; }
+.any-app .any-jr-table td:last-child { text-align: right; white-space: nowrap; }
+.any-jr-env { font-weight: 500; }
+.any-jr-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.any-jr-env-block { display: flex; flex-direction: column; gap: 8px; }
