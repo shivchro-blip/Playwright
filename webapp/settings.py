@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     public_url: str = ""
     ai_model: str = "claude-opus-5-5"  # AI assist model (when aiAssistEnabled=true in .env)
     scheduler_enabled: bool = True  # fire schedules from this process (off for extra app instances)
+    exit_with_parent: bool = False  # set by the control plane: stop when its stdin closes (the parent is gone)
 
     @property
     def repo_root(self) -> Path:
