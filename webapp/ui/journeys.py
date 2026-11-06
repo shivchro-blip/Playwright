@@ -105,6 +105,8 @@ class JourneysPanel:
                 with ui.element("div").classes("any-jr-name"):
                     text("span", j.name, "any-tc-name")
                     text("span", j.criticality, f"any-pill pill-{CRIT_PILL[j.criticality]}")
+                    if j.monitor_safe:
+                        text("span", "monitor-safe", "any-tag").props('title="Safe to run against production"')
                 text("div", " · ".join(x for x in (j.owner, f"{len(j.tests)} test case"
                                                     + ("s" if len(j.tests) != 1 else "")) if x), "any-tc-code")
             for env in envs:
@@ -163,6 +165,9 @@ class JourneysPanel:
                 .props('rows=2 data-testid="jr-desc"').classes("w-full")
             tests = ui.select(options, value=chosen, multiple=True, with_input=True, label="Test cases that prove it") \
                 .props('use-chips data-testid="jr-tests"').classes("w-full")
+            safe = ui.switch("Safe to monitor: its test cases create no real records, so they may run against "
+                             "production many times a day", value=bool(existing and existing.monitor_safe)) \
+                .props('data-testid="jr-monitor-safe"')
             missing = [t for t in chosen if t not in self.svc.journeys.test_ids(self.system)]
             if missing:
                 ui.label("No longer in the test files: " + ", ".join(missing)).classes("any-muted text-xs")
@@ -190,7 +195,8 @@ class JourneysPanel:
         try:
             journey = validate({"id": existing.id if existing and name.value.strip() == existing.name else "",
                                 "name": name.value, "system": self.system, "criticality": crit.value,
-                                "owner": owner.value, "description": desc.value, "tests": tests.value or []})
+                                "owner": owner.value, "description": desc.value, "tests": tests.value or [],
+                                "monitor_safe": safe.value})
             saved = self.svc.journeys.store.save(journey, replaces=existing.id if existing else None)
         except JourneyError as e:
             ui.notify(str(e), type="negative", multi_line=True)

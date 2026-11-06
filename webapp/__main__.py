@@ -32,6 +32,7 @@ def main() -> None:
     shell.register()
     if s.scheduler_enabled:
         svc.scheduler.start()
+        svc.monitors.start()
 
     logging.getLogger("webapp").info(
         "workspace=%s dotenv=%s runs=%s allure=%s",

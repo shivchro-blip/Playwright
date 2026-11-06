@@ -341,6 +341,71 @@ def run_journey(journey_id: str, env: str) -> dict:
     return run.to_dict()
 
 
+def _monitor_view(monitor) -> dict:
+    return services().monitors.summary(monitor)
+
+
+@router.get("/monitors")
+def list_monitors() -> list[dict]:
+    """Every monitor with its journeys' state, uptime over 24h/7d/30d, and recent incidents."""
+    svc = services()
+    return [_monitor_view(m) for m in svc.monitors.store.list()]
+
+
+@router.get("/monitors/{monitor_id}")
+def get_monitor(monitor_id: str) -> dict:
+    monitor = services().monitors.store.get(monitor_id)
+    if monitor is None:
+        raise HTTPException(404, "Monitor not found")
+    return _monitor_view(monitor)
+
+
+def _save_monitor(data: dict, replaces: str | None, user) -> dict:
+    from webapp.services.monitors import MonitorError, validate as validate_monitor
+    svc = services()
+    try:
+        monitor = svc.monitors.store.save(validate_monitor(data, svc.journeys.store), replaces=replaces)
+    except MonitorError as e:
+        raise HTTPException(400, str(e)) from e
+    svc.audit.record(user.username, "monitor.save", monitor.id, via="api")
+    return _monitor_view(monitor)
+
+
+@router.post("/monitors", status_code=201)
+def create_monitor(data: dict, user=require("schedule")) -> dict:
+    return _save_monitor({k: v for k, v in data.items() if k != "id"}, None, user)
+
+
+@router.put("/monitors/{monitor_id}")
+def update_monitor(monitor_id: str, data: dict, user=require("schedule")) -> dict:
+    if services().monitors.store.get(monitor_id) is None:
+        raise HTTPException(404, "Monitor not found")
+    return _save_monitor({**data, "id": data.get("id") or monitor_id}, monitor_id, user)
+
+
+@router.delete("/monitors/{monitor_id}")
+def delete_monitor(monitor_id: str, user=require("schedule")) -> dict:
+    svc = services()
+    if not svc.monitors.store.delete(monitor_id):
+        raise HTTPException(404, "Monitor not found")
+    svc.audit.record(user.username, "monitor.delete", monitor_id, via="api")
+    return {"deleted": monitor_id}
+
+
+@router.post("/monitors/{monitor_id}/check", status_code=201, dependencies=[require("run")])
+def check_monitor(monitor_id: str) -> dict:
+    """Run a check now. 409 while the previous check is still running or when it cannot start."""
+    from webapp.services.monitors import MonitorError
+    svc = services()
+    try:
+        run = svc.monitors.check_now(monitor_id)
+    except MonitorError as e:
+        raise HTTPException(404, str(e)) from e
+    if run is None:
+        raise HTTPException(409, svc.monitors.errors.get(monitor_id) or "The previous check is still running.")
+    return run.to_dict()
+
+
 class ReleaseRequest(BaseModel):
     name: str
     system: str

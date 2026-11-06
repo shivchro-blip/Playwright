@@ -20,6 +20,7 @@ from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
 from webapp.services.issue_tracker import IssueTracker
 from webapp.services.journeys import JourneyService, JourneyStore
+from webapp.services.monitors import MonitorService, MonitorStore
 from webapp.services.releases import ReleaseService, ReleaseStore
 from webapp.services.heals import HealService
 from webapp.services.quarantine_service import QuarantineService
@@ -44,6 +45,7 @@ class Services:
     quarantine: QuarantineService
     common: CommonActionService
     journeys: JourneyService
+    monitors: MonitorService
     releases: ReleaseService
     heals: HealService
     issues: IssueTracker
@@ -90,26 +92,44 @@ class Services:
 
     def start_journey(self, journey_id: str, env: str, browsers: list[str] | None = None):
         """Run every test case of a journey on one environment, with the saved browser options from .env."""
-        from webapp.services.env_config import FIELDS
         from webapp.services.journeys import JourneyError
-        from webapp.services.run_manager import RunConfig
 
         journey = self.journeys.store.get(journey_id)
         if journey is None:
             raise JourneyError("That journey no longer exists.")
-        if env not in self.systems.environments(journey.system):
-            raise JourneyError(f"{journey.system} has no environment {env!r} in systemData.json.")
-        tags, test_ids = self.journeys.run_selection(journey)
+        return self.start_journeys(journey.system, [journey_id], env, browsers, trigger=f"journey:{journey.id}")
+
+    def start_journeys(self, system: str, journey_ids: list[str], env: str, browsers: list[str] | None = None,
+                       trigger: str = ""):
+        """One run with the test cases of several journeys of a system (a monitor check, for example)."""
+        from webapp.services.env_config import FIELDS
+        from webapp.services.journeys import JourneyError
+        from webapp.services.run_manager import RunConfig
+
+        if env not in self.systems.environments(system):
+            raise JourneyError(f"{system} has no environment {env!r} in systemData.json.")
+        chosen = [j for j in self.journeys.store.list(system) if j.id in journey_ids]
+        if not chosen:
+            raise JourneyError("None of those journeys exist any more.")
+        tags: list[str] = []
+        test_ids: list[str] = []
+        for journey in chosen:
+            t, ids = self.journeys.run_selection(journey)
+            tags += [x for x in t if x not in tags]
+            test_ids += [x for x in ids if x not in test_ids]
         defaults = self.env.load()
         options = {f.key: defaults[f.key] for f in FIELDS if f.group in ("Browser", "Artifacts")
                    and f.key != "del_allure" and f.key in defaults}
         browsers = browsers or [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] \
             or ["chromium"]
-        credentials, _, _ = self.prepare_credentials(journey.system, [env])
-        return self.runs.start(RunConfig(system=journey.system, env=env, tags=tags, browsers=browsers,
+        credentials, _, _ = self.prepare_credentials(system, [env])
+        return self.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
                                          options=options, test_ids=test_ids),
-                               expected=len(test_ids) * len(browsers), trigger=f"journey:{journey.id}",
-                               credentials=credentials)
+                               expected=len(test_ids) * len(browsers), trigger=trigger, credentials=credentials)
+
+    def monitor_browsers(self) -> list[str]:
+        saved = [b.strip() for b in self.env.load().get("browsers", "").split(",") if b.strip()]
+        return saved[:1] or ["chromium"]
 
     def prepare_credentials(self, system: str | None, envs: list[str | None], typed: dict[str, str] | None = None,
                             use_vault: bool = True) -> tuple[dict[str, str], list[str], dict[str, str]]:
@@ -202,12 +222,17 @@ def services() -> Services:
         datasets=DataSetService(s.workspace, tests_service),
         common=common,
         journeys=journeys,
+        monitors=None,  # needs svc for starting runs; set below
         heals=HealService(s.workspace, runs, pom),
         releases=ReleaseService(ReleaseStore(s.resolved_runs_dir.parent / "releases"), journeys, runs, quarantine,
                                 s.resolved_public_url),
         issues=IssueTracker(prefixed_lookup(env, "ISSUE_")),
         vault=Vault(prefixed_lookup(env, "SECRET_")),
     )
+    # a monitor check runs on the first configured browser only: a check should be quick
+    svc.monitors = MonitorService(
+        MonitorStore(s.workspace), s.resolved_runs_dir.parent / "monitors", journeys, runs, notifier,
+        lambda m: svc.start_journeys(m.system, m.journeys, m.env, svc.monitor_browsers(), trigger=f"monitor:{m.id}"))
     svc.scheduler.credentials_for = lambda system, env, vault: svc.prepare_credentials(
         system, [env], use_vault=vault)[0]
     return svc
