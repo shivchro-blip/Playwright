@@ -63,7 +63,7 @@ jobs:
           - os: windows-latest
             python: "3.14"
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 50  # the end-to-end suite takes about 29 minutes on Windows
     steps:
       - uses: actions/checkout@v4
         with:
