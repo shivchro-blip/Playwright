@@ -406,6 +406,14 @@ def check_monitor(monitor_id: str) -> dict:
     return run.to_dict()
 
 
+@router.get("/summary")
+def instance_summary() -> dict:
+    """This instance's health in one call (for the control plane): journeys per system and environment, the
+    failing critical and high journeys, the latest releases, monitors, runs and runners."""
+    from webapp.services.summary import build_summary
+    return build_summary(services())
+
+
 class ImpactRequest(BaseModel):
     base: str = ""  # commit, tag or branch to compare with
     head: str = ""  # empty: the workspace files as they are now

@@ -13,6 +13,24 @@ from webapp.state import services
 from webapp.ui import shell
 
 
+def _exit_with_parent() -> None:
+    """Run by the control plane: stdin is a pipe from it, so end of input means it is gone; stop as well."""
+    import os
+    import sys
+    import threading
+
+    def watch() -> None:
+        try:
+            while sys.stdin.buffer.read(1024):
+                pass
+        except (OSError, ValueError):
+            pass
+        logging.getLogger("webapp").warning("The control plane is gone; stopping.")
+        os._exit(0)
+
+    threading.Thread(target=watch, name="exit-with-parent", daemon=True).start()
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     svc = services()
@@ -33,6 +51,8 @@ def main() -> None:
     if s.scheduler_enabled:
         svc.scheduler.start()
         svc.monitors.start()
+    if s.exit_with_parent:
+        _exit_with_parent()
 
     logging.getLogger("webapp").info(
         "workspace=%s dotenv=%s runs=%s allure=%s",
