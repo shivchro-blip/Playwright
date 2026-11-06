@@ -15,6 +15,8 @@ Every editor has a **Form / JSON** toggle. The form covers the common keys; the 
 4. Reorder with the arrows, duplicate or remove steps.
 5. **Check** lists problems, **Save** writes the file, **Run** runs just this test.
 
+**Run** (and **From step...**) run only the open test case, on its environment with your saved browser options, and show the run right here under the toolbar: its status, each result with where it failed, **Details** (screenshot, DOM, trace, log), the last lines of the console, **Cancel** while it runs and **Report** when it is ready. You stay on the test case to fix it and run it again. **Open in Control** shows the same run on the Control tab; the Control tab's own test selection is not used.
+
 ### Form fields on a page step
 
 Each row is a field, an **action** and (for some actions) a value. The action menu offers only what fits the field:
@@ -106,7 +108,7 @@ The whole recording becomes one page step; a field used again gets a pipe suffix
 - Clicks that only focus a text box are dropped; checkboxes and radios are recorded as *check*; a select records the option you picked; Enter is recorded as a key press; a value typed again before leaving the field keeps only the last value.
 - A field it could only locate by its position on the page, or with an index, is listed in a warning to check before saving.
 - What each element looked like is saved as its **locator profile** (`Data/locatorProfiles/<SYSTEM>.json`), so self-healing can find it from the first run if the page changes later.
-- Password fields are never read, and values that look like credentials are not saved.
+- Password fields are never read, and passwords, PINs, one-time codes and tokens are not saved: the step gets `ENV.<FIELD>` instead (for example `"password": "ENV.PASSWORD"`) and the review says which key to add to `.env` (or the secret store). A user name is kept as typed.
 
 **Playwright codegen** (the other choice) keeps the locators codegen writes, as before; an `exact=True` locator now stays exact.
 

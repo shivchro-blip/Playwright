@@ -109,7 +109,7 @@ def test_from_step_dialog_offers_the_saved_state_and_starts_the_run(workspace: P
         expect(dialog.get_by_test_id("rs-mode")).to_contain_text("Saved state after step 2")
         expect(dialog.get_by_test_id("rs-mode")).to_contain_text(full.id)
         dialog.get_by_test_id("rs-run").click()
-        expect(page.locator(".any-headline")).to_have_text("Passed", timeout=180_000)
+        expect(page.get_by_test_id("tc-run-status")).to_have_text("Passed", timeout=180_000)  # shown in place
         browser.close()
     runs = sorted((tmp_path / "runs").glob("*/run.json"))
     options = json.loads(runs[-1].read_text(encoding="utf-8"))["config"]["options"]

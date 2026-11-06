@@ -38,6 +38,9 @@ from webapp.ui.step_actions import (
 )
 from webapp.ui.theme import icon, svg
 
+RUN_PILLS = {"queued": ("idle", "Queued"), "running": ("running", "Running"), "passed": ("passed", "Passed"),
+             "failed": ("failed", "Failed"), "error": ("failed", "Error"), "cancelled": ("idle", "Cancelled")}
+
 KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "Reusable test",
                "API_REQUEST": "API request"}
 KIND_TONES = {"screen": "kind-page", "commonAction": "kind-common", "testCase": "kind-reuse", "API_REQUEST": "kind-api"}
@@ -150,6 +153,9 @@ class TestEditor:
         self._screens: list[str] = []
         self._common: list[str] = []
         self._test_ids: list[str] = []
+        self.run_id: str = ""  # the run started from this editor, followed here (not on the Control tab)
+        self._run_sig: tuple = ()
+        ui.timer(1.0, self._follow_run)
 
         with ui.element("div").classes("any-split"):
             with ui.element("section").classes("any-card any-split-list").props('aria-label="Test cases"'):
@@ -296,6 +302,7 @@ class TestEditor:
                     .props('data-testid="run-from-step"').classes("any-btn is-38") \
                     .tooltip("Run some of the steps, starting from a saved state")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
+        self.run_panel()
         self.validation_view()
         if self.json_mode:
             self.json_editor()
@@ -709,8 +716,72 @@ class TestEditor:
         audit("run.start", run.id, test_id=test_id, **({"steps": f"{extra.get('runFromStep', 1)}-"
                                                         f"{extra.get('runToStep') or 'end'}"} if extra else {}))
         ui.notify(f"Running {test_id} ({run.id})", type="positive")
-        if self.gen.on_run:
-            self.gen.on_run(run.id)
+        self.run_id, self._run_sig = run.id, ()
+        self.run_panel.refresh()
+
+    # ───── the run started here: followed on this page ─────
+
+    def _follow_run(self) -> None:
+        run = self.svc.runs.get(self.run_id) if self.run_id else None
+        if run is None:
+            return
+        sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5)
+        if sig != self._run_sig:
+            self._run_sig = sig
+            self.run_panel.refresh()
+
+    def _hide_run(self) -> None:
+        self.run_id = ""
+        self.run_panel.refresh()
+
+    @ui.refreshable_method
+    def run_panel(self) -> None:
+        run = self.svc.runs.get(self.run_id) if self.run_id else None
+        if run is None:
+            return
+        from webapp.ui.test_details import open_test_details, result_rows
+        tone, label = RUN_PILLS.get(run.status, ("idle", run.status))
+        test_ids = ", ".join(run.config.test_ids) or "this test case"
+        with ui.element("section").classes("any-tc-run").props('aria-label="Run of this test case" '
+                                                                 'data-testid="tc-run"'):
+            with ui.element("div").classes("any-tc-run-head"):
+                with ui.element("span").classes(f"any-pill pill-{tone}").props('data-testid="tc-run-status"'):
+                    ui.element("span").classes("dot").props('aria-hidden="true"')
+                    text("span", label)
+                text("span", f"{test_ids} on {run.config.env} · {', '.join(run.config.browsers)}", "any-small")
+                text("span", run.id, "any-tc-code")
+                with ui.element("div").classes("any-head-right"):
+                    if run.active:
+                        ui.button("Cancel", icon=icon("square-solid"), color=None,
+                                  on_click=lambda: (self.svc.runs.cancel(run.id), self.run_panel.refresh())) \
+                            .props('flat dense no-caps data-testid="tc-run-cancel"').classes("any-btn")
+                    if run.report_status == "ready":
+                        with ui.element("a").classes("any-btn any-tc-run-link").props(
+                                f'href="/runs/{run.id}/report.html" target="_blank" rel="noopener"'):
+                            ui.label("Report")
+                    if self.gen.on_run:
+                        ui.button("Open in Control", color=None, on_click=lambda: self.gen.on_run(run.id)) \
+                            .props('flat dense no-caps data-testid="tc-run-control"').classes("any-btn")
+                    icon_button("x", "Hide this run", self._hide_run)
+            for row in result_rows(run):
+                outcome = row["outcome"]
+                tone = "passed" if outcome in ("passed", "xfailed") else \
+                    "failed" if outcome in ("failed", "error") else "running" if outcome == "running" else "idle"
+                with ui.element("div").classes("any-tc-run-row").props('data-testid="tc-run-result"'):
+                    text("span", outcome, f"any-pill pill-{tone}")
+                    text("span", f"{row['test_id']} · {row['browser']}", "mono any-small")
+                    if row["duration"]:
+                        text("span", f"{row['duration']:.1f} s", "any-muted text-xs")
+                    if row["where"] or row["message"]:
+                        text("span", row["where"] or str(row["message"])[:200], "any-small any-tc-run-where")
+                    if row["has_details"] and outcome not in ("running", "queued"):
+                        ui.button("Details", color=None, on_click=lambda r=row: open_test_details(run, r)) \
+                            .props('flat dense no-caps data-testid="tc-run-details"').classes("any-btn")
+            lines = run.log[-14:]
+            if lines:
+                with ui.expansion("Console", value=run.active).classes("any-disclosure") \
+                        .props('data-testid="tc-run-console"'):
+                    text("pre", "\n".join(lines), "any-pre")
 
     async def run_this(self) -> None:
         """Run just this test case with the saved defaults (.env) for browser options."""

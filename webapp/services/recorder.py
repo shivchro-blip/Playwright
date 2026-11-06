@@ -277,8 +277,25 @@ def field_name(cfg: dict, kind: str, taken: set[str], attr: str = "", prefix: st
 
 
 def _looks_secret(name: str, cfg: dict) -> bool:
+    """A password, PIN, one-time code or token: never saved. A user name is not a secret and is kept as typed
+    (the .env rule hides USERNAME keys from view; that is not a reason to drop what a test types)."""
+    if str(cfg.get("type") or "").lower() == "password":
+        return True
     text = " ".join([name] + [str(v) for v in cfg.values()])
-    return is_secret(name) or bool(SECRET_HINT.search(text))
+    return bool(SECRET_HINT.search(text)) or (is_secret(name) and "user" not in name.lower())
+
+
+def secret_ref(name: str) -> str:
+    """Where a credential the recording did not save comes from instead: ENV.<FIELD> (password -> ENV.PASSWORD,
+    otpCode -> ENV.OTP_CODE), so the test fills the field as soon as that key is in .env."""
+    key = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", name).replace("|", "")
+    return "ENV." + (re.sub(r"[^A-Za-z0-9_]+", "_", key).strip("_").upper() or "SECRET")
+
+
+def secret_warning(name: str) -> str:
+    key = secret_ref(name)[4:]
+    return (f"The value typed into '{name}' looks like a credential and was not saved: the step uses "
+            f"{secret_ref(name)}. Add {key}=<value> to .env (or the secret store) before running it.")
 
 
 def _statements(body: list[ast.stmt]):
@@ -444,9 +461,8 @@ def parse_codegen(source: str, options: RecordOptions | None = None) -> Recordin
         if method in ("fill", "type", "press_sequentially") and value not in ("", None) \
                 and _looks_secret(name, st.fields[name]):
             secrets_masked.append(str(value))
-            warnings.append(f"The value typed into '{name}' looks like a credential and was not saved. "
-                            "Use an ENV.<KEY> value from .env instead.")
-            value = ""
+            warnings.append(secret_warning(name))
+            value = secret_ref(name)
         add(name, value, created)
         rec.actions += 1
         if breaks and value == "click" and _label(cfg) in breaks:

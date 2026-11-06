@@ -52,7 +52,7 @@ def test_recorded_fields_have_real_names_and_stable_locators_and_the_test_replay
     step = rec.steps[0]
     assert step == {"firstName": "Ann", "lastName": "Lee", "name": "Lee Bakery", "emailAddress": "ann@example.com",
                     "phoneNumber": "5185550100", "stateSelect": "Texas",
-                    "iAgreeToTheTermsCheckbox": "check", "contactMeByPhoneRadio": "check", "password": "",
+                    "iAgreeToTheTermsCheckbox": "check", "contactMeByPhoneRadio": "check", "password": "ENV.PASSWORD",
                     "saveButton": "click", "continueButton": "click", "finishButton": "click"}
     assert any("credential" in w for w in rec.warnings) and "hunter2" not in rec.source
     assert not any("may not find" in w for w in rec.warnings)
