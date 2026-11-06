@@ -56,9 +56,14 @@ def snapshot(path: Path, previous_text: str) -> None:
         existing = sorted(p for p in folder.iterdir() if VERSION_RE.match(p.name))
         if existing and existing[-1].read_text(encoding="utf-8") == previous_text:
             return  # nothing changed since the last kept version
-        now = time.time()
-        stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now)) + f"-{int((now % 1) * 1000):03d}"
-        (folder / f"{stamp}.json").write_text(previous_text, encoding="utf-8")
+        now, target = time.time(), None
+        for bump in range(1000):  # two saves in the same millisecond must not share a version file
+            at = now + bump / 1000
+            stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(at)) + f"-{int((at % 1) * 1000):03d}"
+            target = folder / f"{stamp}.json"
+            if not target.exists():
+                break
+        target.write_text(previous_text, encoding="utf-8")
         for old in existing[: max(0, len(existing) + 1 - KEEP)]:
             old.unlink(missing_ok=True)
     except OSError:
