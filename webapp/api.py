@@ -314,6 +314,33 @@ def help_topic(topic_id: str) -> dict:
     return {**asdict(topic), "markdown": svc.markdown(topic)}
 
 
+@router.get("/journeys")
+def list_journeys(system: str) -> list[dict]:
+    """Each journey of a system with its status on every environment and its coverage."""
+    out = []
+    for o in services().journeys.overview(system):
+        out.append({**o.journey.to_dict(), "worst": o.worst,
+                    "statuses": {env: {"state": st.state, "label": st.label, "last_run": st.last_run,
+                                       "last_at": st.last_at, "pass_rate": st.pass_rate, "where": st.where,
+                                       "tests": [asdict(t) for t in st.tests]} for env, st in o.statuses.items()},
+                    "coverage": {"percent": o.coverage.percent, "missing_tests": o.coverage.missing_tests,
+                                 "screens": [{"screen": c.screen, "used": c.used, "total": c.total}
+                                             for c in o.coverage.screens]}})
+    return out
+
+
+@router.post("/journeys/{journey_id}/run", status_code=201, dependencies=[require("run")])
+def run_journey(journey_id: str, env: str) -> dict:
+    from webapp.services.journeys import JourneyError
+    try:
+        run = services().start_journey(journey_id, env)
+    except JourneyError as e:
+        raise HTTPException(400, str(e)) from e
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(409, str(e)) from e
+    return run.to_dict()
+
+
 @router.post("/runs/{run_id}/cancel", dependencies=[require("run")])
 def cancel_run(run_id: str) -> dict:
     if not services().runs.cancel(run_id):
