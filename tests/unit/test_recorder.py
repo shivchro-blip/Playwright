@@ -73,10 +73,16 @@ def test_actions_become_fields_and_one_step_in_order():
     assert rec.page("https://other.test")["fullpath"] == "https://shop.test/login"
 
 
+def test_a_user_name_is_kept_as_typed():
+    rec = parse_codegen(codegen('page.get_by_label("Username").fill("qa.tester")',
+                                'page.locator("#loginform\\:username").fill("dummy")'))
+    assert list(rec.steps[0].values()) == ["qa.tester", "dummy"] and not rec.warnings
+
+
 def test_credentials_are_not_saved_and_are_masked_in_the_code():
     rec = parse_codegen(codegen('page.get_by_label("Password").fill("hunter2")',
                                 'page.locator("#otp-code").fill("123456")'))
-    assert rec.steps == [{"password": "", "otpCode": ""}]
+    assert rec.steps == [{"password": "ENV.PASSWORD", "otpCode": "ENV.OTP_CODE"}]  # filled from .env instead
     assert "hunter2" not in rec.source and "123456" not in rec.source
     assert sum("looks like a credential" in w for w in rec.warnings) == 2
 

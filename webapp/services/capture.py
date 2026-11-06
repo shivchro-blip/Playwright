@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass, field
 
 from webapp.services.recorder import (
-    TYPE_SUFFIX, Recording, RecordOptions, Screen, _looks_secret, _pascal,
+    TYPE_SUFFIX, Recording, RecordOptions, Screen, _looks_secret, _pascal, secret_ref, secret_warning,
 )
 
 DYNAMIC_ID = re.compile(
@@ -351,10 +351,8 @@ def events_to_recording(events: list[dict], start_url: str, options: RecordOptio
         if action == "fill":
             value = ev.get("value") or ""
             if ev.get("secret") or (value and _looks_secret(name, {**current.fields[name], **profile_of(el)})):
-                if value or ev.get("secret"):
-                    rec.warnings.append(f"The value typed into '{name}' looks like a credential and was not saved. "
-                                        "Use an ENV.<KEY> value from .env instead.")
-                value = ""
+                rec.warnings.append(secret_warning(name))
+                value = secret_ref(name)
             if last_fill and last_fill[0] == name and list(current.step)[-1:] and \
                     current.step[list(current.step)[-1]] == last_fill[1]:
                 current.step[list(current.step)[-1]] = value  # typed again before leaving it: keep the last value
@@ -393,6 +391,7 @@ def events_to_recording(events: list[dict], start_url: str, options: RecordOptio
         rec.fields, rec.steps = current.fields, [current.step]
         pages = [current]
     rec.profiles = [p.profiles for p in pages]  # type: ignore[attr-defined]
+    rec.warnings = list(dict.fromkeys(rec.warnings))  # one line per field, however often it was typed into
     if fragile:
         rec.warnings.append("Check these locators, which may not find the element next time: " + "; ".join(fragile))
     if not rec.actions:

@@ -750,3 +750,10 @@
 .any-cp-attention { margin: 0 20px 12px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
 .any-cp-open { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
 .any-cp-secret { padding: 10px 12px; border: 1px solid var(--border, #d0d5dd); border-radius: 8px; user-select: all; }
+
+/* Generator: the run of the open test case */
+.any-tc-run { border: 1px solid var(--border, #d0d5dd); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; display: flex; flex-direction: column; gap: 8px; }
+.any-tc-run-head, .any-tc-run-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.any-tc-run-head .any-head-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.any-tc-run-where { color: var(--fail); }
+.any-tc-run-link { display: inline-flex; align-items: center; text-decoration: none; }

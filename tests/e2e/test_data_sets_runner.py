@@ -72,7 +72,7 @@ def test_from_step_dialog_picks_one_set_of_the_data_file(workspace: Path, tmp_pa
         dialog.get_by_test_id("rs-set").click()
         page.get_by_role("option", name="bob").click()
         dialog.get_by_test_id("rs-run").click()
-        expect(page.locator(".any-headline")).to_have_text("Passed", timeout=180_000)
+        expect(page.get_by_test_id("tc-run-status")).to_have_text("Passed", timeout=180_000)  # shown in place
         browser.close()
     run_json = sorted((tmp_path / "runs").glob("*/run.json"))[-1]
     data = json.loads(run_json.read_text(encoding="utf-8"))

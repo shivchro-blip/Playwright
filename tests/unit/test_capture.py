@@ -67,11 +67,22 @@ def test_events_become_fields_and_one_step():
                                           "candidates": [cand("name", 'select[name="state"]')]}, "value": "Texas"},
               {"action": "noise", "el": {}}]
     rec = events_to_recording(events, "http://x/apply")
-    assert rec.steps == [{"city": "Albany NY", "pass": "", "nextButton": "click", "nextButton|": "click",
+    assert rec.steps == [{"city": "Albany NY", "pass": "ENV.PASS", "nextButton": "click", "nextButton|": "click",
                           "city|": {"type": "keyboard", "value": "Enter"}, "stateSelect": "Texas"}]
     assert rec.fields["stateSelect"] == {"locator": 'select[name="state"]', "type": "select"}
     assert rec.profiles[0]["city"]["name"] == "city"
     assert any("credential" in w for w in rec.warnings) and rec.actions == 6
+
+
+def test_user_names_are_kept_and_passwords_come_from_env():
+    events = [{"action": "fill", "el": el("loginform:username", label="Username"), "value": "dummy.user"},
+              {"action": "fill", "el": el("loginform:password", type="password", label="Password"), "value": "",
+               "secret": True},
+              {"action": "fill", "el": el("loginform:password", type="password", label="Password"), "value": "",
+               "secret": True}]
+    rec = events_to_recording(events, "http://x/login")
+    assert rec.steps == [{"username": "dummy.user", "password": "ENV.PASSWORD"}]
+    assert len(rec.warnings) == 1 and "Add PASSWORD=<value> to .env" in rec.warnings[0]
 
 
 def test_wizard_mode_splits_on_the_buttons_that_move_on():
