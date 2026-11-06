@@ -406,6 +406,47 @@ def check_monitor(monitor_id: str) -> dict:
     return run.to_dict()
 
 
+class ImpactRequest(BaseModel):
+    base: str = ""  # commit, tag or branch to compare with
+    head: str = ""  # empty: the workspace files as they are now
+    screens: dict[str, list[str]] = {}  # system -> screens the application changed
+    env: str = ""  # for /impact/run
+
+
+def _impact(req: ImpactRequest):
+    from webapp.services.impact import ImpactError
+    try:
+        return services().impact.report(req.base.strip(), req.head.strip(), req.screens)
+    except ImpactError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/impact")
+def change_impact(req: ImpactRequest) -> dict:
+    """What a change reaches: the test cases (and why), the journeys, and the changes no test case exercises."""
+    return _impact(req).to_dict()
+
+
+@router.post("/impact/run", status_code=201)
+def run_impact(req: ImpactRequest, user=require("run")) -> dict:
+    """Run the test cases a change reaches on an environment (one run per system)."""
+    from webapp.services.impact import ImpactError
+    from webapp.services.journeys import JourneyError
+    svc = services()
+    report = _impact(req)
+    if not req.env:
+        raise HTTPException(400, "Say which environment to run on (env).")
+    try:
+        runs = svc.impact.run(report, req.env)
+    except (ImpactError, JourneyError) as e:
+        raise HTTPException(400, str(e)) from e
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(409, str(e)) from e
+    svc.audit.record(user.username, "impact.run", ",".join(r.id for r in runs), env=req.env, via="api",
+                     tests=len(report.tests))
+    return {"runs": [r.to_dict() for r in runs], **report.to_dict()}
+
+
 class ReleaseRequest(BaseModel):
     name: str
     system: str

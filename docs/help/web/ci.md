@@ -36,3 +36,7 @@ A cloud runner can only reach systems that are reachable from the internet. For 
 ## Other CI systems
 
 Anything that can run Python works the same way: install the locked dependencies (`pip install --require-hashes -r requirements-lock.txt`), install a browser (`python -m playwright install chromium`; add `--with-deps` on Linux), set the secrets as environment variables, run `python -m webapp.cli_run ...`, and archive the run folder. Use the exit code to pass or fail the build.
+
+## Run only what a change reaches
+
+`python -m webapp.impact --base origin/main --run dev` runs only the test cases the pull request's workspace changes reach (pages, fields, test cases, common actions, data files), and `--fail-on-breaks` fails the build when a test case uses something the change removed. See the Change impact help page.

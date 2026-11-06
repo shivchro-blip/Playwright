@@ -20,6 +20,7 @@ from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_manager import RunManager
 from webapp.services.issue_tracker import IssueTracker
 from webapp.services.journeys import JourneyService, JourneyStore
+from webapp.services.impact import ImpactService
 from webapp.services.monitors import MonitorService, MonitorStore
 from webapp.services.releases import ReleaseService, ReleaseStore
 from webapp.services.heals import HealService
@@ -46,6 +47,7 @@ class Services:
     common: CommonActionService
     journeys: JourneyService
     monitors: MonitorService
+    impact: ImpactService
     releases: ReleaseService
     heals: HealService
     issues: IssueTracker
@@ -102,9 +104,7 @@ class Services:
     def start_journeys(self, system: str, journey_ids: list[str], env: str, browsers: list[str] | None = None,
                        trigger: str = ""):
         """One run with the test cases of several journeys of a system (a monitor check, for example)."""
-        from webapp.services.env_config import FIELDS
         from webapp.services.journeys import JourneyError
-        from webapp.services.run_manager import RunConfig
 
         if env not in self.systems.environments(system):
             raise JourneyError(f"{system} has no environment {env!r} in systemData.json.")
@@ -117,6 +117,23 @@ class Services:
             t, ids = self.journeys.run_selection(journey)
             tags += [x for x in t if x not in tags]
             test_ids += [x for x in ids if x not in test_ids]
+        return self._start_selection(system, tags, test_ids, env, browsers, trigger)
+
+    def start_tests(self, system: str, test_ids: list[str], env: str, trigger: str = "",
+                    browsers: list[str] | None = None):
+        """One run with exactly these test cases of a system (the ones a change reaches, for example)."""
+        from webapp.services.journeys import JourneyError
+
+        if env not in self.systems.environments(system):
+            raise JourneyError(f"{system} has no environment {env!r} in systemData.json.")
+        tags, runnable = self.journeys.selection(system, test_ids)
+        return self._start_selection(system, tags, runnable, env, browsers, trigger)
+
+    def _start_selection(self, system: str, tags: list[str], test_ids: list[str], env: str,
+                         browsers: list[str] | None, trigger: str):
+        from webapp.services.env_config import FIELDS
+        from webapp.services.run_manager import RunConfig
+
         defaults = self.env.load()
         options = {f.key: defaults[f.key] for f in FIELDS if f.group in ("Browser", "Artifacts")
                    and f.key != "del_allure" and f.key in defaults}
@@ -223,6 +240,7 @@ def services() -> Services:
         common=common,
         journeys=journeys,
         monitors=None,  # needs svc for starting runs; set below
+        impact=None,  # likewise
         heals=HealService(s.workspace, runs, pom),
         releases=ReleaseService(ReleaseStore(s.resolved_runs_dir.parent / "releases"), journeys, runs, quarantine,
                                 s.resolved_public_url),
@@ -233,6 +251,8 @@ def services() -> Services:
     svc.monitors = MonitorService(
         MonitorStore(s.workspace), s.resolved_runs_dir.parent / "monitors", journeys, runs, notifier,
         lambda m: svc.start_journeys(m.system, m.journeys, m.env, svc.monitor_browsers(), trigger=f"monitor:{m.id}"))
+    svc.impact = ImpactService(s.workspace, journeys,
+                               lambda system, ids, env, trigger: svc.start_tests(system, ids, env, trigger))
     svc.scheduler.credentials_for = lambda system, env, vault: svc.prepare_credentials(
         system, [env], use_vault=vault)[0]
     return svc

@@ -10,6 +10,7 @@
   {"id": "journeys", "category": "Using the web app", "title": "Journeys", "path": "web/journeys.md", "tags": ["journey", "business transaction", "coverage", "status", "criticality"]},
   {"id": "releases", "category": "Using the web app", "title": "Release checks", "path": "web/releases.md", "tags": ["release", "go", "no-go", "evidence", "sign-off", "gate"]},
   {"id": "monitoring", "category": "Using the web app", "title": "Monitoring", "path": "web/monitoring.md", "tags": ["monitor", "production", "uptime", "incident", "alert", "synthetic"]},
+  {"id": "change-impact", "category": "Using the web app", "title": "Change impact", "path": "web/change-impact.md", "tags": ["impact", "change", "diff", "git", "affected", "selection", "which tests"]},
   {"id": "self-healing", "category": "Using the web app", "title": "Self-healing locators", "path": "web/self-healing.md", "tags": ["heal", "locator", "broken", "accept", "reject"]},
   {"id": "remote-runners", "category": "Using the web app", "title": "Remote runners", "path": "web/remote-runners.md", "tags": ["runner", "agent", "remote", "machine", "labels"]},
   {"id": "file-a-bug", "category": "Using the web app", "title": "File a bug from a failed test", "path": "web/file-a-bug.md", "tags": ["bug", "jira", "github", "issue"]},
