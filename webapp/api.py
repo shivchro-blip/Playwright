@@ -138,8 +138,24 @@ def validate_testcase(system: str, data: dict) -> dict:
 
 
 @router.get("/runs")
-def list_runs() -> list[dict]:
-    return [{k: v for k, v in r.to_dict().items() if k != "results"} for r in services().runs.list()]
+def list_runs(system: str | None = None, env: str | None = None, since: str | None = None, until: str | None = None,
+              finished: bool = False, trigger: str | None = None, limit: int | None = None) -> list[dict]:
+    """Runs, newest first, without their results; optionally scoped (through the results index): system, env,
+    created since/until (ISO time), finished only, trigger, limit."""
+    if limit is not None and limit < 1:
+        raise HTTPException(422, "limit must be at least 1")
+    runs = services().runs.query(system, env, since=since, until=until, finished_only=finished, trigger=trigger,
+                                 limit=limit)
+    return [{k: v for k, v in r.to_dict().items() if k != "results"} for r in runs]
+
+
+@router.get("/tests/{test_id}/history")
+def test_history(test_id: str, system: str | None = None, env: str | None = None, limit: int = 20) -> list[dict]:
+    """A test's latest results across runs, newest first: run, at, browser, outcome, duration, retries."""
+    index = services().runs.index
+    if index is None:
+        raise HTTPException(503, "The results index is unavailable")
+    return index.test_history(test_id, system, env, limit=max(1, min(limit, 500)))
 
 
 @router.post("/runs", status_code=201, dependencies=[require("run")])
@@ -211,7 +227,7 @@ def write_run_report(run_id: str) -> dict:
 @router.get("/insights/flaky")
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""
-    return [t.to_dict() for t in flaky_tests(services().runs.list(), system, env)]
+    return [t.to_dict() for t in flaky_tests(services().runs.query(system, env), system, env)]
 
 
 def _schedule_view(schedule) -> dict:

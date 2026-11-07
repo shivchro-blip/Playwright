@@ -69,3 +69,15 @@ The **Flaky tests** panel lists tests whose result flipped between pass and fail
 - **Slowest tests**: the tests with the longest average duration over their last 20 runs, with the slowest and latest time, so creeping slowness shows before it causes timeouts.
 - **Where tests fail**: failures of the last 15 runs grouped by screen, field and action, so one broken locator or one unstable screen stands out from a long list of red tests.
 
+
+## Run history index
+
+Every run is also recorded in a small database beside the run folders (`results.db` in the runs folder), so journey status, release checks, recent heals, schedule history and flaky tests look up only the runs they need instead of reading every run the app holds. It needs no setup and nothing to install.
+
+- **The run folders stay the source of truth.** The index is updated whenever a run is saved, finished or deleted, and brought up to date from the folders each time the app starts (only changed folders are read). Delete `results.db` to rebuild it from the folders; an unreadable one is set aside as `results.db.bad` and rebuilt automatically.
+- **From the API:** `GET /api/runs` takes optional `system`, `env`, `since` and `until` (ISO time of creation), `finished=true`, `trigger` and `limit`, newest first. `GET /api/tests/<test id>/history?system=&env=&limit=20` lists a test's latest results across runs: run, time, browser, outcome, duration and retries.
+
+```
+curl "http://host:8080/api/runs?system=PORTAL&env=uat&finished=true&limit=10"
+curl "http://host:8080/api/tests/TC-LOGIN-001/history?env=uat"
+```

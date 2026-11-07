@@ -17,6 +17,7 @@ from pathlib import Path
 from utils.self_heal import heal_key
 from webapp.services.locator_suggest import KEYS as LOCATOR_KEYS
 from webapp.services.locator_suggest import signature
+from webapp.services.run_manager import query_runs
 
 logger = logging.getLogger(__name__)
 RECENT_RUNS = 50
@@ -116,7 +117,7 @@ class HealService:
     def pending(self, system: str | None = None) -> list[PendingHeal]:
         done = set(self.decisions()["accepted"]) | set(self.decisions()["rejected"])
         found: dict[str, PendingHeal] = {}
-        recent = [r for r in self.runs.list() if not r.active][:RECENT_RUNS]
+        recent = query_runs(self.runs, finished_only=True, limit=RECENT_RUNS)
         for run in reversed(recent):  # oldest first, so the newest record wins
             for h in read_records(run.results_dir, "heals"):
                 if system and h.get("system") != system:

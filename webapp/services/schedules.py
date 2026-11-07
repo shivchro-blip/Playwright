@@ -21,6 +21,7 @@ from webapp.services.cron import Cron, CronError
 from webapp.services.env_config import RUN_OPTION_KEYS
 from webapp.services.json_files import NAME_RE, ConflictError, read_json, write_json
 from webapp.services.notifier import Notifier, build_message, validate_channel
+from webapp.services.run_manager import query_runs
 
 if TYPE_CHECKING:
     from webapp.services.run_manager import Run, RunManager
@@ -248,7 +249,7 @@ class Scheduler:
         return Cron.parse(schedule.cron).next_after(self.clock()) if schedule.enabled else None
 
     def last_runs(self, schedule: Schedule, limit: int = 10) -> list[Run]:
-        return [r for r in self.runs.list() if r.trigger == schedule.trigger][:limit]
+        return query_runs(self.runs, trigger=schedule.trigger, limit=limit)
 
     def queued(self, schedule: Schedule) -> bool:
         return any(r.status == "queued" for r in self.last_runs(schedule, 3))
