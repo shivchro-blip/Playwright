@@ -132,3 +132,16 @@ def test_the_attribute_most_elements_were_found_by_is_used_and_its_prefix_droppe
                                                                   id_prefix="app_"))
     assert list(given.fields) == ["FormZip", "FormCity", "FormStreet"]  # what the user says wins
     assert events_to_recording([{"action": "fill", "el": el("zip"), "value": "1"}], "http://x").notes == []
+
+
+def test_events_are_put_in_the_order_they_happened_and_counted_once():
+    from webapp.services.capture import in_order
+    typed = {"action": "fill", "el": el("phone"), "value": "518", "seq": 1}
+    picked = {"action": "select", "el": {**el("state"), "tag": "select", "role": "combobox",
+                                          "candidates": [cand("name", 'select[name="state"]')]},
+              "value": "Texas", "seq": 2}
+    clicked = {"action": "click", "el": button("Save"), "seq": 3}
+    # the select arrived before the typing it followed, and the click came twice (once from the page's log)
+    assert in_order([picked, clicked, typed, clicked]) == [typed, picked, clicked]
+    rec = events_to_recording([picked, clicked, typed, dict(clicked)], "http://x")
+    assert list(rec.steps[0]) == ["phone", "stateSelect", "saveButton"]

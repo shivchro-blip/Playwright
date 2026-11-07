@@ -167,22 +167,40 @@ CAPTURE_JS = r"""
     }
     return d;
   }
-  const send = ev => { try { window.__autoplayRecord(ev); } catch (e) { } };
-  const pending = new Map();   // text field -> last value, sent on change, Enter or before a click elsewhere
+  // Every action gets its number when it happens (kept across page loads of the tab), so the recorder can put them
+  // in order whatever order they arrive in; the page also keeps a log of what it sent, to fill in any that did not.
+  const nextSeq = () => {
+    let n = 0;
+    try { n = Number(sessionStorage.getItem('__autoplaySeq') || 0) + 1; sessionStorage.setItem('__autoplaySeq', n); }
+    catch (e) { n = (window.__autoplaySeqMem = (window.__autoplaySeqMem || 0) + 1); }
+    return n;
+  };
+  const send = ev => {
+    if (!ev.seq) ev.seq = nextSeq();
+    try {
+      const log = JSON.parse(sessionStorage.getItem('__autoplayLog') || '[]');
+      log.push(ev); sessionStorage.setItem('__autoplayLog', JSON.stringify(log.slice(-500)));
+    } catch (e) { }
+    try { window.__autoplayRecord(ev); } catch (e) { }
+  };
+  const pending = new Map();   // text field -> last value, sent on change, Enter or before anything else is sent
   function flush(except) {
-    for (const [el, info] of pending) if (el !== except) { send(info); pending.delete(el); }
+    for (const [el, info] of [...pending]) if (el !== except) { pending.delete(el); send(info); }
   }
   document.addEventListener('input', e => {
     const el = e.target;
     if (!(el instanceof Element) || !isText(el)) return;
     const secret = typeOf(el) === 'password';
     const value = secret ? '' : (el.isContentEditable ? el.innerText : el.value);
-    pending.set(el, {action: 'fill', el: describe(el), value, secret, url: location.href});
+    const seq = pending.has(el) ? pending.get(el).seq : nextSeq();   // in order of when typing started
+    if (!pending.has(el)) flush(el);
+    pending.set(el, {action: 'fill', el: describe(el), value, secret, url: location.href, seq});
   }, true);
   document.addEventListener('change', e => {
     const el = e.target;
     if (!(el instanceof Element)) return;
-    if (pending.has(el)) { send(pending.get(el)); pending.delete(el); return; }
+    if (pending.has(el)) { const info = pending.get(el); pending.delete(el); send(info); return; }
+    flush(el);
     const t = tagOf(el), ty = typeOf(el);
     if (t === 'select') {
       const opt = el.options[el.selectedIndex];
@@ -196,7 +214,7 @@ CAPTURE_JS = r"""
   document.addEventListener('keydown', e => {
     const el = e.target;
     if (!(el instanceof Element) || !['Enter', 'Tab', 'Escape'].includes(e.key) || !isText(el)) return;
-    if (pending.has(el)) { send(pending.get(el)); pending.delete(el); }
+    flush(null);
     if (e.key === 'Enter') send({action: 'press', el: describe(el), value: 'Enter', url: location.href});
   }, true);
   document.addEventListener('click', e => {
@@ -207,7 +225,7 @@ CAPTURE_JS = r"""
     if (box && (box.control || box.querySelector('input'))) return;                  // its input reports the change
     if (tagOf(raw) === 'input' && ['checkbox', 'radio', 'file'].includes(typeOf(raw))) return;
     const el = raw.closest(CLICKABLE) || raw;
-    flush(el);
+    flush(null);
     send({action: 'click', el: describe(el), url: location.href});
   }, true);
   window.addEventListener('beforeunload', () => flush(null));
@@ -326,6 +344,23 @@ class _Page:
     profiles: dict[str, dict] = field(default_factory=dict)
 
 
+def in_order(events: list[dict]) -> list[dict]:
+    """The actions in the order they happened (each has its number from the page), each once: an event the page's
+    own log filled in may also have arrived on its own."""
+    seen: set = set()
+    out = []
+    for position, ev in enumerate(events):
+        if not isinstance(ev, dict):
+            continue
+        seq = ev.get("seq")
+        if seq is not None:
+            if seq in seen:
+                continue
+            seen.add(seq)
+        out.append((seq if isinstance(seq, (int, float)) else float("inf"), position, ev))
+    return [ev for _, _, ev in sorted(out, key=lambda t: (t[0], t[1]))]
+
+
 def detected_options(events: list[dict], options: RecordOptions) -> RecordOptions:
     """The site's id attribute and value prefix, from what the page said (unless given): the attribute most of the
     recorded elements were found by, and the prefix its values share."""
@@ -344,6 +379,7 @@ def detected_options(events: list[dict], options: RecordOptions) -> RecordOption
 def events_to_recording(events: list[dict], start_url: str, options: RecordOptions | None = None) -> Recording:
     """Captured events (in order) -> the same Recording the codegen path builds: fields, one formData step per
     page (a screen per wizard page), warnings; plus `profiles` (field -> element description)."""
+    events = in_order(events)
     options = detected_options(events, options or RecordOptions())
     rec = Recording(start_url=start_url)
     if options.id_attribute:
