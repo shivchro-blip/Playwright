@@ -11,6 +11,7 @@ from webapp.ui.monitors import MonitorsPanel
 from webapp.ui.releases import ReleasesPanel
 from webapp.ui.runners_dialog import open_runners
 from webapp.ui.ai_panels import open_ai_settings
+from webapp.ui.confidence import ConfidencePanel
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
@@ -71,8 +72,8 @@ def register() -> None:
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
-        (control_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, generator_tab, history_tab, schedules_tab,
-         help_tab) = tab_elems.values()
+        (control_tab, confidence_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, generator_tab, history_tab,
+         schedules_tab, help_tab) = tab_elems.values()
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -155,6 +156,8 @@ def register() -> None:
         with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent"):
             with ui.tab_panel(control_tab).classes("any-app"):
                 panels["control"] = ControlPanel()
+            with ui.tab_panel(confidence_tab).classes("any-app any-page"):
+                ConfidencePanel(go=go)
             with ui.tab_panel(journeys_tab).classes("any-app any-page"):
                 panels["journeys"] = JourneysPanel(on_watch=watch)
             with ui.tab_panel(releases_tab).classes("any-app any-page"):

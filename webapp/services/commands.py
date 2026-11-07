@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 TABS = [
     ("Control", "circle-play", "run start tests console"),
+    ("Confidence", "chart-column", "safe to release ready blocked risk working production verdict"),
     ("Journeys", "circle-check", "business coverage status"),
     ("Releases", "shield", "go no-go evidence release check"),
     ("Monitors", "activity", "production uptime incidents"),

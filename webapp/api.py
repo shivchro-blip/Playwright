@@ -372,6 +372,16 @@ def list_journeys(system: str) -> list[dict]:
     return out
 
 
+@routes.get("/confidence")
+def confidence(system: str) -> dict:
+    """Per environment of a system: blocked, at risk, ready or not known yet, with the reasons (journeys, the latest
+    release decision, monitors); and every journey's status on every environment."""
+    from webapp.services.confidence import build_for
+    if system not in services().systems.systems():
+        raise HTTPException(404, f"Unknown system {system!r}")
+    return build_for(services(), system).to_dict()
+
+
 @routes.post("/journeys/{journey_id}/run", status_code=201, dependencies=[require("run")])
 def run_journey(journey_id: str, env: str) -> dict:
     from webapp.services.journeys import JourneyError
