@@ -61,6 +61,16 @@ Test data looks real, and logs and reports get shared. Social Security numbers (
 
 The **Flaky tests** panel lists tests whose result flipped between pass and fail in their recent runs, or that passed only after a retry. For each, **Quarantine** keeps the test case running but stops its failures from failing the run: it is reported as *xfailed* with your reason, the run stays green, and a pass shows as *xpassed*. **Release** puts it back to normal. The same **Quarantine / Release** button is in the Generator's test case editor. Quarantined test cases are listed in `Data/quarantine.json` in the workspace (a test case with a data set is matched by its ID without the `[set]` part). Quarantine hides a problem: fix the test or the portal, then release it.
 
+## A test's timeline
+
+**Timeline** shows one test case's whole story on one screen, newest first. Open it from a test's **Details** (in a run), from **Timeline** in the Flaky tests panel, or from the Generator's test case editor.
+
+- **On top, how it is doing**: passing, failing, flaky, just broke or just fixed; its pass rate over its recent results; how often it changed result; its typical time, flagged **slowing down** when its latest passing runs take a quarter longer than the ones before; its recent results as coloured squares; and its quarantine, if any.
+- **Then everything that happened to it**: each result with the environment, browser and time, and for a failure the step it failed on and why (for example `step 2 of 3: Payment · Timeout 30000ms`), or that it passed only after a retry; the heals and element-identity fallbacks it needed in that run; when it was quarantined or released, by whom and why; and when the test case was saved.
+- Pick an environment to see only its runs. **Quarantine** / **Release** works right there, and the story updates.
+- A test case with data sets (`TC-1[gold]`) is shown with all its sets; each result says which set it was.
+- The same is available to scripts: `GET /api/v1/tests/<test id>/timeline?system=<system>&env=<env>`.
+
 ## Trends
 
 **Trends** (top right of the Runs list) shows how the suite is doing over time for a system, and optionally one environment, over the last 7 to 90 days:

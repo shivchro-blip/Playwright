@@ -37,6 +37,10 @@ def test_palette_jumps_and_the_address_follows_the_tab(workspace: Path, tmp_path
         box.press("Enter")
         expect(page.get_by_role("tab", name="Generator")).to_have_attribute("aria-selected", "true")
         expect(page.locator("#tc-id")).to_have_value("TC-SMOKE-001-Search")
+        # and it stays in front: the Generator's own default page must not open over it
+        expect(page.get_by_role("tab", name="Test cases")).to_have_attribute("aria-selected", "true")
+        page.wait_for_timeout(1500)
+        expect(page.get_by_role("tab", name="Test cases")).to_have_attribute("aria-selected", "true")
 
         # a field opens its page with the field picked out; arrows move through the results
         page.get_by_test_id("palette-open").click()
