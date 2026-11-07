@@ -104,6 +104,18 @@ class UsageIndex:
         self.tests = tests
 
     def scan(self, system: str) -> Usage:
+        """From the shared workspace model (files re-read only when they change). A copy: callers may keep it."""
+        from webapp.services.workspace_model import model_for
+        shared = model_for(self.tests.workspace, self.tests).snapshot().usage(system)
+        usage = Usage()
+        for page, uses in shared.pages.items():
+            usage.pages[page] = list(uses)
+        for key, uses in shared.fields.items():
+            usage.fields[key] = list(uses)
+        return usage
+
+    def scan_files(self, system: str) -> Usage:
+        """The same answer straight from the files (kept as the reference the model is checked against)."""
         usage = Usage()
         for source in list_sources(self.tests):
             try:

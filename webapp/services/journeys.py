@@ -321,7 +321,20 @@ class JourneyService:
         self.store, self.tests, self.common, self.catalog = store, tests, common, catalog
         self.systems, self.runs, self.details_for = systems, runs, details_for
 
+    def _model(self):
+        from webapp.services.workspace_model import model_for
+        return model_for(self.tests.workspace, self.tests).snapshot()
+
     def _steps_index(self, system: str) -> dict[str, list[dict]]:
+        return dict(self._model().by_folder.get(system, {}))
+
+    def _fields_index(self, system: str) -> dict[str, set[str]]:
+        return {page: set(fields) for (s, page), fields in self._model().pages.items() if s == system}
+
+    def _action_steps(self, name: str) -> list[dict]:
+        return list(self._model().common.get(name, []))
+
+    def _steps_index_files(self, system: str) -> dict[str, list[dict]]:
         from webapp.services.usage import list_sources
 
         out: dict[str, list[dict]] = {}
@@ -337,7 +350,7 @@ class JourneyService:
                     out[str(case["testCaseID"])] = list(case.get("steps") or [])
         return out
 
-    def _fields_index(self, system: str) -> dict[str, set[str]]:
+    def _fields_index_files(self, system: str) -> dict[str, set[str]]:
         out: dict[str, set[str]] = {}
         for ref in self.tests.pom.list_pages(system):
             try:
@@ -347,7 +360,7 @@ class JourneyService:
             out[Path(ref.rel).stem] = set((data.get("fields") or {}).keys())
         return out
 
-    def _action_steps(self, name: str) -> list[dict]:
+    def _action_steps_files(self, name: str) -> list[dict]:
         try:
             return list(self.common.load(name)[0].get("steps") or [])
         except (OSError, ValueError):

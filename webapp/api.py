@@ -406,6 +406,36 @@ def check_monitor(monitor_id: str) -> dict:
     return run.to_dict()
 
 
+def _model():
+    from webapp.services.workspace_model import model_for
+    svc = services()
+    return model_for(svc.settings.workspace, svc.tests).snapshot()
+
+
+@router.get("/model/search")
+def model_search(q: str, limit: int = 50) -> list[dict]:
+    """Tests, journeys, pages, fields, common actions and data sets whose name contains `q` (names starting with
+    it first)."""
+    return _model().search(q, max(1, min(limit, 200)))
+
+
+@router.get("/model/reach")
+def model_reach(system: str, page: str = "", field: str = "", common: str = "", test: str = "",
+                data_set: str = "") -> dict:
+    """Which test cases of a system reach a page, a field of a page, a common action, a reused test case or a data
+    file, directly or through what they call; and, for a page or field, the steps that name it."""
+    if not any((page, common, test, data_set)) or (field and not page):
+        raise HTTPException(400, "Name a page (and optionally a field), a common action, a test or a data set.")
+    snap = _model()
+    out = {"tests": snap.tests_reaching(system, page=page, field_name=field, common=common, test=test,
+                                        data_set=data_set)}
+    if page:
+        usage = snap.usage(system)
+        uses = usage.field_uses(page, field) if field else usage.page_uses(page)
+        out["steps"] = [{"file": u.file, "owner": u.owner, "step": u.step, "source": u.source} for u in uses]
+    return out
+
+
 @router.get("/summary")
 def instance_summary() -> dict:
     """This instance's health in one call (for the control plane): journeys per system and environment, the

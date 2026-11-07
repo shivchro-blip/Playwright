@@ -212,6 +212,15 @@ class Model:
 
 
 def load_model(workspace: Path) -> Model:
+    """The tests and common actions, from the shared workspace model (files re-read only when they change)."""
+    from webapp.services.workspace_model import model_for
+    snap = model_for(workspace).snapshot()
+    return Model({key: TestNode(t.test_id, t.system, t.rel, list(t.tags), list(t.steps), t.data_set)
+                  for key, t in snap.tests.items()}, {name: list(steps) for name, steps in snap.common.items()})
+
+
+def load_model_files(workspace: Path) -> Model:
+    """The same straight from the files (the reference the workspace model is checked against)."""
     workspace = Path(workspace)
     model = Model()
 
