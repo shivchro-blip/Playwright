@@ -4,6 +4,7 @@
   {"id": "generator-tab", "category": "Using the web app", "title": "Generator tab", "path": "web/generator-tab.md", "tags": ["edit", "test case", "page", "pom", "recorder", "codegen", "data set", "test data"]},
   {"id": "history-and-reports", "category": "Using the web app", "title": "History and reports", "path": "web/history-and-reports.md", "tags": ["allure", "report", "history", "video", "trace", "index", "api", "events", "live"]},
   {"id": "team", "category": "Using the web app", "title": "Accounts, roles and the audit trail", "path": "web/team.md", "tags": ["login", "users", "roles", "token", "audit", "activity", "queue", "security"]},
+  {"id": "api", "category": "Using the web app", "title": "The API (v1)", "path": "web/api.md", "tags": ["api", "v1", "rest", "curl", "scripts", "ci", "token"]},
   {"id": "ai-assist", "category": "Using the web app", "title": "AI assist", "path": "web/ai-assist.md", "tags": ["ai", "claude", "triage", "locator", "draft", "summary", "anthropic"]},
   {"id": "schedules", "category": "Using the web app", "title": "Schedules and notifications", "path": "web/schedules.md", "tags": ["schedule", "cron", "nightly", "slack", "teams", "email", "webhook", "notification"]},
   {"id": "ci", "category": "Using the web app", "title": "Run in CI", "path": "web/ci.md", "tags": ["ci", "github actions", "pipeline", "headless", "cli", "exit code", "commit", "schedule"]},

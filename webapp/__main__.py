@@ -5,7 +5,7 @@ import logging
 
 from nicegui import app, ui
 
-from webapp.api import router
+from webapp.api import install_api
 from webapp.runner_api import router as runner_router
 from webapp.auth import install_auth
 from webapp.security import install_security
@@ -43,7 +43,7 @@ def main() -> None:
     # Order matters: install_auth's middleware must run after (inside) install_security's host/origin checks
     storage_secret = install_auth(app, s)
     install_security(app, s)
-    app.include_router(router)
+    install_api(app)
     app.include_router(runner_router)
     # Per-run folders: allure-report/index.html, console.log, raw allure-results
     app.add_static_files("/runs", s.resolved_runs_dir, max_cache_age=0)
