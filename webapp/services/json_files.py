@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import re
 from pathlib import Path
 from typing import Any
@@ -85,4 +86,23 @@ def write_json(path: Path, data: Any, expected_hash: str | None, indent: str | N
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
     tmp.replace(path)
+    note_write(path)
     return content_hash(text)
+
+
+# Every write through write_json is counted per file, so readers that cache by size and modification time (the
+# workspace model) never miss an edit that keeps both, as a same-length change can on a coarse file-system clock.
+_writes: dict[str, int] = {}
+_writes_lock = threading.Lock()
+WRITES = [0]  # total writes in this process
+
+
+def note_write(path: Path) -> None:
+    with _writes_lock:
+        key = str(Path(path).resolve())
+        _writes[key] = _writes.get(key, 0) + 1
+        WRITES[0] += 1
+
+
+def write_count(path: Path) -> int:
+    return _writes.get(str(Path(path).resolve()), 0)
