@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Callable
 
 from nicegui import ui
@@ -1646,7 +1647,7 @@ class GeneratorPanel:
             with ui.element("div").classes("any-page-head"):
                 with ui.element("div").classes("any-head-left"):
                     with labelled("System", "gen-system"):
-                        ui.select(systems, value=self.system, on_change=self.on_system) \
+                        self.system_select = ui.select(systems, value=self.system, on_change=self.on_system) \
                             .props('for="gen-system"').classes("w-48")
                     ui.label("Edits are saved straight to the workspace JSON files.").classes("any-muted text-sm")
                 with ui.element("div").classes("any-head-right"):
@@ -1686,6 +1687,19 @@ class GeneratorPanel:
             return
         self.sections.set_value(self.pages_tab)
         await self.pages.open(rel)
+
+    async def use_system(self, system: str) -> bool:
+        """Switch to a system (asking about unsaved edits); False when it is unknown or the user stayed."""
+        if system == self.system:
+            return True
+        if system not in (self.system_select.options or []):
+            ui.notify(f"System {system!r} is not in the Generator.", type="warning")
+            return False
+        await self.on_system(SimpleNamespace(value=system, sender=self.system_select))
+        if self.system != system:
+            return False
+        self.system_select.value = system  # its change handler sees the system already set and does nothing
+        return True
 
     async def open_test(self, rel: str, index: int) -> None:
         """Jump to a test case in the Test cases tab (from a page's used-by list)."""

@@ -31,6 +31,18 @@ Open **http://127.0.0.1:8080** (`start.cmd` opens it for you). The app only list
 - **History** - every past run, with details, re-run and delete.
 - **Help** - these pages.
 
+The other tabs (Journeys, Releases, Monitors, Impact, Schedules) have their own help pages. The address follows the tab you are on (`http://127.0.0.1:8080/#history`), so a bookmark, a link you share or a reload opens on the same tab, and the browser's Back and Forward move between tabs.
+
+## Find anything: Ctrl+K
+
+Press **Ctrl+K** (**Cmd+K** on a Mac), or **Search** in the header, anywhere in the app. One box finds:
+
+- any tab, and actions such as **Start a run**, **New test case** and **Open trends**;
+- every test case, page, field and journey in the workspace (a test case opens in the Generator's editor, a page in the Pages tab, a field opens its page with the field picked out);
+- the latest runs (opens the run's details in History).
+
+Type a few letters: the whole name, its start, the start of a word in it, or just the letters in order (`tcsm` finds `TC-SMOKE-...`). Several words narrow it down, and a word can also match the details line (`login portal`). **Up** and **Down** move, **Enter** opens, **Esc** closes. An empty box lists the tabs and the latest runs.
+
 ## Workspace layout
 
 ```
