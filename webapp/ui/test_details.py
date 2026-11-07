@@ -84,23 +84,23 @@ STEP_KIND = {"page": "page", "common": "common action", "test": "reused test", "
 
 def step_list(steps: list[dict]) -> None:
     """A test's own steps as they ran: number, what it did, result, time, and the error of the failing one."""
-    with ui.element("section").classes("any-steps").props('data-testid="test-steps"'):
+    with ui.element("section").classes("any-run-steps").props('data-testid="test-steps"'):
         text("div", "Steps", "any-eyebrow")
-        with ui.element("ol").classes("any-step-list"):
+        with ui.element("ol").classes("any-run-step-list"):
             for s in steps:
-                with ui.element("li").classes(f"any-step is-{s.get('status', '')}"):
-                    text("span", str(s.get("n", "")), "any-step-n")
-                    with ui.element("span").classes("any-step-what"):
-                        text("span", str(s.get("label", "")), "any-step-label")
-                        text("span", STEP_KIND.get(str(s.get("kind", "")), ""), "any-step-kind")
+                with ui.element("li").classes(f"any-run-step is-{s.get('status', '')}"):
+                    text("span", str(s.get("n", "")), "any-run-step-n")
+                    with ui.element("span").classes("any-run-step-what"):
+                        text("span", str(s.get("label", "")), "any-run-step-label")
+                        text("span", STEP_KIND.get(str(s.get("kind", "")), ""), "any-run-step-kind")
                     with ui.element("span").classes(f"any-pill pill-{STEP_TONE.get(s.get('status'), 'idle')}"):
                         ui.element("span").classes("dot").props('aria-hidden="true"')
                         text("span", str(s.get("status", "")))
                     seconds = s.get("seconds")
                     text("span", fmt_seconds(float(seconds)) if isinstance(seconds, (int, float)) else "",
-                         "any-step-time")
+                         "any-run-step-time")
                     if s.get("error"):
-                        text("div", str(s["error"]), "any-step-error")
+                        text("div", str(s["error"]), "any-run-step-error")
 
 
 def open_test_details(run: Run, row: dict) -> None:
