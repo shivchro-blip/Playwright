@@ -40,7 +40,9 @@ def result_rows(run: Run) -> list[dict]:
         name, code = split_test_id(r.test_id)
         trend = recent.get((r.test_id, r.browser))
         rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name, "code": code,
-                     "browser": r.browser, "duration": r.duration, "message": r.message,
+                     "browser": r.browser, "duration": r.duration,
+                     "message": f"Step {r.step}" if r.outcome == "running" and r.step else r.message,
+                     "step": r.step, "steps": list(r.steps),
                      "where": details[(r.test_id, r.browser)].failure.short
                      if (r.test_id, r.browser) in details and details[(r.test_id, r.browser)].failure else "",
                      "has_details": has_details(details, r.test_id, r.browser),
@@ -74,6 +76,31 @@ def _trace_actions(run: Run, traces: list) -> None:
                     .props('flat unelevated no-caps data-testid="open-trace"').classes("any-btn is-38")
     ui.label("Or open the downloaded file with `playwright show-trace <file>`, or drop it on trace.playwright.dev "
              "(it is processed in your browser, not uploaded).").classes("any-muted text-xs")
+
+
+STEP_TONE = {"passed": "passed", "failed": "failed", "running": "running", "stopped": "idle"}
+STEP_KIND = {"page": "page", "common": "common action", "test": "reused test", "api": "API request"}
+
+
+def step_list(steps: list[dict]) -> None:
+    """A test's own steps as they ran: number, what it did, result, time, and the error of the failing one."""
+    with ui.element("section").classes("any-run-steps").props('data-testid="test-steps"'):
+        text("div", "Steps", "any-eyebrow")
+        with ui.element("ol").classes("any-run-step-list"):
+            for s in steps:
+                with ui.element("li").classes(f"any-run-step is-{s.get('status', '')}"):
+                    text("span", str(s.get("n", "")), "any-run-step-n")
+                    with ui.element("span").classes("any-run-step-what"):
+                        text("span", str(s.get("label", "")), "any-run-step-label")
+                        text("span", STEP_KIND.get(str(s.get("kind", "")), ""), "any-run-step-kind")
+                    with ui.element("span").classes(f"any-pill pill-{STEP_TONE.get(s.get('status'), 'idle')}"):
+                        ui.element("span").classes("dot").props('aria-hidden="true"')
+                        text("span", str(s.get("status", "")))
+                    seconds = s.get("seconds")
+                    text("span", fmt_seconds(float(seconds)) if isinstance(seconds, (int, float)) else "",
+                         "any-run-step-time")
+                    if s.get("error"):
+                        text("div", str(s["error"]), "any-run-step-error")
 
 
 def open_test_details(run: Run, row: dict) -> None:
@@ -120,6 +147,10 @@ def open_test_details(run: Run, row: dict) -> None:
                                                'aria-label="Open the failure screenshot"'):
                         ui.element("img").props(f'src="{shot.url}" alt="{shot.name}" loading="lazy"') \
                             .classes("any-failat-shot")
+        steps = row.get("steps") or next((list(r.steps) for r in run.results.values()
+                                          if r.test_id == test_id and r.browser == browser), [])
+        if steps:
+            step_list(steps)
         message = (item.message if item else "") or str(row.get("message") or "")
         if message:
             with ui.element("section").classes("any-error-box"):

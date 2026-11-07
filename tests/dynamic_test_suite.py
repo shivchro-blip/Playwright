@@ -16,6 +16,7 @@ import utils.a11y as a11y
 import utils.checkpoints as checkpoints
 import utils.retry_trace as retry_trace
 import utils.self_heal as self_heal
+import utils.step_events as step_events
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -474,7 +475,7 @@ a11y_scanner = None  # set for the length of one test when a11yScan=true
 
 
 async def run_steps(steps, page, browser, dictionaryContext, testSystem, current_login_state, system_needed, parent_override=None,
-                    start_url=None, after_step=None):
+                    start_url=None, after_step=None, step_reporter=None):
     global reportDescription
     if current_login_state.get("system") != system_needed:
         logger.info(f"[LOGIN SWITCH] CURRENT = {current_login_state.get('system')} → NEW = {system_needed}")
@@ -504,124 +505,133 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
 
 
     for step_no, step in enumerate(steps, 1):
-        if "commonAction" in step:
-            commonAction = step["commonAction"]
-            allure.dynamic.feature(f"Common Action: {commonAction}")
-            reportDescription += f"\nCommon Action: {commonAction}"
-            logger.info("Executing Common Action: %s", commonAction)
+        if step_reporter:
+            step_reporter.start(step_no, step)
+        try:
+            if "commonAction" in step:
+                commonAction = step["commonAction"]
+                allure.dynamic.feature(f"Common Action: {commonAction}")
+                reportDescription += f"\nCommon Action: {commonAction}"
+                logger.info("Executing Common Action: %s", commonAction)
 
-            with allure.step(f"- Common Action: {commonAction} -"):
-                comActSteps = commonActions.get(commonAction, {}).get("steps", [])
-                if not comActSteps:
-                    logger.error("[ERROR] Common Action '%s' not found!", commonAction)
-                    await attach_allure_failure_details(page, step, name="CommonActionFailure", extra_label="Common Action Not Found!")
-                    await addFail(f"Common Action: {commonAction} not found!")
+                with allure.step(f"- Common Action: {commonAction} -"):
+                    comActSteps = commonActions.get(commonAction, {}).get("steps", [])
+                    if not comActSteps:
+                        logger.error("[ERROR] Common Action '%s' not found!", commonAction)
+                        await attach_allure_failure_details(page, step, name="CommonActionFailure", extra_label="Common Action Not Found!")
+                        await addFail(f"Common Action: {commonAction} not found!")
 
-                override = step.get("override", parent_override)
-                oScreen, oField, oData = (override.split('|') if override else (None, None, None))
+                    override = step.get("override", parent_override)
+                    oScreen, oField, oData = (override.split('|') if override else (None, None, None))
 
-                loop = step.get("loop", 1)
-                if isinstance(loop, str) and loop.startswith("DICT."):
-                    dict_key = loop.split('.', 1)[1].strip()
-                    loop = await loadFromDictionary(dictionaryContext, dict_key)
+                    loop = step.get("loop", 1)
+                    if isinstance(loop, str) and loop.startswith("DICT."):
+                        dict_key = loop.split('.', 1)[1].strip()
+                        loop = await loadFromDictionary(dictionaryContext, dict_key)
 
-                for _ in range(loop):
-                    for comStep in comActSteps:
-                        if oScreen and comStep.get("screen") == oScreen:
-                            comStep["formData"][oField] = oData
-                            logger.info("Overrode field: %s", comStep)
-                        with allure.step(f"- Screen: {comStep.get('screen')} -"):
-                            page = await run_single_step(comStep, page, base_url, browser, system_needed, dictionaryContext)
+                    for _ in range(loop):
+                        for comStep in comActSteps:
+                            if oScreen and comStep.get("screen") == oScreen:
+                                comStep["formData"][oField] = oData
+                                logger.info("Overrode field: %s", comStep)
+                            with allure.step(f"- Screen: {comStep.get('screen')} -"):
+                                page = await run_single_step(comStep, page, base_url, browser, system_needed, dictionaryContext)
 
-        elif "testCase" in step:
-            tcID = step["testCase"]
-            allure.dynamic.feature(f"Reused Test Case: {tcID}")
-            reportDescription += f"\n(Reusing Test Case: {tcID})"
-            logger.info("Reusing Test Case: %s", tcID)
-            with allure.step(f"** Reusing Test Case: {tcID} **"):
-                nested_tc = reusableTestCases.get(tcID)
-                if not nested_tc:
-                    await attach_allure_failure_details(page, step, name="ReusableTestCaseFailure", extra_label="Reusable Test Case Not Found!")
-                    await addFail(f"Reusable Test Case: {tcID} not found!")
+            elif "testCase" in step:
+                tcID = step["testCase"]
+                allure.dynamic.feature(f"Reused Test Case: {tcID}")
+                reportDescription += f"\n(Reusing Test Case: {tcID})"
+                logger.info("Reusing Test Case: %s", tcID)
+                with allure.step(f"** Reusing Test Case: {tcID} **"):
+                    nested_tc = reusableTestCases.get(tcID)
+                    if not nested_tc:
+                        await attach_allure_failure_details(page, step, name="ReusableTestCaseFailure", extra_label="Reusable Test Case Not Found!")
+                        await addFail(f"Reusable Test Case: {tcID} not found!")
     
-                # Allow nested test to specify its own system/env; fallback to parent
-                nested_system = nested_tc.get("system", system_needed)
-                nested_env = nested_tc.get("env") or nested_tc.get("envConfig") or envConfig
+                    # Allow nested test to specify its own system/env; fallback to parent
+                    nested_system = nested_tc.get("system", system_needed)
+                    nested_env = nested_tc.get("env") or nested_tc.get("envConfig") or envConfig
 
-                # Rebuild screen cache for that system
-                build_screen_cache(nested_system)
+                    # Rebuild screen cache for that system
+                    build_screen_cache(nested_system)
 
-                nested_system_data = login_data["systems"].get(nested_system, {}).get(nested_env, {})
+                    nested_system_data = login_data["systems"].get(nested_system, {}).get(nested_env, {})
 
-                # Decide if we need per-context http auth
-                http_credentials = None
-                if nested_system_data.get("loginType") == "urlEmbed":
-                    username = os.getenv(nested_system_data.get("username_env", ""))
-                    password = os.getenv(nested_system_data.get("password_env", ""))
-                    http_credentials = {"username": username, "password": password}
+                    # Decide if we need per-context http auth
+                    http_credentials = None
+                    if nested_system_data.get("loginType") == "urlEmbed":
+                        username = os.getenv(nested_system_data.get("username_env", ""))
+                        password = os.getenv(nested_system_data.get("password_env", ""))
+                        http_credentials = {"username": username, "password": password}
 
-                # Create a fresh context for the nested case (so Basic Auth/header state is isolated)
-                context_args = {}
-                if http_credentials:
-                    context_args["http_credentials"] = http_credentials
+                    # Create a fresh context for the nested case (so Basic Auth/header state is isolated)
+                    context_args = {}
+                    if http_credentials:
+                        context_args["http_credentials"] = http_credentials
 
-                if browserConfigMaximized:
-                    nested_context = await browser.new_context(no_viewport=True, **context_args)
-                else:
-                    nested_context = await browser.new_context(
-                        viewport={'width': browserConfigWidth, 'height': browserConfigHeight},
-                        **context_args
-                    )
-                new_page = await nested_context.new_page()
-                await new_page.goto("about:blank")
+                    if browserConfigMaximized:
+                        nested_context = await browser.new_context(no_viewport=True, **context_args)
+                    else:
+                        nested_context = await browser.new_context(
+                            viewport={'width': browserConfigWidth, 'height': browserConfigHeight},
+                            **context_args
+                        )
+                    new_page = await nested_context.new_page()
+                    await new_page.goto("about:blank")
 
-                allure.dynamic.label("nestedTestCase", tcID)
-                logger.info(f"[NESTED CASE] Running on new page for system: {nested_system} / env: {nested_env}")
-                try:
-                    # Fresh login tracker for nested world
-                    new_login_state = {"system": None, "base_url": None}
-                    #await new_page.goto("about:blank") #Maybe Need
-                    new_page = await run_steps(
-                        nested_tc.get("steps", []),
-                        new_page,
-                        browser,
-                        dictionaryContext,
-                        testSystem,
-                        new_login_state,
-                        nested_system
-                    )
-                finally:
+                    allure.dynamic.label("nestedTestCase", tcID)
+                    logger.info(f"[NESTED CASE] Running on new page for system: {nested_system} / env: {nested_env}")
                     try:
-                        if os.getenv("recording","false").lower() == "true":
-                            await finalize_and_attach_videos(nested_context, tcID, save_dir="reports/videos")
+                        # Fresh login tracker for nested world
+                        new_login_state = {"system": None, "base_url": None}
+                        #await new_page.goto("about:blank") #Maybe Need
+                        new_page = await run_steps(
+                            nested_tc.get("steps", []),
+                            new_page,
+                            browser,
+                            dictionaryContext,
+                            testSystem,
+                            new_login_state,
+                            nested_system
+                        )
+                    finally:
+                        try:
+                            if os.getenv("recording","false").lower() == "true":
+                                await finalize_and_attach_videos(nested_context, tcID, save_dir="reports/videos")
+                        except Exception as e:
+                            logger.warning(f"[NESTED] Video finalize failed -{e}")
+
+                        await nested_context.close()
+                        build_screen_cache(testSystem)
+
+                        logger.info(f"[NESTED CASE] Closed nested context for testCase: {tcID}")
+
+            elif "API_REQUEST" in step:
+                api_key = step["API_REQUEST"]
+                allure.dynamic.feature(f"API Request: {api_key}")
+                reportDescription += f"\nAPI Request: {api_key}"
+                logger.info("Calling API Endpoint: %s", api_key)
+
+                with allure.step(f"API Request: {api_key}"):
+                    try:
+                        await run_api_request(api_key, dictionaryContext)
                     except Exception as e:
-                        logger.warning(f"[NESTED] Video finalize failed -{e}")
-
-                    await nested_context.close()
-                    build_screen_cache(testSystem)
-
-                    logger.info(f"[NESTED CASE] Closed nested context for testCase: {tcID}")
-
-        elif "API_REQUEST" in step:
-            api_key = step["API_REQUEST"]
-            allure.dynamic.feature(f"API Request: {api_key}")
-            reportDescription += f"\nAPI Request: {api_key}"
-            logger.info("Calling API Endpoint: %s", api_key)
-
-            with allure.step(f"API Request: {api_key}"):
-                try:
-                    await run_api_request(api_key, dictionaryContext)
-                except Exception as e:
-                    await attach_allure_failure_details(page, step, name="APIRequestFailure", extra_label=str(e))
-                    await addFail(f"API Request Failure: '{api_key}' - {e}")
+                        await attach_allure_failure_details(page, step, name="APIRequestFailure", extra_label=str(e))
+                        await addFail(f"API Request Failure: '{api_key}' - {e}")
                     
-        else:
-            screen_name = step["screen"]
-            with allure.step(f"- Screen: {screen_name} -"):
-                page = await run_single_step(step, page, base_url, browser, system_needed, dictionaryContext)
-            if a11y_scanner:
-                await a11y_scanner.after_screen(page, screen_name)
+            else:
+                screen_name = step["screen"]
+                with allure.step(f"- Screen: {screen_name} -"):
+                    page = await run_single_step(step, page, base_url, browser, system_needed, dictionaryContext)
+                if a11y_scanner:
+                    await a11y_scanner.after_screen(page, screen_name)
 
+        except BaseException as step_error:  # a failure stops the test here: say which step it was
+            if step_reporter:
+                step_reporter.end(step_no, step, step_error)
+            raise
+        if step_reporter:
+            step_reporter.end(step_no, step)
         if after_step:
             await after_step(step_no, page)
     return page
@@ -920,7 +930,9 @@ if test_cases:
             page = await run_steps(all_steps[first - 1:last], page, browser, dictionaryContext, testSystem,
                                    current_login_state, testSystem,
                                    start_url=(resume or {}).get("url") or checkpoints.start_url() or None,
-                                   after_step=after_step)
+                                   after_step=after_step,
+                                   step_reporter=step_events.StepReporter(request.node.nodeid, testCaseId, first,
+                                                                          len(all_steps)))
 
         finally:
             a11y_scanner = None

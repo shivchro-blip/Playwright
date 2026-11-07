@@ -8,7 +8,6 @@ from typing import Callable
 
 from nicegui import ui
 
-from webapp.services.env_config import FIELDS as ENV_FIELDS
 from webapp.services.json_files import ConflictError, PathError, safe_path
 from utils.data_sets import DataSetError
 from utils.data_sets import load_file as load_data_file
@@ -18,7 +17,6 @@ from webapp.services.refactor import Plan, Refactor, RefactorError, apply_plan
 from webapp.services.tidy import analyze as tidy_analyze, build_plan as tidy_plan
 from webapp.services.usage import Usage, UsageIndex
 from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
-from webapp.services.run_manager import RunConfig
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
 from webapp.state import services
@@ -698,21 +696,13 @@ class TestEditor:
     def _start_run(self, test_id: str, tags: list[str], extra: dict | None = None) -> None:
         system = self.gen.system or ""
         env = self.meta.get("env") or next(iter(self.svc.systems.environments(system)), "")
-        defaults = self.svc.env.load()
-        options = {f.key: defaults[f.key] for f in ENV_FIELDS if f.group in ("Browser", "Artifacts")
-                   and f.key != "del_allure"}
-        options.update(extra or {})
-        browsers = [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] or ["chrome"]
-        credentials, missing, vault_errors = self.svc.prepare_credentials(system, [env])
-        for key, why in vault_errors.items():
-            ui.notify(f"{key} could not be fetched from the secret store: {why}", type="warning", timeout=8000)
         try:
-            run = self.svc.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
-                                                options=options, test_ids=[test_id]), expected=len(browsers),
-                                      credentials=credentials)
+            run, vault_errors = self.svc.launch(system, env, tags, [test_id], extra_options=extra)
         except (ValueError, RuntimeError) as e:
             ui.notify(str(e), type="negative")
             return
+        for key, why in vault_errors.items():
+            ui.notify(f"{key} could not be fetched from the secret store: {why}", type="warning", timeout=8000)
         audit("run.start", run.id, test_id=test_id, **({"steps": f"{extra.get('runFromStep', 1)}-"
                                                         f"{extra.get('runToStep') or 'end'}"} if extra else {}))
         ui.notify(f"Running {test_id} ({run.id})", type="positive")
@@ -725,7 +715,9 @@ class TestEditor:
         run = self.svc.runs.get(self.run_id) if self.run_id else None
         if run is None:
             return
-        sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5)
+        self.svc.runs.refresh_steps(run.id)
+        sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5,
+               tuple((r.step, len(r.steps)) for r in run.results.values()))
         if sig != self._run_sig:
             self._run_sig = sig
             self.run_panel.refresh()
@@ -739,7 +731,7 @@ class TestEditor:
         run = self.svc.runs.get(self.run_id) if self.run_id else None
         if run is None:
             return
-        from webapp.ui.test_details import open_test_details, result_rows
+        from webapp.ui.test_details import open_test_details, result_rows, step_list
         tone, label = RUN_PILLS.get(run.status, ("idle", run.status))
         test_ids = ", ".join(run.config.test_ids) or "this test case"
         with ui.element("section").classes("any-tc-run").props('aria-label="Run of this test case" '
@@ -777,6 +769,8 @@ class TestEditor:
                     if row["has_details"] and outcome not in ("running", "queued"):
                         ui.button("Details", color=None, on_click=lambda r=row: open_test_details(run, r)) \
                             .props('flat dense no-caps data-testid="tc-run-details"').classes("any-btn")
+                if row["steps"]:
+                    step_list(row["steps"])
             lines = run.log[-14:]
             if lines:
                 with ui.expansion("Console", value=run.active).classes("any-disclosure") \
