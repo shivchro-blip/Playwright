@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 
 from dotenv import dotenv_values
 
@@ -11,7 +12,9 @@ from webapp.services.ai_assist import AIAssist
 from webapp.services.audit import AuditLog
 from webapp.services.common_actions import CommonActionService
 from webapp.services.data_sets import DataSetService
+from webapp.services import json_files
 from webapp.services.env_config import EnvConfigService
+from webapp.services.events import EventBus
 from webapp.services.help_service import HelpService
 from webapp.services.notifier import Notifier
 from webapp.services.pom_service import PomService
@@ -64,6 +67,11 @@ class Services:
     audit: AuditLog
     datasets: DataSetService
 
+
+    @property
+    def bus(self) -> EventBus:
+        """What changed, for pages and the API to hear (webapp/services/events.py)."""
+        return self.runs.bus
 
     def flag(self, key: str) -> bool:
         return env_flag(self.env, key)
@@ -264,4 +272,18 @@ def services() -> Services:
                                lambda system, ids, env, trigger: svc.start_tests(system, ids, env, trigger))
     svc.scheduler.credentials_for = lambda system, env, vault: svc.prepare_credentials(
         system, [env], use_vault=vault)[0]
+    json_files.WRITE_LISTENERS.append(workspace_writes(runs.bus, s.workspace))
     return svc
+
+
+def workspace_writes(bus: EventBus, workspace: Path):
+    """A write_json listener that publishes each workspace file written, by its path inside the workspace."""
+    root = Path(workspace).resolve()
+
+    def published(path: Path) -> None:
+        try:
+            rel = Path(path).resolve().relative_to(root).as_posix()
+        except ValueError:
+            return  # not a workspace file (e.g. the runners or users list)
+        bus.publish("workspace", path=rel, folder=rel.split("/", 1)[0])
+    return published

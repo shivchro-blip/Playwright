@@ -1,6 +1,7 @@
 """REST API over the services (used by scripts/CI now, by a shared server later)."""
 from __future__ import annotations
 
+import time
 from dataclasses import asdict
 
 from fastapi import APIRouter, HTTPException
@@ -147,6 +148,28 @@ def list_runs(system: str | None = None, env: str | None = None, since: str | No
     runs = services().runs.query(system, env, since=since, until=until, finished_only=finished, trigger=trigger,
                                  limit=limit)
     return [{k: v for k, v in r.to_dict().items() if k != "results"} for r in runs]
+
+
+@router.get("/events")
+def events(since: int = 0, topics: str | None = None, wait: float = 0, limit: int = 500) -> dict:
+    """What changed since event `since` (webapp/services/events.py), oldest first: runs (saved, result, step, log,
+    finished, deleted), workspace files written, monitors and schedules. `topics` is a comma list (run, workspace,
+    monitor, schedule). With `wait` (seconds, up to 30) the call holds until there is something new: long polling.
+    Keep the returned `seq` and pass it as `since` next time; `missed` is true when older events were dropped."""
+    bus = services().bus
+    wanted = [t.strip() for t in topics.split(",") if t.strip()] if topics else None
+    limit = max(1, min(limit, 1000))
+    end = time.monotonic() + min(max(wait, 0.0), 30.0)
+    while True:
+        latest = bus.seq  # read before looking, so an event published meanwhile is not skipped
+        found = bus.since(since, wanted, limit=limit)
+        left = end - time.monotonic()
+        if found or left <= 0:
+            break
+        bus.wait(latest, left)
+    oldest = bus.since(0, limit=1)
+    return {"seq": found[-1]["seq"] if found else max(since, latest), "events": found,
+            "missed": bool(since) and bool(oldest) and oldest[0]["seq"] > since + 1}
 
 
 @router.get("/tests/{test_id}/history")

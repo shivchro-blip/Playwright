@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 import re
 from pathlib import Path
@@ -97,11 +98,20 @@ _writes_lock = threading.Lock()
 WRITES = [0]  # total writes in this process
 
 
+# Called with each file written through write_json (the app publishes them on its event bus: webapp/state.py)
+WRITE_LISTENERS: list = []
+
+
 def note_write(path: Path) -> None:
     with _writes_lock:
         key = str(Path(path).resolve())
         _writes[key] = _writes.get(key, 0) + 1
         WRITES[0] += 1
+    for listener in list(WRITE_LISTENERS):
+        try:
+            listener(Path(path))
+        except Exception:  # noqa: BLE001 - telling others about a write must never fail the write
+            logging.getLogger(__name__).exception("Write listener failed for %s", path)
 
 
 def write_count(path: Path) -> int:

@@ -8,6 +8,7 @@ from nicegui import ui
 from webapp.auth import audit, guard
 from webapp.services.journeys import CRITICALITY, STATE_LABELS, JourneyError, validate
 from webapp.state import services
+from webapp.ui.live import live
 from webapp.ui.components import field, icon_button, text
 from webapp.ui.theme import icon
 
@@ -47,7 +48,7 @@ class JourneysPanel:
                              "cases that prove it. Its status on each environment comes from the latest result of "
                              "each of those test cases.").classes("any-muted text-sm")
                 self.body()
-        ui.timer(3.0, self._auto_refresh)
+        live(self.svc.bus, ["run"], self._auto_refresh, when=lambda e: e.get("change") in ("saved", "deleted"))
 
     def _set_system(self, value: str | None) -> None:
         self.system = value or ""

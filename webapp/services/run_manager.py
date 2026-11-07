@@ -29,6 +29,7 @@ from urllib.parse import urlsplit
 from webapp.pytest_events import PREFIX
 from webapp.services.archives import extract_safely
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
+from webapp.services.events import EventBus
 from webapp.services.json_files import NAME_RE
 from webapp.services.masking import Masker
 from webapp.services.results_index import ResultsIndex
@@ -69,6 +70,7 @@ class RunConfig:
 
 
 STEP_POLL_SECONDS = 0.5  # how often a running run's step events are read
+LOG_PUBLISH_SECONDS = 0.5  # at most one "log" event per run this often
 
 
 @dataclass
@@ -116,6 +118,7 @@ class Run:
     _masker: Masker | None = field(default=None, repr=False)  # hides SSNs, card numbers and the like
     _step_offsets: dict = field(default_factory=dict, repr=False)  # step event file -> bytes already read
     _steps_read_at: float = field(default=0.0, repr=False)
+    _log_published: float = field(default=0.0, repr=False)
 
     def scrub(self, text: str) -> str:
         for value in self._secrets.values():
@@ -268,7 +271,8 @@ def pytest_environment(run: Run, workspace: Path) -> dict[str, str]:
 
 class RunManager:
     def __init__(self, repo_root: Path, workspace: Path, runs_dir: Path, python_exe: str,
-                 allure_cmd: str = "allure", max_concurrent: int = 1, runners: RunnerStore | None = None):
+                 allure_cmd: str = "allure", max_concurrent: int = 1, runners: RunnerStore | None = None,
+                 bus: EventBus | None = None):
         self.repo_root = Path(repo_root)
         self.workspace = Path(workspace)
         self.runs_dir = Path(runs_dir)
@@ -277,6 +281,8 @@ class RunManager:
         self.max_concurrent = max_concurrent
         self.runners = runners
         self.masker = Masker(self.workspace / "Data" / "maskPatterns.json")
+        # Says what changed in a run (webapp/services/events.py): saved, result, step, finished, deleted
+        self.bus = bus or EventBus()
         self._watchdog: threading.Thread | None = None
         self._save_lock = threading.Lock()  # run.json is written from the run's thread and from callers
         self._steps_lock = threading.Lock()  # step event files are read from the run thread and from pages
@@ -468,6 +474,8 @@ class RunManager:
         with self._lock:
             self._runs.pop(run_id, None)
         self._index_call("remove", run_id)
+        self.bus.publish("run", id=run_id, change="deleted", status=run.status, system=run.config.system,
+                         env=run.config.env)
         return True
 
     def rerun(self, run_id: str) -> Run:
@@ -510,6 +518,7 @@ class RunManager:
             )
             if run._cancelled:  # cancel arrived while spawning
                 self._kill_tree(run._proc)
+            self._follow_steps(run)
             for raw in run._proc.stdout:
                 self._ingest_line(run, console, raw)
             run.exit_code = run._proc.wait()
@@ -551,8 +560,22 @@ class RunManager:
                 and time.monotonic() - run._steps_read_at > STEP_POLL_SECONDS:
             self.read_steps(run)
 
+    def _follow_steps(self, run: Run) -> None:
+        """Read the run's step events every STEP_POLL_SECONDS while it runs, so the step each test is on is
+        published even while pytest prints nothing (a slow page)."""
+        def follow() -> None:
+            while run.active and run._proc is not None:
+                time.sleep(STEP_POLL_SECONDS)
+                if time.monotonic() - run._steps_read_at >= STEP_POLL_SECONDS:
+                    try:
+                        self.read_steps(run)
+                    except Exception:  # noqa: BLE001 - following steps must never stop the run
+                        logger.exception("Reading the steps of %s failed", run.id)
+        threading.Thread(target=follow, name=f"steps-{run.id}", daemon=True).start()
+
     def _read_steps(self, run: Run) -> None:
         run._steps_read_at = time.monotonic()
+        applied = False
         try:
             files = sorted(run.results_dir.glob("autoplay-steps-*.jsonl"))
         except OSError:
@@ -570,8 +593,11 @@ class RunManager:
             for line in chunk[:complete].decode("utf-8", "replace").splitlines():
                 try:
                     self._apply_step(run, json.loads(line))
+                    applied = True
                 except (ValueError, TypeError, AttributeError):
                     continue
+        if applied:
+            self._publish(run, "step")
 
     def _apply_step(self, run: Run, evt: dict) -> None:
         if evt.get("event") != "step":
@@ -629,6 +655,7 @@ class RunManager:
                 listener(run)
             except Exception:  # a listener must never break the run thread
                 logger.exception("Run listener failed for %s", run.id)
+        self._publish(run, "finished")
         self._dispatch()
 
     # ───────────── remote runners ─────────────
@@ -743,6 +770,8 @@ class RunManager:
                 result.retries = int(evt.get("retries") or result.retries or 0)
                 result.step = ""
             run.results[nodeid] = result
+        if kind in ("collected", "retry", "start", "test"):
+            self._publish(run, "result")
 
     @staticmethod
     def split_nodeid(nodeid: str, browsers: list[str]) -> tuple[str, str]:
@@ -804,6 +833,10 @@ class RunManager:
         if overflow > 0:
             del run.log[:overflow]
             run.log_offset += overflow
+        now = time.monotonic()
+        if now - run._log_published >= LOG_PUBLISH_SECONDS:  # console text is told in batches, not per line
+            run._log_published = now
+            self._publish(run, "log")
 
     def _save(self, run: Run) -> None:
         try:
@@ -816,6 +849,11 @@ class RunManager:
             logger.exception("Could not save run %s", run.id)
             return
         self._index_call("put", run, mtime)
+        self._publish(run, "saved")
+
+    def _publish(self, run: Run, change: str) -> None:
+        self.bus.publish("run", id=run.id, change=change, status=run.status, system=run.config.system,
+                         env=run.config.env, trigger=run.trigger)
 
     def _open_index(self) -> ResultsIndex | None:
         """The results index; an unreadable one is set aside and rebuilt from the run folders."""

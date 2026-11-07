@@ -11,6 +11,7 @@ from webapp.auth import audit, guard, ui_user
 from webapp.state import services
 from webapp.services.run_insights import flaky_tests
 from webapp.services.schedules import TRIGGER
+from webapp.ui.live import live
 from webapp.ui.components import (
     RESULT_COLUMNS, field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table,
     text,
@@ -77,7 +78,7 @@ class HistoryPanel:
                             .props('clearable for="hist-search"').classes("w-72 max-w-full")
                 self.table_view()
             self.details()
-        ui.timer(2.0, self._auto_refresh)
+        live(self.svc.bus, ["run"], self._auto_refresh, when=lambda e: e.get("change") != "log")
 
     def _filter(self, key: str, value) -> None:
         setattr(self, key, value)

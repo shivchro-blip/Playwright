@@ -81,3 +81,18 @@ Every run is also recorded in a small database beside the run folders (`results.
 curl "http://host:8080/api/runs?system=PORTAL&env=uat&finished=true&limit=10"
 curl "http://host:8080/api/tests/TC-LOGIN-001/history?env=uat"
 ```
+
+## Live updates and the events API
+
+The pages update when something changes rather than on a timer: a run that starts, reports a result, moves to its next step, prints to the console, finishes or is deleted; a workspace file written from the app; a monitor or schedule that starts a check. History, Journeys, Monitors and Schedules refresh within a moment of the change, and Control and the Generator's run panel follow a run step by step. A slow timer still refreshes now and then for what no event covers (a schedule's next run moving with the clock, a file edited outside the app).
+
+Scripts and dashboards can follow the same changes with `GET /api/events`:
+
+- `since`: the `seq` from your last call (0 the first time). Events come back oldest first, each with `seq`, `topic`, `at` (Unix time) and its details (for runs: `id`, `change`, `status`, `system`, `env`, `trigger`).
+- `topics`: a comma list of `run`, `workspace`, `monitor`, `schedule` (all when left out).
+- `wait`: up to 30 seconds to hold the call until something new happens (long polling).
+- The answer is `{"seq", "events", "missed"}`. Pass `seq` as `since` next time. `missed` is true when you fell further behind than the app keeps (the last 1000 events): read the current state again, for example with `GET /api/runs`.
+
+```
+curl "http://host:8080/api/events?since=0&topics=run&wait=25"
+```
