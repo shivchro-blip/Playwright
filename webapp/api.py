@@ -14,7 +14,11 @@ from webapp.services.schedules import validate as validate_schedule
 from webapp.auth import require
 from webapp.state import services
 
-router = APIRouter(prefix="/api", tags=["autoplay"], dependencies=[require("view")])
+API_VERSION = 1
+# Every endpoint is defined once on `routes`, then served as /api/v1/... (the versioned API, in the docs) and as
+# /api/... (the same thing under its first name, kept so existing scripts and CI jobs keep working). A breaking
+# change gets /api/v2; tests/unit/test_api_contract.py fails when a v1 path, method or parameter goes away.
+routes = APIRouter(dependencies=[require("view")])
 
 
 class RunRequest(BaseModel):
@@ -29,7 +33,7 @@ class RunRequest(BaseModel):
     also_envs: list[str] = Field(default_factory=list)  # run the same selection on these environments, paired
 
 
-@router.get("/systems")
+@routes.get("/systems")
 def list_systems() -> list[dict]:
     svc = services()
     with_tests = set(svc.catalog.systems_with_tests())
@@ -37,12 +41,12 @@ def list_systems() -> list[dict]:
             for s in svc.systems.systems()]
 
 
-@router.get("/runners")
+@routes.get("/runners")
 def list_runners() -> list[dict]:
     return services().runners.list()
 
 
-@router.get("/tests")
+@routes.get("/tests")
 def list_tests(system: str, tags: str = "") -> dict:
     catalog = services().catalog.load(system)
     selected = catalog.select(tags.split(",")) if tags else []
@@ -55,13 +59,13 @@ def list_tests(system: str, tags: str = "") -> dict:
     }
 
 
-@router.get("/config")
+@routes.get("/config")
 def get_config() -> dict:
     env = services().env
     return {"path": str(env.env_path), "values": env.load(), "other": env.load_other()}
 
 
-@router.put("/config", dependencies=[require("settings")])
+@routes.put("/config", dependencies=[require("settings")])
 def put_config(values: dict[str, str | int | bool]) -> dict:
     try:
         services().env.save(values)
@@ -70,7 +74,7 @@ def put_config(values: dict[str, str | int | bool]) -> dict:
     return get_config()
 
 
-@router.get("/credentials")
+@routes.get("/credentials")
 def credentials(system: str, env: str) -> list[dict]:
     status = services().credential_status(system, env)
     if status is None:
@@ -98,47 +102,47 @@ def _editor_call(fn, *args):
         raise HTTPException(422, str(e)) from e
 
 
-@router.get("/pages/{system}")
+@routes.get("/pages/{system}")
 def list_pages(system: str) -> list[dict]:
     return [asdict(p) for p in _editor_call(services().pom.list_pages, system)]
 
 
-@router.get("/pages/{system}/{rel:path}")
+@routes.get("/pages/{system}/{rel:path}")
 def get_page(system: str, rel: str) -> dict:
     data, sha = _editor_call(services().pom.load, system, rel)
     return {"data": data, "hash": sha}
 
 
-@router.put("/pages/{system}/{rel:path}", dependencies=[require("edit")])
+@routes.put("/pages/{system}/{rel:path}", dependencies=[require("edit")])
 def put_page(system: str, rel: str, req: SaveRequest) -> dict:
     return {"hash": _editor_call(services().pom.save, system, rel, req.data, req.hash)}
 
 
-@router.get("/testcases/{system}")
+@routes.get("/testcases/{system}")
 def list_testcases(system: str) -> dict:
     refs, errors = _editor_call(services().tests.list_tests, system)
     return {"tests": [asdict(r) for r in refs], "errors": errors}
 
 
-@router.get("/testcases/{system}/{rel:path}")
+@routes.get("/testcases/{system}/{rel:path}")
 def get_testcase_file(system: str, rel: str) -> dict:
     data, sha = _editor_call(services().tests.load_file, system, rel)
     return {"data": data, "hash": sha}
 
 
-@router.put("/testcases/{system}/{rel:path}", dependencies=[require("edit")])
+@routes.put("/testcases/{system}/{rel:path}", dependencies=[require("edit")])
 def put_testcase(system: str, rel: str, req: SaveRequest, index: int | None = None) -> dict:
     """Replace testCases[index] in the file (append when index is omitted)."""
     new_index, sha = _editor_call(services().tests.save, system, rel, index, req.data, req.hash)
     return {"index": new_index, "hash": sha}
 
 
-@router.post("/testcases/{system}/validate")
+@routes.post("/testcases/{system}/validate")
 def validate_testcase(system: str, data: dict) -> dict:
     return asdict(services().tests.validate(system, data))
 
 
-@router.get("/runs")
+@routes.get("/runs")
 def list_runs(system: str | None = None, env: str | None = None, since: str | None = None, until: str | None = None,
               finished: bool = False, trigger: str | None = None, limit: int | None = None) -> list[dict]:
     """Runs, newest first, without their results; optionally scoped (through the results index): system, env,
@@ -150,7 +154,7 @@ def list_runs(system: str | None = None, env: str | None = None, since: str | No
     return [{k: v for k, v in r.to_dict().items() if k != "results"} for r in runs]
 
 
-@router.get("/events")
+@routes.get("/events")
 def events(since: int = 0, topics: str | None = None, wait: float = 0, limit: int = 500) -> dict:
     """What changed since event `since` (webapp/services/events.py), oldest first: runs (saved, result, step, log,
     finished, deleted), workspace files written, monitors and schedules. `topics` is a comma list (run, workspace,
@@ -172,7 +176,7 @@ def events(since: int = 0, topics: str | None = None, wait: float = 0, limit: in
             "missed": bool(since) and bool(oldest) and oldest[0]["seq"] > since + 1}
 
 
-@router.get("/tests/{test_id}/history")
+@routes.get("/tests/{test_id}/history")
 def test_history(test_id: str, system: str | None = None, env: str | None = None, limit: int = 20) -> list[dict]:
     """A test's latest results across runs, newest first: run, at, browser, outcome, duration, retries."""
     index = services().runs.index
@@ -181,7 +185,7 @@ def test_history(test_id: str, system: str | None = None, env: str | None = None
     return index.test_history(test_id, system, env, limit=max(1, min(limit, 500)))
 
 
-@router.post("/runs", status_code=201, dependencies=[require("run")])
+@routes.post("/runs", status_code=201, dependencies=[require("run")])
 def start_run(req: RunRequest) -> dict:
     svc = services()
     selected = svc.catalog.load(req.system).select(req.tags)
@@ -202,7 +206,7 @@ def start_run(req: RunRequest) -> dict:
             "compare_runs": [r.id for r in runs[1:]]}
 
 
-@router.get("/runs/{run_id}")
+@routes.get("/runs/{run_id}")
 def get_run(run_id: str) -> dict:
     runs = services().runs
     run = runs.get(run_id)
@@ -211,7 +215,7 @@ def get_run(run_id: str) -> dict:
     return {**run.to_dict(), "queue_position": runs.queue_position(run.id)}
 
 
-@router.get("/runs/{run_id}/log")
+@routes.get("/runs/{run_id}/log")
 def get_run_log(run_id: str, since: int = 0) -> dict:
     run = services().runs.get(run_id)
     if not run:
@@ -220,7 +224,7 @@ def get_run_log(run_id: str, since: int = 0) -> dict:
     return {"lines": lines, "next": end, "status": run.status}
 
 
-@router.get("/runs/{run_id}/compare")
+@routes.get("/runs/{run_id}/compare")
 def compare_runs(run_id: str, base: str = "") -> dict:
     """What changed test by test from `base` (default: the previous finished run of the same system/env)."""
     runs = services().runs
@@ -235,7 +239,7 @@ def compare_runs(run_id: str, base: str = "") -> dict:
     return {"base": first.id, "target": second.id, "summary": summarize(rows), "tests": [r.to_dict() for r in rows]}
 
 
-@router.post("/runs/{run_id}/report", dependencies=[require("run")])
+@routes.post("/runs/{run_id}/report", dependencies=[require("run")])
 def write_run_report(run_id: str) -> dict:
     """(Re)write the built-in report; it is served at the returned url."""
     runs = services().runs
@@ -247,7 +251,7 @@ def write_run_report(run_id: str) -> dict:
     return {"url": f"/runs/{run.id}/report.html"}
 
 
-@router.get("/insights/flaky")
+@routes.get("/insights/flaky")
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""
     return [t.to_dict() for t in flaky_tests(services().runs.query(system, env), system, env)]
@@ -262,12 +266,12 @@ def _schedule_view(schedule) -> dict:
             "error": scheduler.errors.get(schedule.id, ""), "queued": scheduler.queued(schedule)}
 
 
-@router.get("/schedules")
+@routes.get("/schedules")
 def list_schedules() -> list[dict]:
     return [_schedule_view(s) for s in services().schedules.list()]
 
 
-@router.post("/schedules", status_code=201, dependencies=[require("schedule")])
+@routes.post("/schedules", status_code=201, dependencies=[require("schedule")])
 def create_schedule(data: dict) -> dict:
     data = {k: v for k, v in data.items() if k != "id"}
     try:
@@ -278,7 +282,7 @@ def create_schedule(data: dict) -> dict:
         raise HTTPException(409, str(e)) from e
 
 
-@router.put("/schedules/{schedule_id}", dependencies=[require("schedule")])
+@routes.put("/schedules/{schedule_id}", dependencies=[require("schedule")])
 def update_schedule(schedule_id: str, data: dict) -> dict:
     store = services().schedules
     if not store.get(schedule_id):
@@ -291,14 +295,14 @@ def update_schedule(schedule_id: str, data: dict) -> dict:
         raise HTTPException(409, str(e)) from e
 
 
-@router.delete("/schedules/{schedule_id}", dependencies=[require("schedule")])
+@routes.delete("/schedules/{schedule_id}", dependencies=[require("schedule")])
 def delete_schedule(schedule_id: str) -> dict:
     if not services().schedules.delete(schedule_id):
         raise HTTPException(404, "Schedule not found")
     return {"deleted": schedule_id}
 
 
-@router.post("/schedules/{schedule_id}/run", status_code=201, dependencies=[require("run")])
+@routes.post("/schedules/{schedule_id}/run", status_code=201, dependencies=[require("run")])
 def run_schedule(schedule_id: str) -> dict:
     try:
         run = services().scheduler.run_now(schedule_id)
@@ -307,7 +311,7 @@ def run_schedule(schedule_id: str) -> dict:
     return run.to_dict()
 
 
-@router.post("/schedules/{schedule_id}/test-notification", dependencies=[require("schedule")])
+@routes.post("/schedules/{schedule_id}/test-notification", dependencies=[require("schedule")])
 def test_notification(schedule_id: str) -> list[dict]:
     svc = services()
     schedule = svc.schedules.get(schedule_id)
@@ -316,7 +320,7 @@ def test_notification(schedule_id: str) -> list[dict]:
     return svc.scheduler.send_test(schedule)
 
 
-@router.post("/runs/{run_id}/rerun", status_code=201, dependencies=[require("run")])
+@routes.post("/runs/{run_id}/rerun", status_code=201, dependencies=[require("run")])
 def rerun(run_id: str) -> dict:
     runs = services().runs
     if not runs.get(run_id):
@@ -329,14 +333,14 @@ def rerun(run_id: str) -> dict:
         raise HTTPException(409, str(e)) from e
 
 
-@router.delete("/runs/{run_id}", dependencies=[require("delete")])
+@routes.delete("/runs/{run_id}", dependencies=[require("delete")])
 def delete_run(run_id: str) -> dict:
     if not services().runs.delete(run_id):
         raise HTTPException(409, "Run not found or still active")
     return {"deleted": run_id}
 
 
-@router.get("/help")
+@routes.get("/help")
 def help_topics(q: str = "") -> list[dict]:
     svc = services().help
     if q:
@@ -344,7 +348,7 @@ def help_topics(q: str = "") -> list[dict]:
     return [asdict(t) for t in svc.topics()]
 
 
-@router.get("/help/{topic_id}")
+@routes.get("/help/{topic_id}")
 def help_topic(topic_id: str) -> dict:
     svc = services().help
     topic = svc.get(topic_id)
@@ -353,7 +357,7 @@ def help_topic(topic_id: str) -> dict:
     return {**asdict(topic), "markdown": svc.markdown(topic)}
 
 
-@router.get("/journeys")
+@routes.get("/journeys")
 def list_journeys(system: str) -> list[dict]:
     """Each journey of a system with its status on every environment and its coverage."""
     out = []
@@ -368,7 +372,7 @@ def list_journeys(system: str) -> list[dict]:
     return out
 
 
-@router.post("/journeys/{journey_id}/run", status_code=201, dependencies=[require("run")])
+@routes.post("/journeys/{journey_id}/run", status_code=201, dependencies=[require("run")])
 def run_journey(journey_id: str, env: str) -> dict:
     from webapp.services.journeys import JourneyError
     try:
@@ -384,14 +388,14 @@ def _monitor_view(monitor) -> dict:
     return services().monitors.summary(monitor)
 
 
-@router.get("/monitors")
+@routes.get("/monitors")
 def list_monitors() -> list[dict]:
     """Every monitor with its journeys' state, uptime over 24h/7d/30d, and recent incidents."""
     svc = services()
     return [_monitor_view(m) for m in svc.monitors.store.list()]
 
 
-@router.get("/monitors/{monitor_id}")
+@routes.get("/monitors/{monitor_id}")
 def get_monitor(monitor_id: str) -> dict:
     monitor = services().monitors.store.get(monitor_id)
     if monitor is None:
@@ -410,19 +414,19 @@ def _save_monitor(data: dict, replaces: str | None, user) -> dict:
     return _monitor_view(monitor)
 
 
-@router.post("/monitors", status_code=201)
+@routes.post("/monitors", status_code=201)
 def create_monitor(data: dict, user=require("schedule")) -> dict:
     return _save_monitor({k: v for k, v in data.items() if k != "id"}, None, user)
 
 
-@router.put("/monitors/{monitor_id}")
+@routes.put("/monitors/{monitor_id}")
 def update_monitor(monitor_id: str, data: dict, user=require("schedule")) -> dict:
     if services().monitors.store.get(monitor_id) is None:
         raise HTTPException(404, "Monitor not found")
     return _save_monitor({**data, "id": data.get("id") or monitor_id}, monitor_id, user)
 
 
-@router.delete("/monitors/{monitor_id}")
+@routes.delete("/monitors/{monitor_id}")
 def delete_monitor(monitor_id: str, user=require("schedule")) -> dict:
     svc = services()
     if not svc.monitors.store.delete(monitor_id):
@@ -431,7 +435,7 @@ def delete_monitor(monitor_id: str, user=require("schedule")) -> dict:
     return {"deleted": monitor_id}
 
 
-@router.post("/monitors/{monitor_id}/check", status_code=201, dependencies=[require("run")])
+@routes.post("/monitors/{monitor_id}/check", status_code=201, dependencies=[require("run")])
 def check_monitor(monitor_id: str) -> dict:
     """Run a check now. 409 while the previous check is still running or when it cannot start."""
     from webapp.services.monitors import MonitorError
@@ -451,14 +455,14 @@ def _model():
     return model_for(svc.settings.workspace, svc.tests).snapshot()
 
 
-@router.get("/model/search")
+@routes.get("/model/search")
 def model_search(q: str, limit: int = 50) -> list[dict]:
     """Tests, journeys, pages, fields, common actions and data sets whose name contains `q` (names starting with
     it first)."""
     return _model().search(q, max(1, min(limit, 200)))
 
 
-@router.get("/model/reach")
+@routes.get("/model/reach")
 def model_reach(system: str, page: str = "", field: str = "", common: str = "", test: str = "",
                 data_set: str = "") -> dict:
     """Which test cases of a system reach a page, a field of a page, a common action, a reused test case or a data
@@ -475,7 +479,7 @@ def model_reach(system: str, page: str = "", field: str = "", common: str = "", 
     return out
 
 
-@router.get("/summary")
+@routes.get("/summary")
 def instance_summary() -> dict:
     """This instance's health in one call (for the control plane): journeys per system and environment, the
     failing critical and high journeys, the latest releases, monitors, runs and runners."""
@@ -498,13 +502,13 @@ def _impact(req: ImpactRequest):
         raise HTTPException(400, str(e)) from e
 
 
-@router.post("/impact")
+@routes.post("/impact")
 def change_impact(req: ImpactRequest) -> dict:
     """What a change reaches: the test cases (and why), the journeys, and the changes no test case exercises."""
     return _impact(req).to_dict()
 
 
-@router.post("/impact/run", status_code=201)
+@routes.post("/impact/run", status_code=201)
 def run_impact(req: ImpactRequest, user=require("run")) -> dict:
     """Run the test cases a change reaches on an environment (one run per system)."""
     from webapp.services.impact import ImpactError
@@ -534,7 +538,7 @@ class ReleaseRequest(BaseModel):
     since: str = ""
 
 
-@router.post("/releases", status_code=201)
+@routes.post("/releases", status_code=201)
 def create_release(req: ReleaseRequest, user=require("run")) -> dict:
     """Check a release: the decision ("go" / "no-go") with its reasons. A CI pipeline can stop on "no-go"."""
     from webapp.services.releases import Policy, ReleaseError
@@ -548,13 +552,13 @@ def create_release(req: ReleaseRequest, user=require("run")) -> dict:
     return {**svc.releases.summary(pack), "report": f"/api/releases/{pack['id']}/report"}
 
 
-@router.get("/releases")
+@routes.get("/releases")
 def list_releases(system: str = "") -> list[dict]:
     svc = services()
     return [svc.releases.summary(p) for p in svc.releases.store.list(system or None)]
 
 
-@router.get("/releases/{release_id}")
+@routes.get("/releases/{release_id}")
 def get_release(release_id: str) -> dict:
     svc = services()
     pack = svc.releases.store.get(release_id)
@@ -563,7 +567,7 @@ def get_release(release_id: str) -> dict:
     return {**pack, "signoffs": svc.releases.store.signoffs(release_id), **svc.releases.store.verify(pack)}
 
 
-@router.get("/releases/{release_id}/report", include_in_schema=False)
+@routes.get("/releases/{release_id}/report", include_in_schema=False)
 def release_report(release_id: str):
     from fastapi.responses import HTMLResponse
     svc = services()
@@ -580,7 +584,7 @@ class SignoffRequest(BaseModel):
     comment: str = ""
 
 
-@router.post("/releases/{release_id}/signoff")
+@routes.post("/releases/{release_id}/signoff")
 def signoff_release(release_id: str, req: SignoffRequest, user=require("signoff")) -> dict:
     from webapp.services.releases import ReleaseError
     svc = services()
@@ -592,8 +596,36 @@ def signoff_release(release_id: str, req: SignoffRequest, user=require("signoff"
     return entry
 
 
-@router.post("/runs/{run_id}/cancel", dependencies=[require("run")])
+@routes.post("/runs/{run_id}/cancel", dependencies=[require("run")])
 def cancel_run(run_id: str) -> dict:
     if not services().runs.cancel(run_id):
         raise HTTPException(409, "Run is not active")
     return {"cancelled": run_id}
+
+
+@routes.get("/meta")
+def meta() -> dict:
+    """What this API is: its version, where it lives, and the event and history features it offers."""
+    return {"app": "autoplay", "api_version": API_VERSION, "base": f"/api/v{API_VERSION}",
+            "also_served_at": "/api", "docs": "/docs", "openapi": "/openapi.json",
+            "features": ["runs", "events", "results-index", "workspace-model", "journeys", "releases", "monitors",
+                         "schedules"]}
+
+
+router_v1 = APIRouter(prefix=f"/api/v{API_VERSION}", tags=[f"autoplay v{API_VERSION}"])
+router_v1.include_router(routes)
+router = APIRouter(prefix="/api", tags=["autoplay"])  # the same endpoints under their first name
+router.include_router(routes)
+
+
+def install_api(app) -> None:
+    """Serve the API: /api/v1 (documented) and /api (same endpoints, left out of the docs page)."""
+    app.include_router(router_v1)
+    app.include_router(router, include_in_schema=False)
+
+    @app.middleware("http")
+    async def api_version_header(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            response.headers["X-API-Version"] = str(API_VERSION)
+        return response

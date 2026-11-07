@@ -1,0 +1,382 @@
+{
+ "/api/v1/config": {
+  "get": {
+   "params": {}
+  },
+  "put": {
+   "params": {}
+  }
+ },
+ "/api/v1/credentials": {
+  "get": {
+   "params": {
+    "env": true,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/events": {
+  "get": {
+   "params": {
+    "limit": false,
+    "since": false,
+    "topics": false,
+    "wait": false
+   }
+  }
+ },
+ "/api/v1/help": {
+  "get": {
+   "params": {
+    "q": false
+   }
+  }
+ },
+ "/api/v1/help/{topic_id}": {
+  "get": {
+   "params": {
+    "topic_id": true
+   }
+  }
+ },
+ "/api/v1/impact": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "env": false,
+    "head": false,
+    "screens": false
+   }
+  }
+ },
+ "/api/v1/impact/run": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "env": false,
+    "head": false,
+    "screens": false
+   }
+  }
+ },
+ "/api/v1/insights/flaky": {
+  "get": {
+   "params": {
+    "env": false,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/journeys": {
+  "get": {
+   "params": {
+    "system": true
+   }
+  }
+ },
+ "/api/v1/journeys/{journey_id}/run": {
+  "post": {
+   "params": {
+    "env": true,
+    "journey_id": true
+   }
+  }
+ },
+ "/api/v1/meta": {
+  "get": {
+   "params": {}
+  }
+ },
+ "/api/v1/model/reach": {
+  "get": {
+   "params": {
+    "common": false,
+    "data_set": false,
+    "field": false,
+    "page": false,
+    "system": true,
+    "test": false
+   }
+  }
+ },
+ "/api/v1/model/search": {
+  "get": {
+   "params": {
+    "limit": false,
+    "q": true
+   }
+  }
+ },
+ "/api/v1/monitors": {
+  "get": {
+   "params": {}
+  },
+  "post": {
+   "params": {}
+  }
+ },
+ "/api/v1/monitors/{monitor_id}": {
+  "get": {
+   "params": {
+    "monitor_id": true
+   }
+  },
+  "put": {
+   "params": {
+    "monitor_id": true
+   }
+  },
+  "delete": {
+   "params": {
+    "monitor_id": true
+   }
+  }
+ },
+ "/api/v1/monitors/{monitor_id}/check": {
+  "post": {
+   "params": {
+    "monitor_id": true
+   }
+  }
+ },
+ "/api/v1/pages/{system}": {
+  "get": {
+   "params": {
+    "system": true
+   }
+  }
+ },
+ "/api/v1/pages/{system}/{rel}": {
+  "get": {
+   "params": {
+    "rel": true,
+    "system": true
+   }
+  },
+  "put": {
+   "params": {
+    "rel": true,
+    "system": true
+   },
+   "body": {
+    "data": true,
+    "hash": false
+   }
+  }
+ },
+ "/api/v1/releases": {
+  "get": {
+   "params": {
+    "system": false
+   }
+  },
+  "post": {
+   "params": {},
+   "body": {
+    "block": false,
+    "env": true,
+    "journeys": false,
+    "max_age_days": false,
+    "name": true,
+    "since": false,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/releases/{release_id}": {
+  "get": {
+   "params": {
+    "release_id": true
+   }
+  }
+ },
+ "/api/v1/releases/{release_id}/signoff": {
+  "post": {
+   "params": {
+    "release_id": true
+   },
+   "body": {
+    "comment": false,
+    "decision": true
+   }
+  }
+ },
+ "/api/v1/runners": {
+  "get": {
+   "params": {}
+  }
+ },
+ "/api/v1/runs": {
+  "get": {
+   "params": {
+    "env": false,
+    "finished": false,
+    "limit": false,
+    "since": false,
+    "system": false,
+    "trigger": false,
+    "until": false
+   }
+  },
+  "post": {
+   "params": {},
+   "body": {
+    "also_envs": false,
+    "browsers": false,
+    "env": false,
+    "options": false,
+    "runner": false,
+    "system": true,
+    "tags": true,
+    "test_ids": false,
+    "workers": false
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}": {
+  "get": {
+   "params": {
+    "run_id": true
+   }
+  },
+  "delete": {
+   "params": {
+    "run_id": true
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}/cancel": {
+  "post": {
+   "params": {
+    "run_id": true
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}/compare": {
+  "get": {
+   "params": {
+    "base": false,
+    "run_id": true
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}/log": {
+  "get": {
+   "params": {
+    "run_id": true,
+    "since": false
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}/report": {
+  "post": {
+   "params": {
+    "run_id": true
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}/rerun": {
+  "post": {
+   "params": {
+    "run_id": true
+   }
+  }
+ },
+ "/api/v1/schedules": {
+  "get": {
+   "params": {}
+  },
+  "post": {
+   "params": {}
+  }
+ },
+ "/api/v1/schedules/{schedule_id}": {
+  "put": {
+   "params": {
+    "schedule_id": true
+   }
+  },
+  "delete": {
+   "params": {
+    "schedule_id": true
+   }
+  }
+ },
+ "/api/v1/schedules/{schedule_id}/run": {
+  "post": {
+   "params": {
+    "schedule_id": true
+   }
+  }
+ },
+ "/api/v1/schedules/{schedule_id}/test-notification": {
+  "post": {
+   "params": {
+    "schedule_id": true
+   }
+  }
+ },
+ "/api/v1/summary": {
+  "get": {
+   "params": {}
+  }
+ },
+ "/api/v1/systems": {
+  "get": {
+   "params": {}
+  }
+ },
+ "/api/v1/testcases/{system}": {
+  "get": {
+   "params": {
+    "system": true
+   }
+  }
+ },
+ "/api/v1/testcases/{system}/validate": {
+  "post": {
+   "params": {
+    "system": true
+   }
+  }
+ },
+ "/api/v1/testcases/{system}/{rel}": {
+  "get": {
+   "params": {
+    "rel": true,
+    "system": true
+   }
+  },
+  "put": {
+   "params": {
+    "index": false,
+    "rel": true,
+    "system": true
+   },
+   "body": {
+    "data": true,
+    "hash": false
+   }
+  }
+ },
+ "/api/v1/tests": {
+  "get": {
+   "params": {
+    "system": true,
+    "tags": false
+   }
+  }
+ },
+ "/api/v1/tests/{test_id}/history": {
+  "get": {
+   "params": {
+    "env": false,
+    "limit": false,
+    "system": false,
+    "test_id": true
+   }
+  }
+ }
+}
