@@ -9,6 +9,7 @@ from webapp.auth import audit, guard
 from webapp.services.monitors import INTERVALS, MonitorError, validate
 from webapp.services.notifier import DEFAULT_ENV, channel_ready
 from webapp.state import services
+from webapp.ui.live import live
 from webapp.ui.components import icon_button, text
 from webapp.ui.theme import icon
 
@@ -51,7 +52,8 @@ class MonitorsPanel:
                              "example) every few minutes. It tells your channels when a journey goes down and when "
                              "it recovers, and keeps its uptime and incidents.").classes("any-muted text-sm")
                 self.body()
-        ui.timer(3.0, self._auto_refresh)
+        live(self.svc.bus, ["run", "monitor"], self._auto_refresh,
+             when=lambda e: e["topic"] == "monitor" or str(e.get("trigger", "")).startswith("monitor:"))
 
     def _auto_refresh(self) -> None:
         runs = tuple((r.id, r.status) for r in self.svc.runs.list() if r.trigger.startswith("monitor:"))

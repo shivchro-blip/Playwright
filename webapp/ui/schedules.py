@@ -13,6 +13,7 @@ from webapp.services.notifier import DEFAULT_ENV, channel_ready
 from webapp.services.schedules import Schedule, validate
 from webapp.auth import audit, guard
 from webapp.state import services
+from webapp.ui.live import live
 from webapp.ui.components import field, icon_button, placeholder, status_pill_template, styled_table, text
 from webapp.ui.generator import confirm
 from webapp.ui.theme import icon
@@ -79,7 +80,9 @@ class SchedulesPanel:
                             .props('data-testid="new-schedule"').classes("any-primary")
                 self.table_view()
         self.signature: tuple = ()
-        ui.timer(5.0, self._auto_refresh)
+        # the next run time moves with the clock, so the fallback refreshes the signature check every 30 seconds
+        live(self.svc.bus, ["run", "schedule", "workspace"], self._auto_refresh,
+             when=lambda e: e["topic"] != "run" or str(e.get("trigger", "")).startswith("schedule:"), always=True)
 
     def _auto_refresh(self) -> None:
         sched = self.svc.scheduler

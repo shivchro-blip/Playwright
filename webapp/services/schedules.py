@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Callable
 
 from webapp.services.cron import Cron, CronError
 from webapp.services.env_config import RUN_OPTION_KEYS
+from webapp.services.events import publish_on
 from webapp.services.json_files import NAME_RE, ConflictError, read_json, write_json
 from webapp.services.notifier import Notifier, build_message, validate_channel
 from webapp.services.run_manager import query_runs
@@ -238,8 +239,10 @@ class Scheduler:
         except (ValueError, RuntimeError, OSError) as e:
             self.errors[schedule.id] = str(e)
             logger.warning("Schedule %s could not start: %s", schedule.name, e)
+            publish_on(self.runs, "schedule", id=schedule.id, change="error")
             return None
         self.errors.pop(schedule.id, None)
+        publish_on(self.runs, "schedule", id=schedule.id, change="started")
         logger.info("Schedule %s started run %s", schedule.name, run.id)
         return run
 

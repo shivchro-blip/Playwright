@@ -10,6 +10,7 @@ from webapp.services.env_config import LEVELS
 from webapp.services.run_manager import Run, RunConfig
 from webapp.auth import audit, guard
 from webapp.state import services
+from webapp.ui.live import live
 from webapp.ui.components import (
     RESULT_COLUMNS, copy_button, eyebrow, field, fmt_seconds, icon_button, placeholder, plural, result_slots,
     split_test_id, status_pill_template, styled_table, test_case_template, text, tone,
@@ -101,7 +102,9 @@ class ControlPanel:
             self.view_run(latest.id)
         else:
             self._show_idle()
-        ui.timer(0.5, self.tick)
+        # Pushed: a run that changes (result, step, console text, finish) ticks at once; the slow timer covers what
+        # no event says (a remote runner going quiet)
+        live(self.svc.bus, ["run"], self.tick, fallback=2.0, always=True)
 
     # ───────────── layout ─────────────
 
@@ -811,7 +814,6 @@ class ControlPanel:
         self._update_buttons(run)
         if not run:
             return
-        self.svc.runs.refresh_steps(run.id)  # the step each test is on, even while pytest prints nothing
         lines, self.log_pos = run.log_since(self.log_pos)
         if lines:
             self.log_view.push(lines[-LOG_LINES_PER_TICK:])

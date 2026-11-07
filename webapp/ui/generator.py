@@ -20,6 +20,7 @@ from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
 from webapp.state import services
+from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.common_actions_panel import CommonActionEditor
@@ -153,7 +154,7 @@ class TestEditor:
         self._test_ids: list[str] = []
         self.run_id: str = ""  # the run started from this editor, followed here (not on the Control tab)
         self._run_sig: tuple = ()
-        ui.timer(1.0, self._follow_run)
+        live(self.svc.bus, ["run"], self._follow_run, when=lambda e: e.get("id") == self.run_id, fallback=5.0)
 
         with ui.element("div").classes("any-split"):
             with ui.element("section").classes("any-card any-split-list").props('aria-label="Test cases"'):
@@ -715,7 +716,6 @@ class TestEditor:
         run = self.svc.runs.get(self.run_id) if self.run_id else None
         if run is None:
             return
-        self.svc.runs.refresh_steps(run.id)
         sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5,
                tuple((r.step, len(r.steps)) for r in run.results.values()))
         if sig != self._run_sig:

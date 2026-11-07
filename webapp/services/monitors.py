@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
+from webapp.services.events import publish_on
 from webapp.services.json_files import NAME_RE, ConflictError, read_json, write_json
 from webapp.services.notifier import Message, validate_channel
 
@@ -307,8 +308,10 @@ class MonitorService:
         except Exception as e:
             self.errors[mid] = str(e)
             logger.warning("Monitor %s could not start: %s", monitor.name, e)
+            publish_on(self.runs, "monitor", id=mid, change="error")
             return None
         self.errors.pop(mid, None)
+        publish_on(self.runs, "monitor", id=mid, change="started")
         return run
 
     # ───── results ─────
@@ -334,6 +337,7 @@ class MonitorService:
         data = hist.load()
         changes = record_check(data, run.finished_at or _iso(self.clock()), run.id, states, where)
         hist.save(data)
+        publish_on(self.runs, "monitor", id=monitor.id, change="checked")
         if changes and monitor.channels:
             names = {j.id: j.name for j in self.journeys.store.list(monitor.system)}
             self.notifier.send(self.alert(monitor, run, changes, names), monitor.channels)
