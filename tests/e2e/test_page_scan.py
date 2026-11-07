@@ -83,6 +83,11 @@ def test_scan_dialog_adds_selected_fields_to_the_page(workspace, tmp_path, site_
         browser.close()
     fields = json.loads((pages / "ScanMe.json").read_text(encoding="utf-8"))["fields"]
     assert list(fields) == ["BusName", "HomeBasedYes", "HomeBasedNo", "saveContinueButton"]
+    assert "identity" not in fields["BusName"]  # already on the page: left as it was (Learn identities adds it)
+    identities = {name: fields[name].pop("identity") for name in ("HomeBasedYes", "HomeBasedNo",
+                                                                  "saveContinueButton")}  # each added field has one
+    assert identities["HomeBasedNo"]["fingerprint"]["text"] == "No"
+    assert identities["saveContinueButton"]["fingerprint"]["tag"] == "button"
     assert fields["HomeBasedNo"] == {"locator": "[data-attribute-id='LSI_DEMO_HomeBased'] button:text-is('No')",
                                      "type": "button"}
     assert fields["saveContinueButton"] == {"role": "button", "name": "Save & Continue", "type": "button"}

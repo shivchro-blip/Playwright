@@ -69,7 +69,10 @@ def test_events_become_fields_and_one_step():
     rec = events_to_recording(events, "http://x/apply")
     assert rec.steps == [{"city": "Albany NY", "pass": "ENV.PASS", "nextButton": "click", "nextButton|": "click",
                           "city|": {"type": "keyboard", "value": "Enter"}, "stateSelect": "Texas"}]
-    assert rec.fields["stateSelect"] == {"locator": 'select[name="state"]', "type": "select"}
+    state = dict(rec.fields["stateSelect"])
+    identity = state.pop("identity")  # what the element is, for runs when its locator breaks
+    assert state == {"locator": 'select[name="state"]', "type": "select"}
+    assert identity["fingerprint"] == {"tag": "select", "name": "state", "role": "combobox"}
     assert rec.profiles[0]["city"]["name"] == "city"
     assert any("credential" in w for w in rec.warnings) and rec.actions == 6
 
