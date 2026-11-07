@@ -378,5 +378,14 @@
     "test_id": true
    }
   }
+ },
+ "/api/v1/tests/{test_id}/timeline": {
+  "get": {
+   "params": {
+    "env": false,
+    "system": true,
+    "test_id": true
+   }
+  }
  }
 }

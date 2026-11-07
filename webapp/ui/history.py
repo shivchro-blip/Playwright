@@ -11,6 +11,7 @@ from webapp.auth import audit, guard, ui_user
 from webapp.state import services
 from webapp.services.run_insights import flaky_tests
 from webapp.services.schedules import TRIGGER
+from webapp.ui.timeline_dialog import open_timeline
 from webapp.ui.live import live
 from webapp.ui.components import (
     RESULT_COLUMNS, field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table,
@@ -186,10 +187,14 @@ class HistoryPanel:
                 result_slots(table)
                 table.classes(remove="is-clickable")
                 table.add_slot("body-cell-actions", '''<q-td :props="props" class="text-right">
+                    <q-btn flat dense no-caps label="Timeline" :data-testid="'timeline-' + props.row.test_id"
+                           @click="() => $parent.$emit('timeline', props.row)" />
                     <q-btn flat dense no-caps :label="props.row.quarantined ? 'Release' : 'Quarantine'"
                            :data-testid="'quarantine-' + props.row.test_id"
                            @click="() => $parent.$emit('quarantine', props.row)" /></q-td>''')
                 table.on("quarantine", lambda e: toggle_quarantine(e.args["test_id"], self.refresh))
+                table.on("timeline", lambda e: open_timeline(
+                    e.args["test_id"], *str(e.args["target"]).split("/", 1), on_change=self.refresh))
                 for col in ("flips", "failures"):
                     table.add_slot(f"body-cell-{col}", '<q-td :props="props" class="any-num">{{ props.value }}</q-td>')
 

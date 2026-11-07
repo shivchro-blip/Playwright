@@ -13,6 +13,7 @@ from webapp.services.run_manager import Run
 from webapp.services.trace_viewer import blocker as trace_blocker
 from webapp.services.trace_viewer import open_trace
 from webapp.state import services
+from webapp.ui.timeline_dialog import open_timeline
 from webapp.ui.ai_panels import ai_enabled, triage_section
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
 from webapp.ui.console_view import ConsoleView
@@ -131,6 +132,10 @@ def open_test_details(run: Run, row: dict) -> None:
                     text("span", f"Run {run.id}", "v")
             with ui.element("div").classes("any-toolbar"):
                 issue_button(run, row, item)
+                ui.button("Timeline", icon=icon("activity"), color=None,
+                          on_click=lambda: open_timeline(test_id, run.config.system, run.config.env)) \
+                    .props('flat no-caps data-testid="details-timeline"').classes("any-btn is-38") \
+                    .tooltip("Every result of this test case, with heals, quarantine and edits")
                 icon_button("x", "Close", dialog.close)
 
         point = item.failure if item else None
