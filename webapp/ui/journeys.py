@@ -38,8 +38,8 @@ class JourneysPanel:
                         self.count = text("span", "", "any-count-pill")
                     with ui.element("div").classes("any-head-right"):
                         with field("System", "jr-system"):
-                            ui.select(systems, value=self.system or None,
-                                      on_change=lambda e: self._set_system(e.value)) \
+                            self.system_select = ui.select(systems, value=self.system or None,
+                                                           on_change=lambda e: self._set_system(e.value)) \
                                 .props('for="jr-system" data-testid="journeys-system"').classes("w-44")
                         ui.button("New journey", icon=icon("plus"), color=None, on_click=lambda: self.edit(None)) \
                             .props('data-testid="journey-new"').classes("any-primary")
@@ -49,6 +49,11 @@ class JourneysPanel:
                              "each of those test cases.").classes("any-muted text-sm")
                 self.body()
         live(self.svc.bus, ["run"], self._auto_refresh, when=lambda e: e.get("change") in ("saved", "deleted"))
+
+    def show_system(self, system: str) -> None:
+        """Show a system's journeys (the command palette)."""
+        if system in (self.system_select.options or []) and system != self.system:
+            self.system_select.value = system
 
     def _set_system(self, value: str | None) -> None:
         self.system = value or ""

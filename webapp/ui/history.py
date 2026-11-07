@@ -249,6 +249,12 @@ class HistoryPanel:
         table.update()
         self._select([row])
 
+    def show_run(self, run_id: str) -> None:
+        """Select a run and show its details (the command palette, links)."""
+        self.selected = run_id if self.svc.runs.get(run_id) else None
+        self.table_view.refresh()
+        self.details.refresh()
+
     def _select(self, selection: list[dict]) -> None:
         self.selected = selection[0]["id"] if selection else None
         self.details.refresh()

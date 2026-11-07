@@ -15,8 +15,11 @@ from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
 from webapp.ui.history import HistoryPanel
+from webapp.ui.palette import HASH_EVENT, SHORTCUT_JS, CommandPalette
 from webapp.ui.schedules import SchedulesPanel
+from webapp.ui.trends_dialog import open_trends
 from webapp.state import services
+from webapp.services.commands import TABS
 from webapp.ui.components import text
 from webapp.ui.theme import add_head, apply_brand, icon, register_assets
 
@@ -32,11 +35,8 @@ def register() -> None:
         apply_brand()
         # Panels own their padding (the Control tab is full-bleed)
         ui.query(".nicegui-content").classes("any-content")
-        tab_defs = [("Control", "circle-play"), ("Journeys", "circle-check"), ("Releases", "shield"),
-                    ("Monitors", "activity"), ("Impact", "git-compare"),
-                    ("Generator", "list-plus"),
-                    ("History", "history"),
-                    ("Schedules", "calendar-clock"), ("Help", "circle-help")]
+        ui.add_head_html(SHORTCUT_JS)
+        tab_defs = [(name, ico) for name, ico, _ in TABS]
         with ui.header().classes(replace="any-nav"):
             with ui.element("div").classes("any-brand"):
                 with ui.element("div").classes("any-brand-mark"):
@@ -45,6 +45,13 @@ def register() -> None:
             with ui.tabs().props('inline-label no-caps indicator-color="transparent" '
                                  'aria-label="Main sections"') as tabs:
                 tab_elems = {name: ui.tab(name, icon=icon(ico)) for name, ico in tab_defs}
+            with ui.button(color=None, on_click=lambda: palette.open()) \
+                    .props('flat unelevated no-caps aria-label="Search everything (Ctrl+K)" '
+                           'aria-keyshortcuts="Control+K Meta+K" data-testid="palette-open"') \
+                    .classes("any-nav-btn any-nav-search"):
+                ui.icon(icon("search")).props('aria-hidden="true"')
+                ui.label("Search")
+                text("kbd", "Ctrl K", "any-kbd")
             user = ui_user()
             ui.button("AI", icon=icon("sparkles"), color=None,
                       on_click=lambda: guard("settings", "ai settings") and open_ai_settings(on_ai_change)) \
@@ -76,11 +83,60 @@ def register() -> None:
 
         async def on_tab(e) -> None:
             mark_current(e.value)
-            if e.value == "Generator":
+            # the address follows the tab (#history), so a link or a reload lands on the same section; not before
+            # the section the address asked for has been restored
+            if restored[0]:
+                ui.run_javascript(f"history.replaceState(null, '', '#{e.value.lower()}')")
+            if e.value == "Generator" and not opening[0]:
                 await panels["generator"].show_default()
 
         tabs.on_value_change(on_tab)
         mark_current("Control")
+        opening = [False]  # a palette jump into the Generator opens its own target, not the default page
+        restored = [False]
+
+        def go(name: str) -> None:
+            tabs.set_value(tab_elems[name])
+
+        async def run_command(command) -> None:
+            args, action = command.args, command.action
+            if action == "tab":
+                go(args["name"])
+                if args.get("section") == "tests":
+                    gen = panels["generator"]
+                    gen.sections.set_value(gen.tests_tab)
+            elif action in ("open_test", "open_page"):
+                gen = panels["generator"]
+                opening[0] = True
+                try:
+                    go("Generator")
+                    if not await gen.use_system(args["system"]):
+                        return
+                    if action == "open_test":
+                        await gen.open_test(args["rel"], args["index"])
+                    else:
+                        await gen.open_page(args["page"])
+                        if args.get("field"):
+                            gen.pages.field_filter = args["field"]
+                            gen.pages.fields_view.refresh()
+                finally:
+                    opening[0] = False
+            elif action == "open_journey":
+                go("Journeys")
+                panels["journeys"].show_system(args["system"])
+            elif action == "open_run":
+                go("History")
+                panels["history"].show_run(args["id"])
+            elif action == "open_trends":
+                open_trends()
+
+        def go_to_hash(where) -> None:
+            name = next((n for n in tab_elems if f"#{n.lower()}" == str(where or "").lower()), None)
+            if name and tabs.value != tab_elems[name] and tabs.value != name:
+                go(name)
+            restored[0] = True  # from now on the address follows the tab
+
+        ui.on(HASH_EVENT, lambda e: go_to_hash(e.args[0] if isinstance(e.args, list) and e.args else e.args))
 
         panels: dict[str, object] = {}
 
@@ -93,6 +149,8 @@ def register() -> None:
             tabs.set_value(control_tab)
             panels["control"].view_run(run_id)
             panels["control"].history.refresh()
+
+        palette = CommandPalette(run_command)
 
         with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent"):
             with ui.tab_panel(control_tab).classes("any-app"):
