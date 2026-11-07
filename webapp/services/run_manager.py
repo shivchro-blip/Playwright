@@ -43,7 +43,14 @@ MAX_QUEUED = 20  # runs waiting for a free slot
 ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 SUITE = "tests/dynamic_test_suite.py"
 ACTIVE = ("queued", "running")
-INDEX_FILE = "results.db"  # the results index, beside the run folders (webapp/services/results_index.py)
+INDEX_SUFFIX = ".results.db"  # the results index: <runs folder name>.results.db beside the runs folder
+
+
+def index_path(runs_dir: Path) -> Path:
+    """Where the results index of a runs folder lives (webapp/services/results_index.py): next to the folder,
+    not in it, so the folder holds only run folders."""
+    runs_dir = Path(runs_dir)
+    return runs_dir.parent / f"{runs_dir.name}{INDEX_SUFFIX}"
 RUNNER_SILENCE_SECONDS = 90  # a remote run whose runner has not called in this long is marked as lost
 WATCH_INTERVAL = 15  # seconds between checks for lost runners
 
@@ -819,7 +826,7 @@ class RunManager:
 
     def _open_index(self) -> ResultsIndex | None:
         """The results index; an unreadable one is set aside and rebuilt from the run folders."""
-        path = self.runs_dir / INDEX_FILE
+        path = index_path(self.runs_dir)
         for attempt in (1, 2):
             try:
                 return ResultsIndex(path)
