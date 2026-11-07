@@ -51,7 +51,7 @@ A reused test case (`testCase` step) or common action does not see the set, exce
 Put `{value}` in a field's locator and the test supplies the option, so the page object holds no test data:
 
 ```json
-"TaxNotPaid": { "locator": "[data-attribute-id='TaxNotPaid'] button:text-is('{value}')", "type": "button" }
+"TaxNotPaid": { "locator": "[data-qa='TaxNotPaid'] button:text-is('{value}')", "type": "button" }
 ```
 ```json
 { "screen": "Background", "formData": { "TaxNotPaid": "No" } }
@@ -64,7 +64,7 @@ The value is put into the locator (quotes are escaped) and the field is clicked.
 A field of type `datepicker` picks a date in a Material UI calendar popup: it opens the calendar from the button next to the input (or from `"picker": "<locator>"` on the field), pages to the month and clicks the day.
 
 ```json
-"BeginDate": { "locator": "[data-attribute-id='BeginDate'] input", "type": "datepicker" }
+"BeginDate": { "locator": "[data-qa='BeginDate'] input", "type": "datepicker" }
 ```
 ```json
 { "BeginDate": "+30d" }

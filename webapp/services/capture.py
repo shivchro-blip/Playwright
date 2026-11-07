@@ -37,6 +37,15 @@ CAPTURE_JS = r"""
   if (window.__autoplayCapture) return;
   window.__autoplayCapture = true;
   const ID_ATTR = %ID_ATTR%;
+  %DETECT%
+  let detected = null, detectedAt = 0;
+  const siteAttrs = () => {   // re-examined when the page has changed a lot (a new screen)
+    const size = document.getElementsByTagName('*').length;
+    if (!detected || Math.abs(size - detectedAt) > detectedAt * 0.2) {
+      detected = autoplayIdAttrs(); detectedAt = size;
+    }
+    return detected;
+  };
   const TEST_ATTRS = %TEST_ATTRS%;
   const DYNAMIC = new RegExp(%DYNAMIC%, 'i');
   const norm = s => (s || '').replace(/\s+/g, ' ').trim();
@@ -107,24 +116,26 @@ CAPTURE_JS = r"""
     const add = (kind, sel, n, stable = true) => {
       if (sel && n > 0) d.candidates.push({kind, sel, count: n, stable});
     };
-    if (ID_ATTR) {
-      const own = el.getAttribute(ID_ATTR);
+    // the site's own id attribute: the one given, else the ones this page uses (see site_ids.py)
+    const attrs = ID_ATTR ? [ID_ATTR] : siteAttrs();
+    for (const A of attrs) {
+      const own = el.getAttribute(A);
       if (own) {
-        d.site_id = own; d.site_id_own = true;
-        add('site_id', `[${ID_ATTR}='${own.replace(/'/g, "\\'")}']`, count(`[${ID_ATTR}=${q(own)}]`));
+        d.site_id = own; d.site_id_own = true; d.site_attr = A;
+        add('site_id', `[${A}='${own.replace(/'/g, "\\'")}']`, count(`[${A}=${q(own)}]`), !DYNAMIC.test(own));
+        break;
       }
-      else {
-        const box = el.parentElement && el.parentElement.closest(`[${ID_ATTR}]`);
-        if (box) {
-          const v = box.getAttribute(ID_ATTR); d.site_id = v;
-          const base = `[${ID_ATTR}='${v.replace(/'/g, "\\'")}']`;
-          const inner = [...box.querySelectorAll(t)].filter(visible);
-          if (role === 'button' || role === 'link') {
-            const same = inner.filter(o => textOf(o) === text).length;
-            if (text) add('site_id', `${base} ${t}:text-is('${text.replace(/'/g, "\\'")}')`, same);
-          }
-          add('site_id', `${base} ${t}`, inner.length);
+      const box = el.parentElement && el.parentElement.closest(`[${A}]`);
+      if (box) {
+        const v = box.getAttribute(A); d.site_id = v; d.site_attr = A;
+        const base = `[${A}='${v.replace(/'/g, "\\'")}']`;
+        const inner = [...box.querySelectorAll(t)].filter(visible);
+        if (role === 'button' || role === 'link') {
+          const same = inner.filter(o => textOf(o) === text).length;
+          if (text) add('site_id', `${base} ${t}:text-is('${text.replace(/'/g, "\\'")}')`, same);
         }
+        add('site_id', `${base} ${t}`, inner.length);
+        break;
       }
     }
     if (d.testid) add('testid', `[${d.testid_attr}=${q(d.testid)}]`, count(`[${d.testid_attr}=${q(d.testid)}]`));
@@ -205,7 +216,8 @@ CAPTURE_JS = r"""
 
 
 def capture_script(id_attribute: str = "") -> str:
-    return (CAPTURE_JS.replace("%ID_ATTR%", json.dumps(id_attribute or ""))
+    from webapp.services.site_ids import detect_js_fn
+    return (CAPTURE_JS.replace("%ID_ATTR%", json.dumps(id_attribute or "")).replace("%DETECT%", detect_js_fn())
             .replace("%TEST_ATTRS%", json.dumps(list(TEST_ATTRS)))
             .replace("%DYNAMIC%", json.dumps(DYNAMIC_ID.pattern)))
 
@@ -314,11 +326,30 @@ class _Page:
     profiles: dict[str, dict] = field(default_factory=dict)
 
 
+def detected_options(events: list[dict], options: RecordOptions) -> RecordOptions:
+    """The site's id attribute and value prefix, from what the page said (unless given): the attribute most of the
+    recorded elements were found by, and the prefix its values share."""
+    from collections import Counter
+
+    from webapp.services.site_ids import common_prefix
+    els = [ev.get("el") for ev in events if isinstance(ev, dict) and isinstance(ev.get("el"), dict)]
+    attr = options.id_attribute or next(iter(Counter(e["site_attr"] for e in els if e.get("site_attr"))
+                                             .most_common(1)), ("", 0))[0]
+    prefix = options.id_prefix
+    if attr and not prefix:
+        prefix = common_prefix({e.get("site_id") for e in els if e.get("site_attr") == attr and e.get("site_id")})
+    return RecordOptions(break_on=options.break_on, id_attribute=attr, id_prefix=prefix)
+
+
 def events_to_recording(events: list[dict], start_url: str, options: RecordOptions | None = None) -> Recording:
     """Captured events (in order) -> the same Recording the codegen path builds: fields, one formData step per
     page (a screen per wizard page), warnings; plus `profiles` (field -> element description)."""
-    options = options or RecordOptions()
+    options = detected_options(events, options or RecordOptions())
     rec = Recording(start_url=start_url)
+    if options.id_attribute:
+        rec.notes.append(f"Elements are located by the site's id attribute {options.id_attribute}"
+                         + (f"; field names leave out the prefix {options.id_prefix} its values share"
+                            if options.id_prefix else "") + ".")
     breaks = {b.strip().casefold() for b in options.break_on if b and b.strip()}
     pages: list[_Page] = []
     current = _Page()

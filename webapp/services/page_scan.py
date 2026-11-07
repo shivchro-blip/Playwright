@@ -3,7 +3,7 @@ name, type and locator for each element.
 
 Locators are built in the keys the framework's get_element understands and every one is checked against the page
 with the same resolution the run uses (locator_check.build_locator), so what is proposed is found at run time too.
-Order of preference: the site's own id attribute (for example data-attribute-id), #id, data-testid, name,
+Order of preference: the site's own id attribute (found on the page, see site_ids.py), #id, data-testid, name,
 role + accessible name, placeholder, label, then a class. A locator that matches several elements gets the
 index of the element it was proposed for.
 """
@@ -70,6 +70,8 @@ class PageScan:
     total: int = 0
     error: str = ""
     seconds: float = 0.0
+    id_attribute: str = ""  # the site's id attribute used (given, or found on the page)
+    id_prefix: str = ""  # the prefix its values share, left out of the names
 
 
 def _pascal(text: str) -> str:
@@ -171,7 +173,15 @@ def scan_page(url: str, *, id_attribute: str = "", id_prefix: str = "", storage_
                 page = browser.new_context(viewport={"width": 1280, "height": 900}, storage_state=state).new_page()
                 page.goto(url, wait_until=wait_until, timeout=timeout_ms)
                 result.title, result.final_url = page.title(), page.url
+                if not id_attribute:  # how this site marks its elements, when nobody said
+                    from webapp.services.site_ids import detect_expression
+                    detected = page.evaluate(detect_expression())
+                    id_attribute = detected[0] if detected else ""
                 found = page.evaluate(ENUMERATE, id_attribute or "")
+                if id_attribute and not id_prefix:
+                    from webapp.services.site_ids import common_prefix
+                    id_prefix = common_prefix({d["container"] for d in found if d["container"]})
+                result.id_attribute, result.id_prefix = id_attribute, id_prefix
                 result.total = len(found)
                 shown = [d for d in found if d["visible"] or not visible_only][:MAX_ELEMENTS]
                 groups: dict[tuple, int] = {}

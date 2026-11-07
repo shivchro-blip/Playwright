@@ -56,8 +56,8 @@ class RecorderError(Exception):
 @dataclass
 class RecordOptions:
     """How a recording is turned into pages. break_on: button names that end a screen (wizard mode, empty = one
-    page). id_attribute: an attribute that identifies elements on the site (e.g. data-attribute-id); locators
-    use it and field names come from its values with id_prefix removed."""
+    page). id_attribute: an attribute that identifies elements on the site (e.g. data-qa; smart capture finds it when
+    empty); locators use it and field names come from its values with id_prefix removed."""
     break_on: tuple[str, ...] = ()
     id_attribute: str = ""
     id_prefix: str = ""
@@ -81,6 +81,7 @@ class Recording:
     assertions: int = 0
     source: str = ""  # the generated code, with credential values masked
     profiles: list[dict] = field(default_factory=list)  # smart capture: per page, field -> element description
+    notes: list[str] = field(default_factory=list)  # what was worked out (not problems), e.g. the site's id attribute
 
     @property
     def field_count(self) -> int:

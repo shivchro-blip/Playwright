@@ -106,3 +106,29 @@ def run(page):
     assert cfgs[0]["locator"] == 'internal:role=textbox[name="Name"s]'
     assert cfgs[1]["locator"] == 'internal:label="Last name"s'
     assert cfgs[2] == {"role": "button", "name": "Save", "type": "button"}  # not exact in the recording: unchanged
+
+
+def test_common_prefix_of_site_ids():
+    from webapp.services.site_ids import common_prefix
+    assert common_prefix(["LSI_APP_Zip", "LSI_APP_Name", "LSI_APP_TaxNotPaid"]) == "LSI_APP_"
+    assert common_prefix(["app-checkout-pay", "app-checkout-cancel", "app-cart"]) == "app-"
+    assert common_prefix(["Zip", "Name", "Tax"]) == ""  # nothing shared
+    assert common_prefix(["LSI_Zip", "LSI_Name"]) == ""  # too few to tell
+    assert common_prefix(["ZipCode", "ZipPlus", "ZipArea"]) == ""  # shared letters, no separator: not a prefix
+    assert common_prefix(["12_a", "12_b", "12_c"]) == ""  # numbers only: not a prefix
+
+
+def test_the_attribute_most_elements_were_found_by_is_used_and_its_prefix_dropped():
+    def site(value, attr="data-automation-id", text=""):
+        return {"tag": "input", "role": "textbox", "site_id": value, "site_attr": attr, "site_id_own": True,
+                "candidates": [cand("site_id", f"[{attr}='{value}']")]}
+    events = [{"action": "fill", "el": site("app_form_Zip"), "value": "1"},
+              {"action": "fill", "el": site("app_form_City"), "value": "2"},
+              {"action": "fill", "el": site("app_form_Street"), "value": "3"}]
+    rec = events_to_recording(events, "http://x")
+    assert list(rec.fields) == ["Zip", "City", "Street"]
+    assert "data-automation-id" in rec.notes[0] and "app_form_" in rec.notes[0]
+    given = events_to_recording(events, "http://x", RecordOptions(id_attribute="data-automation-id",
+                                                                  id_prefix="app_"))
+    assert list(given.fields) == ["FormZip", "FormCity", "FormStreet"]  # what the user says wins
+    assert events_to_recording([{"action": "fill", "el": el("zip"), "value": "1"}], "http://x").notes == []

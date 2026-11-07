@@ -18,6 +18,15 @@ def test_scan_names_and_locates_the_visible_elements(site_url: str):
     assert scan.skipped == 0 and scan.total >= 4
 
 
+def test_the_sites_id_attribute_and_prefix_are_found_without_being_told(site_url: str):
+    told = scan_page(f"{site_url}/wizard.html", id_attribute="data-attribute-id", id_prefix="LSI_DEMO_")
+    found = scan_page(f"{site_url}/wizard.html")
+    assert (found.id_attribute, found.id_prefix) == ("data-attribute-id", "LSI_DEMO_")
+    assert [(c.name, c.cfg) for c in found.candidates] == [(c.name, c.cfg) for c in told.candidates]
+    plain = scan_page(f"{site_url}/index.html")  # a site without one: nothing invented
+    assert plain.ok and plain.id_attribute == "" and plain.id_prefix == ""
+
+
 def test_every_proposed_locator_finds_exactly_its_element(site_url: str):
     url = f"{site_url}/forms.html"
     scan = scan_page(url, id_attribute="data-attribute-id")
@@ -60,11 +69,11 @@ def test_scan_dialog_adds_selected_fields_to_the_page(workspace, tmp_path, site_
         page.get_by_test_id("scan-open").click()
         dialog = page.get_by_role("dialog", name="Add fields from the live page")
         expect(dialog.get_by_test_id("scan-url")).to_have_value(f"{site_url}/wizard.html")
-        dialog.get_by_test_id("scan-id-attr").fill("data-attribute-id")
-        dialog.get_by_test_id("scan-id-prefix").fill("LSI_DEMO_")
-        dialog.get_by_test_id("scan-start").click()
+        dialog.get_by_test_id("scan-start").click()  # nothing to type: the site's id attribute is found
         results = dialog.get_by_test_id("scan-results")
         expect(results).to_contain_text("BusName", timeout=60_000)
+        expect(dialog.get_by_test_id("scan-detected")).to_have_text(
+            "Located by the site's id attribute data-attribute-id; names leave out the prefix LSI_DEMO_.")
         expect(results).to_contain_text("already on the page")  # BusName is on the page: not added twice
         dialog.get_by_test_id("scan-add").click()
         expect(dialog).to_be_hidden()

@@ -98,3 +98,35 @@ def test_record_dialog_uses_smart_capture_by_default(workspace: Path, tmp_path: 
         browser.close()
     saved = json.loads((workspace / "Data" / "locatorProfiles" / "SMOKE.json").read_text(encoding="utf-8"))
     assert any("firstName" in fields for fields in saved.values())
+
+
+def test_the_sites_id_attribute_and_prefix_are_found_while_recording(
+        workspace: Path, tmp_path: Path, site_url: str, monkeypatch):
+    from webapp.services.recorder import RecordOptions, save_wizard
+    monkeypatch.setenv("AUTOPLAY_RECORDER_HEADLESS", "true")
+    monkeypatch.setenv("AUTOPLAY_RECORDER_DRIVE", str(DRIVE.with_name("drive_wizard.py")))
+    recorder = Recorder(sys.executable)
+    session = recorder.start(f"{site_url}/wizard.html", options=RecordOptions(
+        break_on=("Save & Continue", "Submit Application")))  # no id attribute, no prefix: nothing typed in
+    deadline = time.monotonic() + 120
+    while session.status in ("starting", "recording") and time.monotonic() < deadline:
+        time.sleep(0.3)
+    assert session.status == "finished", session.error
+    rec = session.recording
+    assert rec.notes == ["Elements are located by the site's id attribute data-attribute-id; field names leave out "
+                         "the prefix LSI_DEMO_ its values share."]
+    screens = [{n: c["locator"] for n, c in s.fields.items()} for s in rec.screens]
+    assert screens == [
+        {"BusName": "[data-attribute-id='LSI_DEMO_BusName'] input",
+         "HomeBasedNo": "[data-attribute-id='LSI_DEMO_HomeBased'] button:text-is('No')",
+         "saveContinueButton": 'internal:role=button[name="Save & Continue"s]'},  # the only one visible
+        {"Zip": "[data-attribute-id='LSI_DEMO_Zip'] input",
+         "TaxedYes": "[data-attribute-id='LSI_DEMO_Taxed'] button:text-is('Yes')",
+         "saveContinueButton": 'internal:role=button[name="Save & Continue"s]'},
+        {"submitApplicationButton": 'internal:role=button[name="Submit Application"s]'}]
+
+    pom = PomService(workspace, workspace.parent)
+    save_wizard(pom, TestCaseService(workspace, pom), "SMOKE", rec, page_names=["WizOne", "WizTwo", "WizThree"],
+                base_url=site_url, test_id="TC-REC-WIZ", test_file="Recorded.json", tags=["recwiz"])
+    run = run_and_wait(workspace, tmp_path, tags=["recwiz"])
+    assert run.status == "passed", "\n".join(run.log[-60:])
