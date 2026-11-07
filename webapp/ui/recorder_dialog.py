@@ -96,24 +96,28 @@ def open_recorder(gen: GeneratorPanel) -> None:
                            "codegen": "Playwright codegen: the locators codegen writes"},
                           value=state["mode"], on_change=lambda e: state.update(mode=e.value)) \
                     .props('for="rec-mode" data-testid="rec-mode"').classes("w-full")
-            with ui.expansion("Multi-screen flows and site ids", icon=icon("list-checks")).classes("any-disclosure"):
+            with ui.expansion("Multi-screen flows", icon=icon("list-checks")).classes("any-disclosure"):
                 with ui.element("div").classes("any-disclosure-body"):
                     ui.switch("Split into one page per screen (wizard mode)", value=state["wizard"],
                               on_change=lambda e: state.update(wizard=e.value)).props('data-testid="rec-wizard"')
                     with labelled("A screen ends when one of these buttons is clicked", "rec-breaks"):
                         ui.input(value=state["breaks"], on_change=lambda e: state.update(breaks=e.value or "")) \
                             .props('for="rec-breaks"').classes("w-full")
+            with ui.expansion("Advanced: override what is detected", icon=icon("sliders-horizontal")) \
+                    .classes("any-disclosure"):
+                with ui.element("div").classes("any-disclosure-body"):
+                    ui.label("Smart capture finds out on its own how your site marks its elements (data-testid, "
+                             "data-qa, or an attribute of its own) and the prefix their values share, and names "
+                             "fields without it. Fill these only to use something else.").classes("any-muted text-xs")
                     with ui.element("div").classes("any-form-row"):
-                        with labelled("ID attribute (optional)", "rec-id-attr").classes("is-grow"):
-                            ui.input(value=state["id_attr"], placeholder="data-attribute-id",
+                        with labelled("Element id attribute", "rec-id-attr").classes("is-grow"):
+                            ui.input(value=state["id_attr"], placeholder="detected automatically",
                                      on_change=lambda e: state.update(id_attr=(e.value or "").strip())) \
                                 .props('for="rec-id-attr"').classes("w-full mono-input")
-                        with labelled("Remove this prefix from field names", "rec-id-prefix").classes("is-grow"):
-                            ui.input(value=state["id_prefix"], placeholder="LSI_APP_",
+                        with labelled("Leave this prefix out of field names", "rec-id-prefix").classes("is-grow"):
+                            ui.input(value=state["id_prefix"], placeholder="detected automatically",
                                      on_change=lambda e: state.update(id_prefix=(e.value or "").strip())) \
                                 .props('for="rec-id-prefix"').classes("w-full mono-input")
-                    ui.label("Elements that carry the ID attribute are located by it and named after it "
-                             "(LSI_APP_TaxNotPaid becomes TaxNotPaid).").classes("any-muted text-xs")
             with ui.element("div").classes("any-dialog-actions is-start"):
                 def start() -> None:
                     storage = session_file if use_session is not None and use_session.value else None
@@ -151,6 +155,8 @@ def open_recorder(gen: GeneratorPanel) -> None:
                         text("span", f"{n} {label}")
                 if rec.start_url:
                     text("code", rec.start_url, "any-lc-desc")
+            for note in rec.notes:
+                text("div", note, "any-muted text-sm").props('data-testid="rec-note"')
             for warning in rec.warnings:
                 with ui.element("div").classes("any-callout is-inline").props('role="status"'):
                     ui.icon(icon("triangle-alert")).props('aria-hidden="true"')

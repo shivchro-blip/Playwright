@@ -66,13 +66,18 @@ def open_page_scan(editor: PageEditor) -> None:
             with labelled("Page URL", "ps-url").classes("is-grow"):
                 url_input = ui.input(value=url_for(env_default)).props('for="ps-url" data-testid="scan-url"') \
                     .classes("w-full mono-input")
-        with ui.element("div").classes("any-form-row"):
-            with labelled("ID attribute (optional)", "ps-attr").classes("is-grow"):
-                id_attr = ui.input(value=_REMEMBERED["id_attr"], placeholder="data-attribute-id") \
-                    .props('for="ps-attr" data-testid="scan-id-attr"').classes("w-full mono-input")
-            with labelled("Remove this prefix from names", "ps-prefix").classes("is-grow"):
-                id_prefix = ui.input(value=_REMEMBERED["id_prefix"], placeholder="LSI_APP_") \
-                    .props('for="ps-prefix" data-testid="scan-id-prefix"').classes("w-full mono-input")
+        with ui.expansion("Advanced: override what is detected", icon=icon("sliders-horizontal")) \
+                .classes("any-disclosure w-full"):
+            with ui.element("div").classes("any-disclosure-body"):
+                ui.label("The scan finds out how this site marks its elements and the prefix their values share. "
+                         "Fill these only to use something else.").classes("any-muted text-xs")
+                with ui.element("div").classes("any-form-row"):
+                    with labelled("Element id attribute", "ps-attr").classes("is-grow"):
+                        id_attr = ui.input(value=_REMEMBERED["id_attr"], placeholder="detected automatically") \
+                            .props('for="ps-attr" data-testid="scan-id-attr"').classes("w-full mono-input")
+                    with labelled("Leave this prefix out of names", "ps-prefix").classes("is-grow"):
+                        id_prefix = ui.input(value=_REMEMBERED["id_prefix"], placeholder="detected automatically") \
+                            .props('for="ps-prefix" data-testid="scan-id-prefix"').classes("w-full mono-input")
         has_session = session_file.is_file()
         use_session = ui.switch("Use the saved login session (Data/session.json)", value=True) if has_session else None
         with ui.element("div").classes("any-dialog-actions is-start"):
@@ -96,6 +101,10 @@ def open_page_scan(editor: PageEditor) -> None:
                 text("div", head, "any-eyebrow")
                 if scan.title or scan.final_url:
                     text("div", f"{scan.title} - {scan.final_url}", "any-muted text-sm")
+                if scan.id_attribute:
+                    text("div", f"Located by the site's id attribute {scan.id_attribute}"
+                         + (f"; names leave out the prefix {scan.id_prefix}" if scan.id_prefix else "") + ".",
+                         "any-muted text-sm").props('data-testid="scan-detected"')
                 if not scan.candidates:
                     ui.label("Nothing to interact with was found on this page.").classes("any-muted text-sm")
                     return

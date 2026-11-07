@@ -14,15 +14,36 @@ import importlib.util
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 
-def _drive(path: str, page) -> None:
+def _drive(path: str, page, received: list[dict], record) -> None:
     spec = importlib.util.spec_from_file_location("autoplay_recording_drive", path)
     module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     spec.loader.exec_module(module)  # type: ignore[union-attr]
     module.drive(page)
-    page.wait_for_timeout(300)  # let the last events reach the recorder
+    _catch_up(page, received, record)
+
+
+def _catch_up(page, received: list[dict], record, seconds: float = 5) -> None:
+    """Before the browser closes: wait for the events still on their way, then take any that never arrived from
+    the page's own log of what it sent (sessionStorage, which survives the tab's page loads)."""
+    deadline = time.monotonic() + seconds
+    logged: list = []
+    while True:
+        try:
+            logged = page.evaluate("() => JSON.parse(sessionStorage.getItem('__autoplayLog') || '[]')")
+        except Exception:  # the page is gone: nothing more to take
+            return
+        have = {e.get("seq") for e in received}
+        if all(e.get("seq") in have for e in logged) or time.monotonic() >= deadline:
+            break
+        page.wait_for_timeout(200)
+    have = {e.get("seq") for e in received}
+    for event in logged:
+        if event.get("seq") not in have:
+            record(None, event)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -38,9 +59,11 @@ def main(argv: list[str] | None = None) -> int:
     from webapp.services.capture import capture_script
 
     out = Path(args.out).open("a", encoding="utf-8")
+    received: list[dict] = []
 
     def record(_source, event) -> None:
         if isinstance(event, dict):
+            received.append(event)
             out.write(json.dumps(event, ensure_ascii=False) + "\n")
             out.flush()
 
@@ -55,14 +78,16 @@ def main(argv: list[str] | None = None) -> int:
         drive = os.environ.get("AUTOPLAY_RECORDER_DRIVE", "")
         try:
             if drive:
-                _drive(drive, page)
+                _drive(drive, page, received, record)
             else:
                 while True:  # waiting on a page keeps the recorder's events flowing; popups are pages too
                     open_pages = [pg for pg in context.pages if not pg.is_closed()]
                     if not open_pages:
                         break
+                    for pg in open_pages:  # every second: take what the page logged but never arrived
+                        _catch_up(pg, received, record, seconds=0)
                     try:
-                        open_pages[0].wait_for_event("close", timeout=0)
+                        open_pages[0].wait_for_event("close", timeout=1000)
                     except Error:
                         pass
         finally:

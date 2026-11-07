@@ -93,7 +93,7 @@ The whole recording becomes one page step; a field used again gets a pipe suffix
 
 | Order | Kept as | Example |
 |---|---|---|
-| 1 | your site's ID attribute | `[data-attribute-id='LSI_APP_TaxNotPaid'] button:text-is('No')` |
+| 1 | the site's own id attribute (found on the page) | `[data-automation-id='app_form_TaxPaid'] button:text-is('No')` |
 | 2 | a test id | `[data-testid="phone-number"]` |
 | 3 | a fixed id | `[id="email"]` |
 | 4 | `name` (with the value for radios and checkboxes) | `input[name="contact"][value="phone"]` |
@@ -114,10 +114,14 @@ The whole recording becomes one page step; a field used again gets a pipe suffix
 
 ### Multi-screen flows (wizard mode)
 
-For a long flow with a "Save & Continue" button on every screen, open **Multi-screen flows and site ids** in the Record dialog:
+For a long flow with a "Save & Continue" button on every screen, open **Multi-screen flows** in the Record dialog:
 
 - **Split into one page per screen** - a click on one of the listed buttons (default: `Save & Continue`, `Save and Continue`, `Next`, `Continue`, `Submit`) ends the screen. Each screen becomes its own page and its own `screen` step, so the report names the screen that failed and each page stays small. Only the first page navigates (it gets the start URL); the others pick up where the previous screen left off. Button names are matched exactly (case-insensitive), so a `Next month` button does not end a screen. Name each page in the review before saving; names that already exist get the new fields merged in.
-- **ID attribute** - if your site marks elements with an attribute such as `data-attribute-id`, enter it. The recorder passes it to Playwright codegen, writes locators like `[data-attribute-id='LSI_APP_TaxNotPaid'] button:text-is('No')`, and names the field `TaxNotPaid` (set **Remove this prefix** to `LSI_APP_`). It works without wizard mode too.
+### The site's own element ids (found for you)
+
+Many applications put their own identifier on elements, for example `data-automation-id="app_form_Zip"` or `data-qa="checkout-pay"`, often with the same prefix on every value. Locators built on it are the most stable ones a site offers. **You do not need to know or type it**: smart capture and **From page** look at the page and take a `data-*` attribute to be the site's id attribute when at least three elements carry it, nearly all of its values are different, and they are not generated (long numbers, hashes). One whose name says it is an identifier (`id`, `key`, `qa`, `test`, `cy`, `e2e`, `auto`, `hook`, `ref`, `field`...) is preferred. The prefix every value shares, up to a separator (`_ - . :`), is left out of the field names (`app_form_Zip` becomes `Zip`). The review says what was found. Several choices inside one marked element (Yes / No) are named after both (`TaxNotPaidNo`).
+
+**Advanced: override what is detected** lets you name the attribute and the prefix yourself; that is also how to give them to **Playwright codegen**, which cannot detect them.
 
 Check the fields and locators in the review: the recorder can only turn into fields what codegen writes. Not converted: assertions (`expect`), actions inside iframes, and later navigations (they are reported as warnings). Values typed into fields that look like passwords or codes are **not saved**; use `ENV.<KEY>` values instead.
 
@@ -148,7 +152,7 @@ Rename and Tidy each ask you to **Preview** first: it lists the files that would
 
 ### From page: add fields by scanning
 
-**From page** opens the page in headless Chromium on this machine and lists the buttons, inputs, links, checkboxes and menus it can see, with a proposed name, type and locator for each. Locators are checked with the same rules a run uses; one that matches several elements gets the `index` of the element it was proposed for. If your site marks elements with an attribute such as `data-attribute-id`, enter it (and the prefix to drop from names): elements inside such a container are located through it, and several choices in one container (Yes / No) are named after both. Tick what you want and **Add selected fields**; the page stays unsaved until you Save. Fields already on the page are marked and not added twice. Only what is visible is listed, and not elements inside iframes.
+**From page** opens the page in headless Chromium on this machine and lists the buttons, inputs, links, checkboxes and menus it can see, with a proposed name, type and locator for each. Locators are checked with the same rules a run uses; one that matches several elements gets the `index` of the element it was proposed for. If the site marks its elements with an id attribute of its own, the scan finds it (see *The site's own element ids*): elements inside such a container are located through it, names leave out the prefix the values share, and several choices in one container (Yes / No) are named after both. **Advanced** overrides what is found. Tick what you want and **Add selected fields**; the page stays unsaved until you Save. Fields already on the page are marked and not added twice. Only what is visible is listed, and not elements inside iframes.
 
 ## Safety
 
