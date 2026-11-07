@@ -507,6 +507,9 @@ def merge_fields(existing: dict[str, dict], recorded: dict[str, dict]) -> tuple[
         sig = signature(cfg)
         if sig in known:
             renames[name] = known[sig]
+            mine = fields[known[sig]]
+            if isinstance(mine, dict) and cfg.get("identity") and not mine.get("identity"):
+                fields[known[sig]] = {**mine, "identity": cfg["identity"]}  # the field learns its identity
             continue
         final, n = name, 2
         while final in fields:

@@ -21,6 +21,7 @@ from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
 from webapp.state import services
+from webapp.ui.identity_dialog import health_label, open_identity, open_learn
 from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
@@ -1121,7 +1122,17 @@ class PageEditor:
         self.dirty = False
         self.orig_names = list((data.get("fields") or {}).keys())
         self.refresh_usage()
+        self.refresh_health()
         self.editor.refresh()
+
+    def refresh_health(self) -> None:
+        """Each field's identity health over the system's recent runs (webapp/services/identity_health.py)."""
+        from webapp.services.identity_health import RECENT_RUNS, collect
+        try:
+            runs = self.svc.runs.query(self.gen.system, finished_only=True, limit=RECENT_RUNS)
+            self.health = collect(runs, self.gen.system)
+        except Exception:  # noqa: BLE001 - health is a hint; the editor must open regardless
+            self.health = {}
 
     def refresh_usage(self) -> None:
         try:
@@ -1236,6 +1247,10 @@ class PageEditor:
                         .classes("any-btn is-32").tooltip("Add fields by scanning the live page")
                     ui.button("Field", icon=icon("plus"), color=None, on_click=self.add_field) \
                         .classes("any-btn is-32")
+                    ui.button("Learn identities", icon=icon("shield"), color=None,
+                              on_click=lambda: open_learn(self)).props('data-testid="learn-open"') \
+                        .classes("any-btn is-32") \
+                        .tooltip("Give fields an identity from the live page, so runs survive broken locators")
             with ui.element("div").classes("any-grid-scroll"):
                 with ui.element("div").classes("any-field-grid is-head").props('aria-hidden="true"'):
                     for label in ("Name", "Type", "Locator", "Index", "autoGen", ""):
@@ -1298,6 +1313,11 @@ class PageEditor:
                                            dict(row.cfg), on_apply=lambda c: self.set_locator(row, c))
 
                 icon_button("scan-search", "Check locator on the live page", check, "is-32")
+                health = getattr(self, "health", {}).get((self.gen.system, self._page_name(), row.name))
+                label, tone = health_label(row.cfg, health)
+                ident = icon_button("shield", label, lambda h=health: open_identity(self, row, h), "is-32") \
+                    .props(f'data-testid="identity-{row.name}" data-tone="{tone}"')
+                ident.classes(f"any-identity is-{tone}")
                 icon_button("x", "Remove field", lambda: self.remove_field(row), "is-32").classes("is-danger")
 
     def set_locator(self, row: FieldRow, locator_keys: dict) -> None:

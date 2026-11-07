@@ -57,6 +57,7 @@ class Candidate:
     matches: int = 1  # elements the locator matches before index
     visible: bool = True
     disabled: bool = False
+    identity: dict = field(default_factory=dict)  # fingerprint + other verified locators (utils/element_identity)
 
 
 @dataclass
@@ -192,6 +193,7 @@ def scan_page(url: str, *, id_attribute: str = "", id_prefix: str = "", storage_
                 for d in shown:
                     peers = groups[(d["container"], _kind_selector(d))]
                     chosen = None
+                    unique: list[dict] = []  # every candidate that finds this element and nothing else
                     for cfg in candidates_for(d, id_attribute, peers):
                         try:
                             locator, _ = build_locator(page, cfg)
@@ -199,8 +201,10 @@ def scan_page(url: str, *, id_attribute: str = "", id_prefix: str = "", storage_
                         except (ValueError, PlaywrightError):
                             continue
                         if str(d["i"]) in markers:
-                            chosen = (cfg, len(markers), markers.index(str(d["i"])))
-                            break
+                            if chosen is None:
+                                chosen = (cfg, len(markers), markers.index(str(d["i"])))
+                            if markers == [str(d["i"])]:
+                                unique.append(cfg)
                     if chosen is None:
                         result.skipped += 1
                         continue
@@ -226,8 +230,9 @@ def scan_page(url: str, *, id_attribute: str = "", id_prefix: str = "", storage_
                         name = field_name(named, kind, taken, id_attribute, id_prefix)
                     taken.add(name)
                     label = d["text"] or d["placeholder"] or d["aria"] or d["label"] or d["name"] or d["id"]
+                    from utils.element_identity import make_identity
                     result.candidates.append(Candidate(name, kind, cfg, label, d["tag"], count, d["visible"],
-                                                       d["disabled"]))
+                                                       d["disabled"], make_identity(d, cfg, unique)))
                 result.ok = True
             finally:
                 browser.close()

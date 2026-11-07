@@ -141,7 +141,10 @@ def open_page_scan(editor: PageEditor) -> None:
                 while final in taken:
                     final, n = f"{base}{n}", n + 1
                 taken.add(final)
-                editor.rows.append(FieldRow(final, {**c.cfg, "type": c.type}))
+                cfg = {**c.cfg, "type": c.type}
+                if c.identity:
+                    cfg["identity"] = c.identity  # fingerprint + fallbacks (utils/element_identity.py)
+                editor.rows.append(FieldRow(final, cfg))
                 added.append(final)
             if not added:
                 ui.notify("Tick the fields to add.", type="warning")
