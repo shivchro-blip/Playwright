@@ -21,6 +21,7 @@ from typing import Callable, Iterable
 
 from webapp.services.json_files import NAME_RE, ConflictError, read_json, write_json
 from webapp.services.run_insights import FAILING, FINISHED_RUNS, PASSING
+from webapp.services.run_manager import query_runs
 
 CRITICALITY = ("critical", "high", "normal")
 STATES = ("failing", "incomplete", "stale", "not_run", "passing")  # worst first
@@ -368,7 +369,7 @@ class JourneyService:
 
     def overview(self, system: str, envs: list[str] | None = None) -> list[Overview]:
         envs = envs if envs is not None else self.systems.environments(system)
-        runs = self.runs.list()
+        runs = query_runs(self.runs, system, finished_only=True)
         steps, fields = self._steps_index(system), self._fields_index(system)
         cache: dict[str, dict] = {}
 
@@ -387,7 +388,7 @@ class JourneyService:
     def evaluate(self, system: str, env: str, journey_ids: list[str] | None = None, since: str | None = None,
                  stale_days: int = STALE_DAYS) -> list[tuple[Journey, JourneyStatus, Coverage]]:
         """Each chosen journey (all of the system's when None) on one environment, for a release check."""
-        runs = self.runs.list()
+        runs = query_runs(self.runs, system, env, since=since, finished_only=True)
         steps, fields = self._steps_index(system), self._fields_index(system)
         cache: dict[str, dict] = {}
 

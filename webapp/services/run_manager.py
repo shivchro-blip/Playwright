@@ -31,6 +31,7 @@ from webapp.services.archives import extract_safely
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.json_files import NAME_RE
 from webapp.services.masking import Masker
+from webapp.services.results_index import ResultsIndex
 from webapp.services.run_artifacts import RunArtifacts
 from webapp.services.run_insights import build_report
 from webapp.services.runners import RunnerStore
@@ -42,6 +43,14 @@ MAX_QUEUED = 20  # runs waiting for a free slot
 ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,63}$")
 SUITE = "tests/dynamic_test_suite.py"
 ACTIVE = ("queued", "running")
+INDEX_SUFFIX = ".results.db"  # the results index: <runs folder name>.results.db beside the runs folder
+
+
+def index_path(runs_dir: Path) -> Path:
+    """Where the results index of a runs folder lives (webapp/services/results_index.py): next to the folder,
+    not in it, so the folder holds only run folders."""
+    runs_dir = Path(runs_dir)
+    return runs_dir.parent / f"{runs_dir.name}{INDEX_SUFFIX}"
 RUNNER_SILENCE_SECONDS = 90  # a remote run whose runner has not called in this long is marked as lost
 WATCH_INTERVAL = 15  # seconds between checks for lost runners
 
@@ -172,6 +181,45 @@ class Run:
 
 
 
+FINISHED = ("passed", "failed", "error", "cancelled")
+
+
+def filter_runs(runs, system: str | None = None, env: str | None = None, *, since: str | None = None,
+                until: str | None = None, finished_only: bool = False, trigger: str | None = None,
+                trigger_prefix: str | None = None, limit: int | None = None) -> list[Run]:
+    """RunManager.query in memory: the reference the results index answers to (and its fallback)."""
+    out = sorted((r for r in runs
+                  if (system is None or r.config.system == system) and (env is None or r.config.env == env)
+                  and (not since or r.created_at >= since) and (not until or r.created_at < until)
+                  and (not finished_only or r.status in FINISHED)
+                  and (trigger is None or r.trigger == trigger)
+                  and (not trigger_prefix or (r.trigger or "").startswith(trigger_prefix))),
+                 key=lambda r: (r.created_at, r.id), reverse=True)
+    return out[:limit] if limit else out
+
+
+def query_runs(manager, system: str | None = None, env: str | None = None, **filters) -> list[Run]:
+    """manager.query(...) when it has one (RunManager), else the same filter over manager.list()."""
+    if hasattr(manager, "query"):
+        return manager.query(system, env, **filters)
+    return filter_runs(manager.list(), system, env, **filters)
+
+
+def run_from_dict(data: dict, folder: Path) -> Run:
+    """A run as saved in run.json (or the results index) back into a Run. Raises KeyError/TypeError if malformed."""
+    return Run(
+        id=data["id"], config=RunConfig(**data["config"]), dir=Path(folder),
+        expected=data.get("expected", 0), status=data.get("status", "error"),
+        created_at=data.get("created_at", ""), started_at=data.get("started_at", ""),
+        finished_at=data.get("finished_at", ""), exit_code=data.get("exit_code"),
+        error=data.get("error", ""), collected=data.get("collected"),
+        report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
+        trigger=data.get("trigger", ""), claimed_by=data.get("claimed_by", ""),
+        compare_with=data.get("compare_with", ""),
+        results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
+    )
+
+
 def pytest_command(run: Run, python_exe: str, repo_root: Path) -> list[str]:
     """The pytest command line for a run (the web app and the runner agent build it the same way)."""
     cfg = run.config
@@ -245,6 +293,7 @@ class RunManager:
         # Called with each run once it has finished and its reports are written (e.g. notifications)
         self.listeners: list[Callable[[Run], None]] = []
         self.runs_dir.mkdir(parents=True, exist_ok=True)
+        self.index = self._open_index()
         self._load_history()
 
     # ───────────── queries ─────────────
@@ -254,6 +303,21 @@ class RunManager:
 
     def list(self) -> list[Run]:
         return sorted(self._runs.values(), key=lambda r: r.created_at, reverse=True)
+
+    def query(self, system: str | None = None, env: str | None = None, *, since: str | None = None,
+              until: str | None = None, finished_only: bool = False, trigger: str | None = None,
+              trigger_prefix: str | None = None, limit: int | None = None) -> list[Run]:
+        """The runs matching a scope, newest first, picked through the results index (the live Run objects).
+        Same answer as filtering list(): runs of `system`/`env`, created in [since, until), finished
+        (passed/failed/error/cancelled) when finished_only, with exactly `trigger` or starting `trigger_prefix`."""
+        filters = dict(since=since, until=until, finished_only=finished_only, trigger=trigger,
+                       trigger_prefix=trigger_prefix, limit=limit)
+        if self.index is not None:
+            try:
+                return [run for run in (self._runs.get(i) for i in self.index.ids(system, env, **filters)) if run]
+            except Exception:  # noqa: BLE001 - a broken index must never stop the app answering
+                logger.exception("Results index query failed; filtering in memory")
+        return filter_runs(self.list(), system, env, **filters)
 
     def allure_available(self) -> bool:
         return shutil.which(self.allure_cmd) is not None
@@ -410,6 +474,7 @@ class RunManager:
         shutil.rmtree(folder, ignore_errors=True)
         with self._lock:
             self._runs.pop(run_id, None)
+        self._index_call("remove", run_id)
         return True
 
     def rerun(self, run_id: str) -> Run:
@@ -753,29 +818,55 @@ class RunManager:
                 tmp = run.dir / "run.json.tmp"
                 tmp.write_text(json.dumps(run.to_dict(), indent=2), encoding="utf-8")
                 tmp.replace(run.dir / "run.json")
+                mtime = (run.dir / "run.json").stat().st_mtime_ns
         except OSError:
             logger.exception("Could not save run %s", run.id)
+            return
+        self._index_call("put", run, mtime)
+
+    def _open_index(self) -> ResultsIndex | None:
+        """The results index; an unreadable one is set aside and rebuilt from the run folders."""
+        path = index_path(self.runs_dir)
+        for attempt in (1, 2):
+            try:
+                return ResultsIndex(path)
+            except Exception:  # noqa: BLE001 - history still works from the folders
+                if attempt == 2:
+                    logger.exception("Could not open the results index; history queries will filter in memory")
+                    return None
+                logger.warning("Results index unreadable; rebuilding it from the run folders", exc_info=True)
+                for suffix in ("", "-wal", "-shm"):
+                    try:
+                        Path(f"{path}{suffix}").replace(f"{path}{suffix}.bad")
+                    except OSError:
+                        pass
+        return None
+
+    def _index_call(self, method: str, *args) -> None:
+        if self.index is None:
+            return
+        try:
+            getattr(self.index, method)(*args)
+        except Exception:  # noqa: BLE001
+            logger.exception("Results index %s failed", method)
 
     def _load_history(self) -> None:
+        if self.index is not None:
+            try:
+                counts = self.index.sync(self.runs_dir)
+                if counts["added"] or counts["updated"] or counts["removed"]:
+                    logger.info("Results index synced: %s", counts)
+            except Exception:  # noqa: BLE001
+                logger.exception("Results index sync failed")
         for meta in self.runs_dir.glob("*/run.json"):
             try:
-                data = json.loads(meta.read_text(encoding="utf-8"))
-                run = Run(
-                    id=data["id"], config=RunConfig(**data["config"]), dir=meta.parent,
-                    expected=data.get("expected", 0), status=data.get("status", "error"),
-                    created_at=data.get("created_at", ""), started_at=data.get("started_at", ""),
-                    finished_at=data.get("finished_at", ""), exit_code=data.get("exit_code"),
-                    error=data.get("error", ""), collected=data.get("collected"),
-                    report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
-                    trigger=data.get("trigger", ""), claimed_by=data.get("claimed_by", ""),
-                    compare_with=data.get("compare_with", ""),
-                    results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
-                )
+                run = run_from_dict(json.loads(meta.read_text(encoding="utf-8")), meta.parent)
             except (OSError, ValueError, KeyError, TypeError):
                 logger.warning("Skipping unreadable run metadata: %s", meta)
                 continue
             if run.active:  # app stopped mid-run
                 run.status, run.error = "error", "Web app stopped while this run was in progress."
+                self._index_call("put", run, 0)
             log_file = meta.parent / "console.log"
             if log_file.exists():
                 run.log = log_file.read_text(encoding="utf-8", errors="replace").splitlines()[-MAX_LOG_LINES:]
