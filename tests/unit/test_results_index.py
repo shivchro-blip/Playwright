@@ -4,11 +4,12 @@ import os
 import random
 import shutil
 import sqlite3
+from pathlib import Path
 
 import pytest
 
 from webapp.services.results_index import MIGRATIONS, ResultsIndex
-from webapp.services.run_manager import INDEX_FILE, Run, RunConfig, RunManager, filter_runs, run_from_dict
+from webapp.services.run_manager import Run, RunConfig, RunManager, filter_runs, index_path, run_from_dict
 from webapp.services.run_manager import TestResult as Result
 
 STATUSES = ["queued", "running", "passed", "failed", "error", "cancelled"]
@@ -53,7 +54,7 @@ def random_runs(runs_dir, count=120, seed=7):
 
 
 def test_schema_is_versioned_and_reopens(runs_dir):
-    db = runs_dir / INDEX_FILE
+    db = index_path(runs_dir)
     index = ResultsIndex(db)
     assert index.version == len(MIGRATIONS)
     index.put(make_run(runs_dir, 1))
@@ -63,7 +64,7 @@ def test_schema_is_versioned_and_reopens(runs_dir):
 
 
 def test_a_run_read_back_is_the_run_as_saved(runs_dir):
-    index = ResultsIndex(runs_dir / INDEX_FILE)
+    index = ResultsIndex(index_path(runs_dir))
     run = make_run(runs_dir, 1, tests=("TC-1", "TC-2"))
     index.put(run)
     [back] = index.runs(runs_dir=runs_dir)
@@ -72,7 +73,7 @@ def test_a_run_read_back_is_the_run_as_saved(runs_dir):
 
 
 def test_put_replaces_results_and_remove_cascades(runs_dir):
-    index = ResultsIndex(runs_dir / INDEX_FILE)
+    index = ResultsIndex(index_path(runs_dir))
     run = make_run(runs_dir, 1, tests=("TC-1", "TC-2", "TC-3"))
     index.put(run)
     del run.results[next(iter(run.results))]
@@ -93,7 +94,7 @@ def test_put_replaces_results_and_remove_cascades(runs_dir):
 ])
 def test_query_matches_filtering_in_memory(runs_dir, filters):
     runs = random_runs(runs_dir)
-    index = ResultsIndex(runs_dir / INDEX_FILE)
+    index = ResultsIndex(index_path(runs_dir))
     for run in runs:
         index.put(run)
     system, env = filters.pop("system", None), filters.pop("env", None)
@@ -103,7 +104,7 @@ def test_query_matches_filtering_in_memory(runs_dir, filters):
 
 
 def test_trigger_prefix_is_literal(runs_dir):
-    index = ResultsIndex(runs_dir / INDEX_FILE)
+    index = ResultsIndex(index_path(runs_dir))
     index.put(make_run(runs_dir, 1, trigger="a_b"))
     index.put(make_run(runs_dir, 2, trigger="axb"))
     index.put(make_run(runs_dir, 3, trigger="a%"))
@@ -112,7 +113,7 @@ def test_trigger_prefix_is_literal(runs_dir):
 
 
 def test_test_history(runs_dir):
-    index = ResultsIndex(runs_dir / INDEX_FILE)
+    index = ResultsIndex(index_path(runs_dir))
     for n, (status, created) in enumerate([("passed", "2026-10-01T09:00:00"), ("failed", "2026-10-02T09:00:00"),
                                            ("passed", "2026-10-03T09:00:00")]):
         index.put(make_run(runs_dir, n, status=status, created=created, tests=("TC-1", "TC-2")))
@@ -128,7 +129,7 @@ def test_sync_adds_updates_removes_and_skips_unchanged(runs_dir):
     save(b)
     (runs_dir / "broken").mkdir()
     (runs_dir / "broken" / "run.json").write_text("{not json", encoding="utf-8")
-    index = ResultsIndex(runs_dir / INDEX_FILE)
+    index = ResultsIndex(index_path(runs_dir))
     assert index.sync(runs_dir) == {"added": 2, "updated": 0, "removed": 0, "unchanged": 0}
     assert index.sync(runs_dir) == {"added": 0, "updated": 0, "removed": 0, "unchanged": 2}
     a.status = "failed"
@@ -144,7 +145,7 @@ def test_run_manager_keeps_the_index_in_step(tmp_path, runs_dir):
     save(old)
     save(make_run(runs_dir, 2, system="beta", created="2026-11-02T10:00:00"))
     manager = RunManager(repo_root=tmp_path, workspace=tmp_path, runs_dir=runs_dir, python_exe="python")
-    assert (runs_dir / INDEX_FILE).exists()
+    assert (index_path(runs_dir)).exists()
     assert [r.id for r in manager.query()] == ["run-002", "run-001"]
     assert [r.id for r in manager.query("beta")] == ["run-002"]
     assert manager.query(finished_only=True)[-1].status == "error"  # marked error at start-up, and indexed so
@@ -166,8 +167,8 @@ def test_run_manager_falls_back_when_the_index_breaks(tmp_path, runs_dir, monkey
 
 def test_a_corrupt_index_is_rebuilt_from_the_folders(tmp_path, runs_dir):
     save(make_run(runs_dir, 1))
-    (runs_dir / INDEX_FILE).write_bytes(b"this is not a database" * 100)
+    (index_path(runs_dir)).write_bytes(b"this is not a database" * 100)
     manager = RunManager(repo_root=tmp_path, workspace=tmp_path, runs_dir=runs_dir, python_exe="python")
     assert manager.index is not None and manager.index.counts()["runs"] == 1
     assert [r.id for r in manager.query()] == ["run-001"]
-    assert (runs_dir / f"{INDEX_FILE}.bad").exists()
+    assert Path(f"{index_path(runs_dir)}.bad").exists()

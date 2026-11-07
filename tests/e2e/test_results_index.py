@@ -6,13 +6,13 @@ import sys
 from pathlib import Path
 
 from tests.e2e.test_runs import REPO_ROOT, run_and_wait
-from webapp.services.run_manager import INDEX_FILE, RunManager
+from webapp.services.run_manager import index_path, RunManager
 
 
 def test_a_finished_run_is_in_the_index_as_saved(workspace: Path, tmp_path: Path):
     run = run_and_wait(workspace, tmp_path, tags=["smoke", "missing"])
     runs_dir = run.dir.parent
-    assert (runs_dir / INDEX_FILE).exists()
+    assert (index_path(runs_dir)).exists()
     reopened = RunManager(repo_root=REPO_ROOT, workspace=workspace, runs_dir=runs_dir, python_exe=sys.executable,
                           allure_cmd="allure-not-installed")
     [back] = reopened.index.runs(runs_dir=runs_dir)
