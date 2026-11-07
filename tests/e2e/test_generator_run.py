@@ -17,6 +17,7 @@ def test_run_stays_on_the_page_and_runs_only_this_test_case(workspace: Path, tmp
         page.get_by_role("tab", name="Generator").click()
         page.get_by_role("tab", name="Test cases").click()
         page.get_by_text("TC-SMOKE-002").first.click()
+        expect(page.locator("#tc-id")).to_have_value("TC-SMOKE-002-NotesAutoGen")  # opened before Run
         page.get_by_role("region", name="Test case editor").get_by_role("button", name="Run", exact=True).click()
         panel = page.get_by_test_id("tc-run")
         expect(panel).to_contain_text("TC-SMOKE-002-NotesAutoGen on dev")
@@ -32,6 +33,7 @@ def test_run_stays_on_the_page_and_runs_only_this_test_case(workspace: Path, tmp
 
         # a failing one says where it failed, and Details opens the failure
         page.get_by_text("TC-SMOKE-004").first.click()
+        expect(page.locator("#tc-id")).to_have_value("TC-SMOKE-004-MissingElement")  # not the previous one
         page.get_by_role("region", name="Test case editor").get_by_role("button", name="Run", exact=True).click()
         expect(page.get_by_test_id("tc-run-status")).to_have_text("Failed", timeout=180_000)
         expect(page.get_by_test_id("tc-run-result")).to_contain_text("SmokeHome > missing")
