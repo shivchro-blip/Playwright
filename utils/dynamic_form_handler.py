@@ -10,6 +10,7 @@ import utils.custom_field_helper as customFieldHelper
 import utils.action_helper as actionHelper
 import utils.executables as executables
 import utils.self_heal as self_heal
+import utils.element_identity as element_identity
 import pytest
 import warnings
 import re
@@ -622,11 +623,15 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
                 elif action_type not in ['keyboard','Payment']:
                     element = await get_element(dictionaryContext, target, page, locator, role, index, placeholder, contains, name, text,
                                                 label, nested, hasTextDirty)
+                    async def locate(cfg, target=target):
+                        return await get_element(dictionaryContext, target, page, cfg.get("locator"), cfg.get("role"),
+                                                 cfg.get("index"), cfg.get("placeholder"), cfg.get("contains"),
+                                                 cfg.get("name"), cfg.get("text"), cfg.get("label"), None, False)
+                    # the field's identity: ranked fallbacks checked against its fingerprint (utils/element_identity.py)
+                    if loop is None and not self_heal.skip(pomFields.get(target, {}), action_type) \
+                            and element_identity.identity_of(pomFields.get(target, {})):
+                        element = await element_identity.resolve(element, target, pomFields.get(target, {}), locate)
                     if loop is None and self_heal.enabled():
-                        async def locate(cfg, target=target):
-                            return await get_element(dictionaryContext, target, page, cfg.get("locator"), cfg.get("role"),
-                                                     cfg.get("index"), cfg.get("placeholder"), cfg.get("contains"),
-                                                     cfg.get("name"), cfg.get("text"), cfg.get("label"), None, False)
                         element = await self_heal.resolve(page, element, target, pomFields.get(target, {}), action_type,
                                                           locate)
 

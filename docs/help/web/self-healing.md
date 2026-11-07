@@ -2,6 +2,8 @@
 
 Most test maintenance after a site redesign is locators that no longer find their element: `#zip-code` became `#applicantZipCode`, a button's text changed. **Self-heal locators** keeps those runs going and turns each break into a one-click fix.
 
+Fields with an **element identity** (see **Element identity**) are rescued first, always on, by locators already checked on the live page; self-healing is the last resort after that, for fields without one or when none of their locators work.
+
 Turn it on per run with the **Self-heal locators** switch under *Browser & artifacts* in Control (or `selfHeal=true` in Settings or a schedule's options). It is off by default.
 
 ## What happens in a run

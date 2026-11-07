@@ -284,6 +284,21 @@ def choose_locator(el: dict) -> Choice:
     return Choice({}, "none", False, "no way to find this element again")
 
 
+def identity_from_capture(el: dict, choice: Choice) -> dict:
+    """The element's identity (utils/element_identity.py): what it looked like, and every other candidate that
+    matched only it when it was recorded, most stable first."""
+    from utils.element_identity import make_identity
+    candidates = [c for c in el.get("candidates") or [] if isinstance(c, dict) and c.get("sel")
+                  and c.get("count") == 1]
+    candidates.sort(key=lambda c: (not c.get("stable", True), PRIORITY.index(c["kind"])
+                                   if c.get("kind") in PRIORITY else 99))
+    others = [{"locator": c["sel"]} for c in candidates]
+    css = el.get("css") or {}
+    if css.get("sel") and css.get("count") == 1 and css.get("anchored"):
+        others.append({"locator": css["sel"]})
+    return make_identity(profile_of(el), choice.config, others)
+
+
 def field_kind(el: dict, action: str) -> str:
     if action == "select":
         return "select"
@@ -411,6 +426,9 @@ def events_to_recording(events: list[dict], start_url: str, options: RecordOptio
         if name is None:
             name = name_for(el, kind, set(current.fields), options)
             current.fields[name] = {**choice.config, "type": kind}
+            identity = identity_from_capture(el, choice)
+            if identity["locators"] or identity["fingerprint"]:
+                current.fields[name]["identity"] = identity
             current.by_locator[key] = name
             current.profiles[name] = profile_of(el)
             if not choice.stable:
