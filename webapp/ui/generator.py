@@ -22,6 +22,7 @@ from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.identity_dialog import health_label, open_identity, open_learn
+from webapp.ui.timeline_dialog import open_timeline
 from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
@@ -294,6 +295,11 @@ class TestEditor:
                              "Quarantine: keep running it, but don't let its failures fail the run")
                 ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
                     .props('data-testid="tc-history"').classes("any-btn is-38").tooltip("Earlier versions of this file")
+                ui.button("Timeline", icon=icon("activity"), color=None,
+                          on_click=lambda: open_timeline(str(self.meta.get("testCaseID") or ""), self.gen.system,
+                                                         on_change=self.editor.refresh)) \
+                    .props('data-testid="tc-timeline"').classes("any-btn is-38") \
+                    .tooltip("Every result of this test case, with heals, quarantine and edits")
                 ui.button("Copy", icon=icon("copy"), color=None, on_click=self.copy_dialog) \
                     .classes("any-btn is-38").tooltip("Save as a new test case")
                 icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")

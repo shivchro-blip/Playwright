@@ -176,6 +176,21 @@ def events(since: int = 0, topics: str | None = None, wait: float = 0, limit: in
             "missed": bool(since) and bool(oldest) and oldest[0]["seq"] > since + 1}
 
 
+@routes.get("/tests/{test_id}/timeline")
+def test_timeline(test_id: str, system: str, env: str | None = None) -> dict:
+    """A test case's whole story, newest first: each result (environment, browser, outcome, time, failing step and
+    why, retries), the heals and identity fallbacks it needed, quarantine decisions and saves; with a summary
+    (pass rate, changes of result, flaky, typical time and whether it is slowing, quarantine)."""
+    return timeline_for(test_id, system, env).to_dict()
+
+
+def timeline_for(test_id: str, system: str, env: str | None = None):
+    from webapp.services.timeline import RECENT_RUNS, build
+    svc = services()
+    runs = svc.runs.query(system, env, finished_only=True, limit=RECENT_RUNS)
+    return build(test_id, system, runs, svc.audit.recent(limit=5000), svc.quarantine.all(), env)
+
+
 @routes.get("/tests/{test_id}/history")
 def test_history(test_id: str, system: str | None = None, env: str | None = None, limit: int = 20) -> list[dict]:
     """A test's latest results across runs, newest first: run, at, browser, outcome, duration, retries."""

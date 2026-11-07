@@ -88,8 +88,11 @@ def register() -> None:
             # the section the address asked for has been restored
             if restored[0]:
                 ui.run_javascript(f"history.replaceState(null, '', '#{e.value.lower()}')")
-            if e.value == "Generator" and not opening[0]:
-                await panels["generator"].show_default()
+            if e.value == "Generator":
+                if opening[0]:
+                    opening[0] = False  # a jump opens its own target; this tab change was that jump's
+                else:
+                    await panels["generator"].show_default()
 
         tabs.on_value_change(on_tab)
         mark_current("Control")
@@ -99,29 +102,34 @@ def register() -> None:
         def go(name: str) -> None:
             tabs.set_value(tab_elems[name])
 
+        def go_generator() -> None:
+            """Show the Generator for a jump to something in it: its own default page must not open over that.
+            The tab-change handler runs after this returns, so it is the one that clears the flag."""
+            if tabs.value not in (tab_elems["Generator"], "Generator"):
+                opening[0] = True
+                go("Generator")
+
         async def run_command(command) -> None:
             args, action = command.args, command.action
             if action == "tab":
-                go(args["name"])
                 if args.get("section") == "tests":
+                    go_generator()
                     gen = panels["generator"]
                     gen.sections.set_value(gen.tests_tab)
+                else:
+                    go(args["name"])
             elif action in ("open_test", "open_page"):
                 gen = panels["generator"]
-                opening[0] = True
-                try:
-                    go("Generator")
-                    if not await gen.use_system(args["system"]):
-                        return
-                    if action == "open_test":
-                        await gen.open_test(args["rel"], args["index"])
-                    else:
-                        await gen.open_page(args["page"])
-                        if args.get("field"):
-                            gen.pages.field_filter = args["field"]
-                            gen.pages.fields_view.refresh()
-                finally:
-                    opening[0] = False
+                go_generator()
+                if not await gen.use_system(args["system"]):
+                    return
+                if action == "open_test":
+                    await gen.open_test(args["rel"], args["index"])
+                else:
+                    await gen.open_page(args["page"])
+                    if args.get("field"):
+                        gen.pages.field_filter = args["field"]
+                        gen.pages.fields_view.refresh()
             elif action == "open_journey":
                 go("Journeys")
                 panels["journeys"].show_system(args["system"])
