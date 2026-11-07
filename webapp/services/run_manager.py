@@ -66,6 +66,9 @@ class RunConfig:
     runner: str = ""
 
 
+STEP_POLL_SECONDS = 0.5  # how often a running run's step events are read
+
+
 @dataclass
 class TestResult:
     nodeid: str
@@ -76,6 +79,9 @@ class TestResult:
     message: str = ""
     retries: int = 0  # times a failed attempt was run again (retryFailed); passed with retries > 0 = flaky
     healed: int = 0  # locators that found nothing and were healed during the run (selfHeal)
+    # the test's own steps as they ran: {n, of, kind, label, status (running|passed|failed), seconds, error}
+    steps: list[dict] = field(default_factory=list)
+    step: str = ""  # while running: the step it is on, e.g. "3 of 5: Payment"
 
 
 @dataclass
@@ -106,6 +112,8 @@ class Run:
     # Login values typed into the app for this run: memory only, never saved, logged or serialized
     _secrets: dict[str, str] = field(default_factory=dict, repr=False)
     _masker: Masker | None = field(default=None, repr=False)  # hides SSNs, card numbers and the like
+    _step_offsets: dict = field(default_factory=dict, repr=False)  # step event file -> bytes already read
+    _steps_read_at: float = field(default=0.0, repr=False)
 
     def scrub(self, text: str) -> str:
         for value in self._secrets.values():
@@ -230,6 +238,7 @@ class RunManager:
         self.masker = Masker(self.workspace / "Data" / "maskPatterns.json")
         self._watchdog: threading.Thread | None = None
         self._save_lock = threading.Lock()  # run.json is written from the run's thread and from callers
+        self._steps_lock = threading.Lock()  # step event files are read from the run thread and from pages
         self._runs: dict[str, Run] = {}
         self._queue: list[Run] = []  # FIFO: runs waiting for one of max_concurrent slots
         self._lock = threading.Lock()
@@ -457,6 +466,8 @@ class RunManager:
 
     def _ingest_line(self, run: Run, console, raw: str) -> None:
         """One line of pytest output: a framework event, or console text for the log and console.log."""
+        if time.monotonic() - run._steps_read_at > STEP_POLL_SECONDS:
+            self.read_steps(run)
         line = raw.rstrip("\r\n")
         # `-v` prints the node id before the outcome, so an event can start mid-line
         idx = line.find(PREFIX)
@@ -469,8 +480,73 @@ class RunManager:
         console.write(line + "\n")
         self._append(run, line)
 
+    def read_steps(self, run: Run) -> None:
+        """Take the step events written since the last look (utils/step_events.py; one file per pytest worker)
+        into the results: each test's steps, and the step it is on now."""
+        with self._steps_lock:
+            self._read_steps(run)
+
+    def refresh_steps(self, run_id: str) -> None:
+        """For pages following a run: catch up on its steps even while pytest prints nothing (a slow page)."""
+        run = self._runs.get(run_id)
+        if run is not None and run.active and not run.claimed_by \
+                and time.monotonic() - run._steps_read_at > STEP_POLL_SECONDS:
+            self.read_steps(run)
+
+    def _read_steps(self, run: Run) -> None:
+        run._steps_read_at = time.monotonic()
+        try:
+            files = sorted(run.results_dir.glob("autoplay-steps-*.jsonl"))
+        except OSError:
+            return
+        for path in files:
+            start = run._step_offsets.get(path.name, 0)
+            try:
+                with path.open("rb") as f:
+                    f.seek(start)
+                    chunk = f.read()
+            except OSError:
+                continue
+            complete = chunk.rfind(b"\n") + 1  # a line still being written waits for the next look
+            run._step_offsets[path.name] = start + complete
+            for line in chunk[:complete].decode("utf-8", "replace").splitlines():
+                try:
+                    self._apply_step(run, json.loads(line))
+                except (ValueError, TypeError, AttributeError):
+                    continue
+
+    def _apply_step(self, run: Run, evt: dict) -> None:
+        if evt.get("event") != "step":
+            return
+        nodeid = str(evt.get("nodeid", ""))
+        result = run.results.get(nodeid)
+        if result is None:
+            test_id, browser = self.split_nodeid(nodeid, run.config.browsers)
+            result = run.results[nodeid] = TestResult(nodeid, test_id, browser, "running")
+        n = int(evt.get("n") or 0)
+        entry = next((s for s in result.steps if s.get("n") == n and s.get("status") == "running"), None)
+        if evt.get("phase") == "start":
+            if entry is None:  # a retried test runs its steps again: keep the latest attempt
+                result.steps = [s for s in result.steps if s.get("n") < n]
+                entry = {"n": n, "of": int(evt.get("of") or 0), "kind": str(evt.get("kind", "")),
+                         "label": run.scrub(str(evt.get("label", ""))), "status": "running", "seconds": None,
+                         "error": ""}
+                result.steps.append(entry)
+            if result.outcome == "running":
+                result.step = f"{n} of {entry['of']}: {entry['label']}"
+        elif evt.get("phase") == "end" and entry is not None:
+            entry["status"] = "failed" if evt.get("status") == "failed" else "passed"
+            entry["seconds"] = evt.get("seconds")
+            entry["error"] = run.scrub(str(evt.get("error") or ""))
+
     def _finish(self, run: Run) -> None:
         """After pytest has ended (here or on a runner): status, reports, notifications, next queued run."""
+        self.read_steps(run)  # the last ones (a remote run's arrive with its results)
+        for r in run.results.values():
+            r.step = ""
+            for s in r.steps:  # a step still "running" when its test ended was cut short
+                if s.get("status") == "running":
+                    s["status"] = "failed" if r.outcome in ("failed", "error") else "stopped"
         try:
             from webapp.services.heals import after_run  # late: heals imports the page scanner, which imports us
             healed = after_run(run, self.workspace)
@@ -607,6 +683,7 @@ class RunManager:
                 result.duration = float(evt.get("duration") or 0)
                 result.message = run.scrub(str(evt.get("message") or ""))
                 result.retries = int(evt.get("retries") or result.retries or 0)
+                result.step = ""
             run.results[nodeid] = result
 
     @staticmethod

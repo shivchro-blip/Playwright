@@ -811,12 +811,14 @@ class ControlPanel:
         self._update_buttons(run)
         if not run:
             return
+        self.svc.runs.refresh_steps(run.id)  # the step each test is on, even while pytest prints nothing
         lines, self.log_pos = run.log_since(self.log_pos)
         if lines:
             self.log_view.push(lines[-LOG_LINES_PER_TICK:])
 
         counts = run.counts()
-        signature = (run.status, run.report_status, len(run.results), tuple(sorted(counts.items())))
+        signature = (run.status, run.report_status, len(run.results), tuple(sorted(counts.items())),
+                     tuple(r.step for r in list(run.results.values())))
         if signature == self.last_signature:
             return
         was_active = bool(self.last_signature) and self.last_signature[0] in ACTIVE

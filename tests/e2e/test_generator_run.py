@@ -26,14 +26,21 @@ def test_run_stays_on_the_page_and_runs_only_this_test_case(workspace: Path, tmp
         expect(results).to_have_count(1)
         expect(results).to_contain_text("passed")
         expect(results).to_contain_text("TC-SMOKE-002-NotesAutoGen")
+        steps = panel.get_by_test_id("test-steps")  # the test's steps, with their result and time
+        expect(steps).to_contain_text("SmokeHome")
+        expect(steps).to_contain_text("passed")
 
         # a failing one says where it failed, and Details opens the failure
         page.get_by_text("TC-SMOKE-004").first.click()
         page.get_by_role("region", name="Test case editor").get_by_role("button", name="Run", exact=True).click()
         expect(page.get_by_test_id("tc-run-status")).to_have_text("Failed", timeout=180_000)
         expect(page.get_by_test_id("tc-run-result")).to_contain_text("SmokeHome > missing")
+        expect(panel.get_by_test_id("test-steps")).to_contain_text("failed")
         page.get_by_test_id("tc-run-details").click()
-        expect(page.get_by_role("dialog", name="Test details")).to_be_visible()
+        details = page.get_by_role("dialog", name="Test details")
+        expect(details).to_be_visible()
+        expect(details.get_by_test_id("test-steps")).to_contain_text("SmokeHome")  # which step failed, and why
+        expect(details.get_by_test_id("test-steps")).to_contain_text("failed")
         page.keyboard.press("Escape")
 
         page.get_by_test_id("tc-run-control").click()  # the full view is one click away

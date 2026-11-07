@@ -131,18 +131,27 @@ class Services:
 
     def _start_selection(self, system: str, tags: list[str], test_ids: list[str], env: str,
                          browsers: list[str] | None, trigger: str):
+        return self.launch(system, env, tags, test_ids, browsers=browsers, trigger=trigger)[0]
+
+    def launch(self, system: str, env: str, tags: list[str], test_ids: list[str], *,
+               browsers: list[str] | None = None, extra_options: dict | None = None, trigger: str = ""):
+        """The one way the app starts a run of chosen test cases with the saved settings (Generator Run and Run
+        from a step, journeys, monitors, change impact): browser and artifact options from .env, the saved
+        browsers, logins typed or from the secret store. Returns (run, secret store errors by key)."""
         from webapp.services.env_config import FIELDS
         from webapp.services.run_manager import RunConfig
 
         defaults = self.env.load()
         options = {f.key: defaults[f.key] for f in FIELDS if f.group in ("Browser", "Artifacts")
                    and f.key != "del_allure" and f.key in defaults}
+        options.update(extra_options or {})
         browsers = browsers or [b.strip() for b in defaults.get("browsers", "").split(",") if b.strip()] \
             or ["chromium"]
-        credentials, _, _ = self.prepare_credentials(system, [env])
-        return self.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
-                                         options=options, test_ids=test_ids),
-                               expected=len(test_ids) * len(browsers), trigger=trigger, credentials=credentials)
+        credentials, _, vault_errors = self.prepare_credentials(system, [env])
+        run = self.runs.start(RunConfig(system=system, env=env, tags=tags, browsers=browsers,
+                                        options=options, test_ids=test_ids),
+                              expected=len(test_ids) * len(browsers), trigger=trigger, credentials=credentials)
+        return run, vault_errors
 
     def monitor_browsers(self) -> list[str]:
         saved = [b.strip() for b in self.env.load().get("browsers", "").split(",") if b.strip()]
