@@ -46,9 +46,13 @@ class ResultsIndex:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._db = sqlite3.connect(str(self.path), check_same_thread=False, isolation_level=None)
-        self._db.execute("PRAGMA journal_mode=WAL")
-        self._db.execute("PRAGMA foreign_keys=ON")
-        self._migrate()
+        try:
+            self._db.execute("PRAGMA journal_mode=WAL")
+            self._db.execute("PRAGMA foreign_keys=ON")
+            self._migrate()
+        except Exception:
+            self._db.close()  # an open handle keeps the file locked on Windows, so it could not be set aside
+            raise
 
     def _migrate(self) -> None:
         with self._lock:
