@@ -60,11 +60,18 @@ def test_palette_jumps_and_the_address_follows_the_tab(workspace: Path, tmp_path
         box.press("Escape")
         expect(box).to_be_hidden()
 
-        # a link to a section opens on it, from inside the app and on a fresh load; Back goes back
-        page.goto(f"{url}#history")
+        # a link inside the app switches the tab
+        page.evaluate("location.hash = '#history'")
         expect(page.get_by_role("tab", name="History")).to_have_attribute("aria-selected", "true")
-        page.goto(f"{url}#journeys", wait_until="networkidle")
-        page.reload(wait_until="networkidle")
-        expect(page.get_by_role("tab", name="Journeys")).to_have_attribute("aria-selected", "true")
+
+        # a bookmark or shared link opens on its tab, and so does a reload
+        fresh = browser.new_page(viewport={"width": 1440, "height": 900})
+        fresh.on("pageerror", lambda e: problems.append(str(e)))
+        fresh.goto(f"{url}#journeys", wait_until="networkidle")
+        expect(fresh.get_by_role("tab", name="Journeys")).to_have_attribute("aria-selected", "true")
+        fresh.get_by_role("tab", name="Monitors").click()
+        expect(fresh).to_have_url(f"{url}#monitors")
+        fresh.reload(wait_until="networkidle")
+        expect(fresh.get_by_role("tab", name="Monitors")).to_have_attribute("aria-selected", "true")
         browser.close()
     assert problems == []

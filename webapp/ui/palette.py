@@ -34,6 +34,11 @@ document.addEventListener('keydown', function (e) {{
 window.addEventListener('hashchange', function () {{
   if (window.emitEvent) emitEvent('{HASH_EVENT}', location.hash);
 }});
+// once the page is connected, say which section the address asked for (the server cannot see the #part)
+(function tell() {{
+  if (window.did_handshake && window.emitEvent) emitEvent('{HASH_EVENT}', window.__autoplayStartHash || '');
+  else setTimeout(tell, 20);
+}})();
 </script>
 """
 LIMIT = 20

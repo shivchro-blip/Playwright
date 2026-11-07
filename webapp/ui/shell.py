@@ -134,16 +134,8 @@ def register() -> None:
             name = next((n for n in tab_elems if f"#{n.lower()}" == str(where or "").lower()), None)
             if name and tabs.value != tab_elems[name] and tabs.value != name:
                 go(name)
+            restored[0] = True  # from now on the address follows the tab
 
-        async def restore_tab() -> None:
-            try:
-                where = await ui.run_javascript("window.__autoplayStartHash || location.hash", timeout=3.0)
-            except Exception:  # noqa: BLE001 - no answer from the browser: stay on Control
-                where = ""
-            go_to_hash(where)
-            restored[0] = True
-
-        ui.timer(0.05, restore_tab, once=True)
         ui.on(HASH_EVENT, lambda e: go_to_hash(e.args[0] if isinstance(e.args, list) and e.args else e.args))
 
         panels: dict[str, object] = {}
