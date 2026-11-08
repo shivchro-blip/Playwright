@@ -337,7 +337,8 @@ class MonitorService:
         data = hist.load()
         changes = record_check(data, run.finished_at or _iso(self.clock()), run.id, states, where)
         hist.save(data)
-        publish_on(self.runs, "monitor", id=monitor.id, change="checked")
+        publish_on(self.runs, "monitor", id=monitor.id, change="checked", system=monitor.system, env=monitor.env,
+                   changes=[{"journey": jid, "state": state, "detail": detail} for jid, state, detail in changes])
         if changes and monitor.channels:
             names = {j.id: j.name for j in self.journeys.store.list(monitor.system)}
             self.notifier.send(self.alert(monitor, run, changes, names), monitor.channels)
