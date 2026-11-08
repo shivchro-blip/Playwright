@@ -61,6 +61,23 @@ Test data looks real, and logs and reports get shared. Social Security numbers (
 
 The **Flaky tests** panel lists tests whose result flipped between pass and fail in their recent runs, or that passed only after a retry. For each, **Quarantine** keeps the test case running but stops its failures from failing the run: it is reported as *xfailed* with your reason, the run stays green, and a pass shows as *xpassed*. **Release** puts it back to normal. The same **Quarantine / Release** button is in the Generator's test case editor. Quarantined test cases are listed in `Data/quarantine.json` in the workspace (a test case with a data set is matched by its ID without the `[set]` part). Quarantine hides a problem: fix the test or the portal, then release it.
 
+## Step by step (time travel)
+
+Switch on **Step pictures** (Control > run settings, or `stepCapture=true` in `.env`) and every run saves the page
+after each step of each test: a picture, its HTML, its address and title, and the step's time. A test's details then
+show **Step by step**:
+
+- a slider (and Previous / Next) through the steps, with each step's outcome, time and page address;
+- beside each picture, the same step of the **last run where the test passed** (same system, environment and
+  browser, with step pictures);
+- above them, the steps where the two runs part: **failed here**, **not reached in this run**, **ended on another
+  page**, **page title changed**, **slower** (at least twice as slow and 2 seconds more). The slider opens on the first
+  of them.
+
+**Page HTML** opens the page as it was (shown sandboxed: its scripts do not run). The files are kept with the run
+under `allure-results/steps/` and go when the run is cleared. A picture is about 50-150 KB per step: switch it on for
+the runs you want to look into, or for a nightly run whose failures you want to understand without running again.
+
 ## A test's timeline
 
 **Timeline** shows one test case's whole story on one screen, newest first. Open it from a test's **Details** (in a run), from **Timeline** in the Flaky tests panel, or from the Generator's test case editor.

@@ -18,6 +18,7 @@ from webapp.ui.ai_panels import ai_enabled, triage_section
 from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.issue_dialog import issue_button
+from webapp.ui.step_travel import step_travel
 from webapp.ui.theme import icon
 
 LOG_LINES = 1500
@@ -158,6 +159,9 @@ def open_test_details(run: Run, row: dict) -> None:
                                           if r.test_id == test_id and r.browser == browser), [])
         if steps:
             step_list(steps)
+        nodeid = str(row.get("nodeid") or next((r.nodeid for r in run.results.values()
+                                                if r.test_id == test_id and r.browser == browser), ""))
+        step_travel(run, nodeid)
         message = (item.message if item else "") or str(row.get("message") or "")
         if message:
             with ui.element("section").classes("any-error-box"):

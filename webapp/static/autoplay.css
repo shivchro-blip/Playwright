@@ -870,3 +870,18 @@
 .any-comp-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 4px; border-top: 1px solid var(--border-row); }
 .any-comp-fields { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .any-tag.is-replaced { text-decoration: line-through; opacity: .6; }
+
+/* Step time travel (Test details > Step by step) */
+.any-travel { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.any-travel-diffs { list-style: none; margin: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-left: 3px solid var(--warn, #b45309); border-radius: 8px; }
+.any-travel-diffs li { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.any-travel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.any-travel-url { overflow-wrap: anywhere; }
+.any-travel-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.any-travel-pair.is-single { grid-template-columns: 1fr; }
+@media (max-width: 900px) { .any-travel-pair { grid-template-columns: 1fr; } }
+.any-travel-shot { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.any-travel-shot img { width: 100%; border: 1px solid var(--border); border-radius: 6px; display: block; }
+.any-travel-shot figcaption { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted, #6b7280); }
+.any-travel-none { padding: 24px; border: 1px dashed var(--border); border-radius: 6px; text-align: center; }
+.any-travel-bar { display: flex; align-items: center; gap: 8px; padding-top: 18px; }
