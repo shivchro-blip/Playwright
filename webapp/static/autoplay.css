@@ -870,3 +870,12 @@
 .any-comp-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 4px; border-top: 1px solid var(--border-row); }
 .any-comp-fields { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .any-tag.is-replaced { text-decoration: line-through; opacity: .6; }
+
+/* Failure intelligence: why a run failed */
+.any-causes { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.any-cause { padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--fail); border-radius: 8px; background: var(--surface-subtle); display: flex; flex-direction: column; gap: 6px; }
+.any-cause-title { font-weight: 600; color: var(--ink); }
+.any-cause-why { margin: 0; padding-left: 18px; color: var(--ink); font-size: 13px; }
+.any-cause-fix { font-size: 13px; color: var(--ink); }
+.any-cause-fix::before { content: "Try: "; font-weight: 600; }
+.any-cause pre.any-code { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px var(--font-mono, ui-monospace, monospace); margin: 0; }
