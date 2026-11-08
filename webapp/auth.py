@@ -93,7 +93,7 @@ def _where(system: str | None, env: str | None) -> str:
 def refusal(user: User | None, permission: str, system: str | None = None, env: str | None = None) -> str:
     if user is None:
         return f"Sign in to {ACTIONS.get(permission, permission)}."
-    where = _where(system, env)
+    where = _where(system, env) if user.grants else ""  # the place only matters to someone with grants
     role = user.role_for(system, env)
     return f"Your role ({role}{' in ' + where if where else ''}) can't {ACTIONS.get(permission, permission)}" \
            + (f" in {where}." if where else ".")
