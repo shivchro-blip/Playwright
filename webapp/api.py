@@ -312,6 +312,27 @@ def write_run_report(run_id: str) -> dict:
     return {"url": f"/runs/{run.id}/report.html"}
 
 
+@routes.get("/insights/failures")
+def list_failure_groups(system: str, env: str | None = None, runs: int = 10) -> dict:
+    """The failures of the latest finished runs grouped by cause (where it failed and what kind of error), each
+    group with what the evidence points to: one field, one environment, new since a run, files edited since the
+    last pass, steady or flaky."""
+    from webapp.services.failure_intel import for_services, summary
+    groups = for_services(services()).groups(system, env, limit=max(1, min(runs, 50)))
+    return {**summary(groups), "items": [g.to_dict() for g in groups]}
+
+
+@routes.get("/runs/{run_id}/causes")
+def run_causes(run_id: str) -> dict:
+    """This run's failures grouped by cause and explained against the runs before it."""
+    from webapp.services.failure_intel import for_services, summary
+    run = services().runs.get(run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    groups = for_services(services()).groups(run.config.system, run.config.env, run_id=run.id)
+    return {**summary(groups), "items": [g.to_dict() for g in groups]}
+
+
 @routes.get("/insights/flaky")
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""
