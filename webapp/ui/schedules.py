@@ -151,7 +151,9 @@ class SchedulesPanel:
             table.on("run_now", lambda e: self.run_now(e.args))
 
     def run_now(self, sid: str) -> None:
-        if not guard("run", "run schedule"):
+        schedule = self.svc.schedules.get(sid)
+        if not guard("run", "run schedule", sid, system=schedule.system if schedule else None,
+                     env=schedule.env if schedule else None):
             return
         try:
             run = self.svc.scheduler.run_now(sid)

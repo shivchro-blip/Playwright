@@ -16,3 +16,7 @@ button:hover { background: var(--accent-hover); }
 .err { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--fail-hover); color: var(--fail); font-size: 13px; }
 .hint { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); }
 code { font-size: 12px; }
+.sso { display: flex; align-items: center; justify-content: center; height: 40px; margin-top: 8px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font: 600 14px inherit; text-decoration: none; }
+.sso:hover { background: var(--accent-hover); }
+.sso:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.or { margin: 14px 0 0; text-align: center; color: var(--muted, #6b7280); font-size: 13px; }

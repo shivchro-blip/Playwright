@@ -5,6 +5,10 @@
 - Browsers sign in on /login (a plain form POST, so no password goes over the UI websocket); the user name is
   kept in a signed, HttpOnly, SameSite=Lax session cookie that expires after SESSION_HOURS.
 - Scripts and CI use API tokens:  Authorization: Bearer any_...  (python -m webapp.users token NAME).
+- Single sign-on (OpenID Connect) when AUTOPLAY_OIDC_ISSUER and AUTOPLAY_OIDC_CLIENT_ID are set: /login/sso and
+  its callback (webapp/services/oidc.py); the provider's groups can set roles, also per system and environment.
+- A role can differ per system and environment (User.grants): guard() and authorize() take the system and
+  environment an action is for.
 - Every change (runs, tests, pages, schedules, settings) and every refused attempt goes to the audit log.
 """
 from __future__ import annotations
@@ -16,19 +20,20 @@ from collections import defaultdict, deque
 from urllib.parse import quote, urlsplit
 
 from fastapi import Depends, HTTPException, Request
-from nicegui import ui
+from nicegui import run, ui
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from webapp.services.users import LOCAL_USER, ROLE_LABELS, User, session_secret
+from webapp.services.oidc import OIDCClient, RoleMap, SSOError
+from webapp.services.users import LOCAL_USER, ROLE_LABELS, User, describe_grant, session_secret
 from webapp.settings import Settings
 from webapp.state import services
 
 logger = logging.getLogger(__name__)
 
 SESSION_HOURS = 12
-PUBLIC_PATHS = ("/login", "/logout", "/favicon.ico")
+PUBLIC_PATHS = ("/login", "/logout", "/favicon.ico", "/login/sso", "/login/sso/callback")
 PUBLIC_PREFIXES = ("/_nicegui", "/assets/",   # framework and app assets (no data), and the websocket
                    "/runner-api/")  # remote runners: each call is checked against its runner token instead
 MAX_FAILURES, FAILURE_WINDOW = 5, 300  # sign-in attempts per user name / client per 5 minutes
@@ -81,24 +86,60 @@ def audit(action: str, target: str = "", user: User | None = None, **details) ->
     services().audit.record(actor.username if actor else "anonymous", action, target, **details)
 
 
-def guard(permission: str, action: str = "", target: str = "") -> bool:
-    """UI: may the current user do this? Refusals are shown and audited."""
+def _where(system: str | None, env: str | None) -> str:
+    return " / ".join(x for x in (system, env) if x)
+
+
+def refusal(user: User | None, permission: str, system: str | None = None, env: str | None = None) -> str:
+    if user is None:
+        return f"Sign in to {ACTIONS.get(permission, permission)}."
+    where = _where(system, env) if user.grants else ""  # the place only matters to someone with grants
+    role = user.role_for(system, env)
+    return f"Your role ({role}{' in ' + where if where else ''}) can't {ACTIONS.get(permission, permission)}" \
+           + (f" in {where}." if where else ".")
+
+
+def guard(permission: str, action: str = "", target: str = "", *, system: str | None = None,
+          env: str | None = None) -> bool:
+    """UI: may the current user do this (in this system and environment, when the action is for one)? Refusals
+    are shown and audited."""
     user = ui_user()
-    if user and user.can(permission):
+    if user and user.can(permission, system, env):
         return True
-    role = user.role if user else "signed out"
-    ui.notify(f"Your role ({role}) can't {ACTIONS.get(permission, permission)}.", type="warning")
-    audit("denied", target, user=user, permission=permission, attempted=action)
+    ui.notify(refusal(user, permission, system, env), type="warning")
+    audit("denied", target, user=user, permission=permission, attempted=action,
+          **{k: v for k, v in (("system", system), ("env", env)) if v})
     return False
 
 
-def require(permission: str):
-    """API dependency: the request's user, who must have `permission` (401/403 otherwise)."""
+def authorize(user: User, permission: str, system: str | None = None, env: str | None = None,
+              path: str = "") -> None:
+    """API: 403 unless the user may do this in this system and environment (after require() let them in)."""
+    if not user.can(permission, system, env):
+        services().audit.record(user.username, "denied", path, permission=permission,
+                                **{k: v for k, v in (("system", system), ("env", env)) if v})
+        raise HTTPException(403, refusal(user, permission, system, env))
+
+
+def require_user():
+    """API dependency: the request's user, whatever their role (401 when signed out)."""
     def dependency(request: Request) -> User:
         user = request_user(request)
         if user is None:
             raise HTTPException(401, "Sign in, or send an API token: Authorization: Bearer <token>")
-        if not user.can(permission):
+        return user
+    return Depends(dependency)
+
+
+def require(permission: str, scoped: bool = False):
+    """API dependency: the request's user, who must have `permission` (401/403 otherwise). With scoped=True a role
+    for some system or environment is enough to get in: the endpoint then calls authorize() with the system and
+    environment it acts on."""
+    def dependency(request: Request) -> User:
+        user = request_user(request)
+        if user is None:
+            raise HTTPException(401, "Sign in, or send an API token: Authorization: Bearer <token>")
+        if not (user.may_somewhere(permission) if scoped else user.can(permission)):
             services().audit.record(user.username, "denied", request.url.path, permission=permission,
                                     method=request.method)
             raise HTTPException(403, f"Your role ({user.role}) can't {ACTIONS.get(permission, permission)}.")
@@ -164,19 +205,61 @@ def _safe_next(target: str) -> str:
 
 
 def _login_page(error: str = "", next_path: str = "/") -> HTMLResponse:
+    settings = services().settings
     message = f'<p class="err" role="alert">{html.escape(error)}</p>' if error else ""
+    nxt = html.escape(_safe_next(next_path))
+    sso = (f'<a class="sso" href="/login/sso?next={quote(_safe_next(next_path))}" data-testid="sso">'
+           f'Sign in with {html.escape(settings.oidc_label or "single sign-on")}</a>') if settings.sso_enabled else ""
+    password = "" if settings.sso_enabled and settings.oidc_only else f"""
+{'<p class="or">or</p>' if sso else ''}
+<label for="u">User name</label>
+<input id="u" name="username" autocomplete="username" required{'' if sso else ' autofocus'}>
+<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
+<input type="hidden" name="next" value="{nxt}">
+<button type="submit">Sign in</button>
+<p class="hint">Accounts are managed with <code>python -m webapp.users</code>.</p>"""
     return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Sign in · AutoPlay</title>
 <link rel="stylesheet" href="/assets/login.css"></head><body><main>
 <form method="post" action="/login" aria-labelledby="t">
 <div class="brand"><span class="mark" aria-hidden="true"></span>AutoPlay</div>
-<h1 id="t">Sign in</h1>{message}
-<label for="u">User name</label><input id="u" name="username" autocomplete="username" required autofocus>
-<label for="p">Password</label><input id="p" name="password" type="password" autocomplete="current-password" required>
-<input type="hidden" name="next" value="{html.escape(_safe_next(next_path))}">
-<button type="submit">Sign in</button>
-<p class="hint">Accounts are managed with <code>python -m webapp.users</code>.</p></form></main></body></html>""",
+<h1 id="t">Sign in</h1>{message}{sso}{password}</form></main></body></html>""",
                         headers={"Cache-Control": "no-store"})
+
+
+# ───────────── single sign-on ─────────────
+
+_sso: dict[tuple, OIDCClient] = {}
+
+
+def sso_problem(settings: Settings) -> str:
+    """What is wrong with the single sign-on settings, or ""."""
+    issuer = settings.oidc_issuer.strip()
+    host = urlsplit(issuer).hostname or ""
+    if not issuer.startswith("https://") and host not in ("127.0.0.1", "localhost", "::1"):
+        return "AUTOPLAY_OIDC_ISSUER must be an https:// address."
+    try:
+        RoleMap.parse(settings.oidc_role_map)
+    except ValueError as e:
+        return str(e)
+    if settings.oidc_default_role and settings.oidc_default_role not in ("viewer", "runner", "editor", "admin"):
+        return "AUTOPLAY_OIDC_DEFAULT_ROLE is one of viewer, runner, editor, admin (or empty)."
+    return ""
+
+
+def sso_client(settings: Settings) -> OIDCClient:
+    key = (settings.oidc_issuer, settings.oidc_client_id, settings.oidc_client_secret, settings.oidc_scopes,
+           settings.oidc_username_claim, settings.oidc_groups_claim)
+    if key not in _sso:
+        _sso[key] = OIDCClient(settings.oidc_issuer, settings.oidc_client_id, settings.oidc_client_secret,
+                               scopes=settings.oidc_scopes, username_claim=settings.oidc_username_claim,
+                               groups_claim=settings.oidc_groups_claim)
+    return _sso[key]
+
+
+def _callback_url(request: Request, settings: Settings) -> str:
+    base = settings.public_url.rstrip("/") if settings.public_url else str(request.base_url).rstrip("/")
+    return base + "/login/sso/callback"
 
 
 def _throttled(key: str) -> bool:
@@ -200,6 +283,8 @@ def install_auth(app, settings: Settings) -> None:
         form = await request.form()
         username, password = str(form.get("username", "")).strip(), str(form.get("password", ""))
         next_path = _safe_next(str(form.get("next", "/")))
+        if settings.sso_enabled and settings.oidc_only:
+            return _login_page(f"Sign in with {settings.oidc_label}.", next_path)
         client = request.client.host if request.client else "?"
         if _throttled(username.casefold()) or _throttled(client):
             services().audit.record(username or "?", "login.throttled", client)
@@ -213,6 +298,37 @@ def install_auth(app, settings: Settings) -> None:
         request.session.clear()
         request.session.update({"user": user.username, "at": time.time()})
         services().audit.record(user.username, "login", client)
+        return RedirectResponse(next_path, status_code=303)
+
+    @app.get("/login/sso", include_in_schema=False)
+    async def sso_start(request: Request, next: str = "/"):  # noqa: A002 - query parameter name
+        if not settings.login_required or not settings.sso_enabled:
+            return RedirectResponse("/login" if settings.login_required else "/", status_code=303)
+        try:
+            url, flow = await run.io_bound(sso_client(settings).start, _callback_url(request, settings))
+        except SSOError as e:
+            return _login_page(str(e), next)
+        request.session["sso"] = {**flow, "next": _safe_next(next)}
+        return RedirectResponse(url, status_code=303)
+
+    @app.get("/login/sso/callback", include_in_schema=False)
+    async def sso_callback(request: Request):
+        flow = request.session.pop("sso", None)
+        next_path = _safe_next((flow or {}).get("next", "/"))
+        client = request.client.host if request.client else "?"
+        if not settings.sso_enabled:
+            return RedirectResponse("/login", status_code=303)
+        try:
+            who = await run.io_bound(sso_client(settings).finish, flow, dict(request.query_params))
+            role, grants = RoleMap.parse(settings.oidc_role_map).resolve(who.groups)
+            user = services().users.sso_user(who.username, role, grants, settings.oidc_default_role)
+        except (SSOError, PermissionError, ValueError) as e:
+            services().audit.record("?", "login.failed", client, via="sso", reason=str(e))
+            return _login_page(str(e), next_path)
+        request.session.clear()
+        request.session.update({"user": user.username, "at": time.time()})
+        services().audit.record(user.username, "login", client, via="sso", role=user.role,
+                                grants=[describe_grant(g) for g in user.grants] or None)
         return RedirectResponse(next_path, status_code=303)
 
     @app.get("/logout", include_in_schema=False)
@@ -232,4 +348,7 @@ def install_auth(app, settings: Settings) -> None:
 
 
 def role_summary(user: User | None) -> str:
-    return ROLE_LABELS.get(user.role, "") if user else ""
+    if not user:
+        return ""
+    label = ROLE_LABELS.get(user.role, "")
+    return label + ("; " + "; ".join(describe_grant(g) for g in user.grants) if user.grants else "")

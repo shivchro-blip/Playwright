@@ -11,7 +11,7 @@ from webapp.services.json_files import ConflictError, PathError
 from webapp.services.run_insights import compare, flaky_tests, previous_run, summarize
 from webapp.services.run_manager import RunConfig
 from webapp.services.schedules import validate as validate_schedule
-from webapp.auth import require
+from webapp.auth import authorize, require, require_user
 from webapp.state import services
 
 API_VERSION = 1
@@ -113,8 +113,9 @@ def get_page(system: str, rel: str) -> dict:
     return {"data": data, "hash": sha}
 
 
-@routes.put("/pages/{system}/{rel:path}", dependencies=[require("edit")])
-def put_page(system: str, rel: str, req: SaveRequest) -> dict:
+@routes.put("/pages/{system}/{rel:path}")
+def put_page(system: str, rel: str, req: SaveRequest, user=require("edit", scoped=True)) -> dict:
+    authorize(user, "edit", system, path=f"/pages/{system}")
     return {"hash": _editor_call(services().pom.save, system, rel, req.data, req.hash)}
 
 
@@ -130,9 +131,11 @@ def get_testcase_file(system: str, rel: str) -> dict:
     return {"data": data, "hash": sha}
 
 
-@routes.put("/testcases/{system}/{rel:path}", dependencies=[require("edit")])
-def put_testcase(system: str, rel: str, req: SaveRequest, index: int | None = None) -> dict:
+@routes.put("/testcases/{system}/{rel:path}")
+def put_testcase(system: str, rel: str, req: SaveRequest, index: int | None = None,
+                 user=require("edit", scoped=True)) -> dict:
     """Replace testCases[index] in the file (append when index is omitted)."""
+    authorize(user, "edit", system, path=f"/testcases/{system}")
     new_index, sha = _editor_call(services().tests.save, system, rel, index, req.data, req.hash)
     return {"index": new_index, "hash": sha}
 
@@ -224,10 +227,11 @@ def delete_automation(rule_id: str) -> dict:
     return {"deleted": rule_id}
 
 
-@routes.post("/automations/deploy", status_code=202, dependencies=[require("run")])
-def announce_deploy(req: DeployRequest) -> dict:
+@routes.post("/automations/deploy", status_code=202)
+def announce_deploy(req: DeployRequest, user=require("run", scoped=True)) -> dict:
     """Call from your CI/CD after deploying: the rules that wait for a deploy to this system and environment fire
     (for example, run the smoke tests on it). Returns the event's seq; firings show in GET /automations."""
+    authorize(user, "run", req.system, req.env, "/automations/deploy")
     svc = services()
     if req.env not in svc.systems.environments(req.system):
         raise HTTPException(400, f"{req.system} has no environment {req.env!r} in systemData.json")
@@ -246,8 +250,10 @@ def test_history(test_id: str, system: str | None = None, env: str | None = None
     return index.test_history(test_id, system, env, limit=max(1, min(limit, 500)))
 
 
-@routes.post("/runs", status_code=201, dependencies=[require("run")])
-def start_run(req: RunRequest) -> dict:
+@routes.post("/runs", status_code=201)
+def start_run(req: RunRequest, user=require("run", scoped=True)) -> dict:
+    for env in dict.fromkeys([req.env, *req.also_envs]):
+        authorize(user, "run", req.system, env, "/runs")
     svc = services()
     selected = svc.catalog.load(req.system).select(req.tags)
     known = svc.systems.environments(req.system)
@@ -384,8 +390,11 @@ def delete_schedule(schedule_id: str) -> dict:
     return {"deleted": schedule_id}
 
 
-@routes.post("/schedules/{schedule_id}/run", status_code=201, dependencies=[require("run")])
-def run_schedule(schedule_id: str) -> dict:
+@routes.post("/schedules/{schedule_id}/run", status_code=201)
+def run_schedule(schedule_id: str, user=require("run", scoped=True)) -> dict:
+    schedule = services().schedules.get(schedule_id)
+    if schedule is not None:
+        authorize(user, "run", schedule.system, schedule.env, f"/schedules/{schedule_id}/run")
     try:
         run = services().scheduler.run_now(schedule_id)
     except ValueError as e:
@@ -402,11 +411,13 @@ def test_notification(schedule_id: str) -> list[dict]:
     return svc.scheduler.send_test(schedule)
 
 
-@routes.post("/runs/{run_id}/rerun", status_code=201, dependencies=[require("run")])
-def rerun(run_id: str) -> dict:
+@routes.post("/runs/{run_id}/rerun", status_code=201)
+def rerun(run_id: str, user=require("run", scoped=True)) -> dict:
     runs = services().runs
-    if not runs.get(run_id):
+    run = runs.get(run_id)
+    if not run:
         raise HTTPException(404, "Run not found")
+    authorize(user, "run", run.config.system, run.config.env, f"/runs/{run_id}/rerun")
     try:
         return runs.rerun(run_id).to_dict()
     except ValueError as e:  # stored config no longer valid (e.g. a removed run option)
@@ -464,9 +475,12 @@ def confidence(system: str) -> dict:
     return build_for(services(), system).to_dict()
 
 
-@routes.post("/journeys/{journey_id}/run", status_code=201, dependencies=[require("run")])
-def run_journey(journey_id: str, env: str) -> dict:
+@routes.post("/journeys/{journey_id}/run", status_code=201)
+def run_journey(journey_id: str, env: str, user=require("run", scoped=True)) -> dict:
     from webapp.services.journeys import JourneyError
+    journey = services().journeys.store.get(journey_id)
+    if journey is not None:
+        authorize(user, "run", journey.system, env, f"/journeys/{journey_id}/run")
     try:
         run = services().start_journey(journey_id, env)
     except JourneyError as e:
@@ -527,11 +541,14 @@ def delete_monitor(monitor_id: str, user=require("schedule")) -> dict:
     return {"deleted": monitor_id}
 
 
-@routes.post("/monitors/{monitor_id}/check", status_code=201, dependencies=[require("run")])
-def check_monitor(monitor_id: str) -> dict:
+@routes.post("/monitors/{monitor_id}/check", status_code=201)
+def check_monitor(monitor_id: str, user=require("run", scoped=True)) -> dict:
     """Run a check now. 409 while the previous check is still running or when it cannot start."""
     from webapp.services.monitors import MonitorError
     svc = services()
+    monitor = svc.monitors.store.get(monitor_id)
+    if monitor is not None:
+        authorize(user, "run", monitor.system, monitor.env, f"/monitors/{monitor_id}/check")
     try:
         run = svc.monitors.check_now(monitor_id)
     except MonitorError as e:
@@ -601,7 +618,7 @@ def change_impact(req: ImpactRequest) -> dict:
 
 
 @routes.post("/impact/run", status_code=201)
-def run_impact(req: ImpactRequest, user=require("run")) -> dict:
+def run_impact(req: ImpactRequest, user=require("run", scoped=True)) -> dict:
     """Run the test cases a change reaches on an environment (one run per system)."""
     from webapp.services.impact import ImpactError
     from webapp.services.journeys import JourneyError
@@ -609,6 +626,8 @@ def run_impact(req: ImpactRequest, user=require("run")) -> dict:
     report = _impact(req)
     if not req.env:
         raise HTTPException(400, "Say which environment to run on (env).")
+    for system in report.selection():
+        authorize(user, "run", system, req.env, "/impact/run")
     try:
         runs = svc.impact.run(report, req.env)
     except (ImpactError, JourneyError) as e:
@@ -631,9 +650,10 @@ class ReleaseRequest(BaseModel):
 
 
 @routes.post("/releases", status_code=201)
-def create_release(req: ReleaseRequest, user=require("run")) -> dict:
+def create_release(req: ReleaseRequest, user=require("run", scoped=True)) -> dict:
     """Check a release: the decision ("go" / "no-go") with its reasons. A CI pipeline can stop on "no-go"."""
     from webapp.services.releases import Policy, ReleaseError
+    authorize(user, "run", req.system, req.env, "/releases")
     svc = services()
     try:
         policy = Policy.from_dict({"block": req.block, "max_age_days": req.max_age_days, "since": req.since})
@@ -688,11 +708,20 @@ def signoff_release(release_id: str, req: SignoffRequest, user=require("signoff"
     return entry
 
 
-@routes.post("/runs/{run_id}/cancel", dependencies=[require("run")])
-def cancel_run(run_id: str) -> dict:
+@routes.post("/runs/{run_id}/cancel")
+def cancel_run(run_id: str, user=require("run", scoped=True)) -> dict:
+    run = services().runs.get(run_id)
+    if run is not None:
+        authorize(user, "run", run.config.system, run.config.env, f"/runs/{run_id}/cancel")
     if not services().runs.cancel(run_id):
         raise HTTPException(409, "Run is not active")
     return {"cancelled": run_id}
+
+
+@routes.get("/me")
+def whoami(user=require_user()) -> dict:
+    """Who is calling: their role everywhere, their roles per system and environment, and how they sign in."""
+    return {"username": user.username, "role": user.role, "grants": list(user.grants), "sso": user.sso}
 
 
 @routes.get("/meta")

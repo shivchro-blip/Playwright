@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from nicegui import background_tasks, ui
 
-from webapp.auth import guard, ui_user
+from webapp.auth import guard, role_summary, ui_user
 from webapp.ui.activity import open_activity
 from webapp.ui.impact import ImpactPanel
 from webapp.ui.journeys import JourneysPanel
@@ -67,7 +67,9 @@ def register() -> None:
             if services().settings.login_required and user:
                 with ui.element("div").classes("any-user").props('data-testid="signed-in"'):
                     text("span", user.username, "any-user-name")
-                    text("span", user.role, "any-tag")
+                    role = text("span", user.role + (f" +{len(user.grants)}" if user.grants else ""), "any-tag") \
+                        .props('data-testid="signed-in-role"')
+                    role.tooltip(role_summary(user))  # the roles per system and environment, when there are any
                     with ui.element("a").classes("any-signout").props('href="/logout"'):
                         ui.label("Sign out")
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):

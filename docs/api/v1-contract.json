@@ -130,6 +130,11 @@
    }
   }
  },
+ "/api/v1/me": {
+  "get": {
+   "params": {}
+  }
+ },
  "/api/v1/meta": {
   "get": {
    "params": {}
