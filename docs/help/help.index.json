@@ -8,6 +8,7 @@
   {"id": "api", "category": "Using the web app", "title": "The API (v1)", "path": "web/api.md", "tags": ["api", "v1", "rest", "curl", "scripts", "ci", "token"]},
   {"id": "ai-assist", "category": "Using the web app", "title": "AI assist", "path": "web/ai-assist.md", "tags": ["ai", "claude", "triage", "locator", "draft", "summary", "anthropic"]},
   {"id": "schedules", "category": "Using the web app", "title": "Schedules and notifications", "path": "web/schedules.md", "tags": ["schedule", "cron", "nightly", "slack", "teams", "email", "webhook", "notification"]},
+  {"id": "automations", "category": "Using the web app", "title": "Automations", "path": "web/automations.md", "tags": ["automation", "rule", "when", "deploy", "webhook", "trigger", "notify", "ci"]},
   {"id": "ci", "category": "Using the web app", "title": "Run in CI", "path": "web/ci.md", "tags": ["ci", "github actions", "pipeline", "headless", "cli", "exit code", "commit", "schedule"]},
   {"id": "confidence", "category": "Using the web app", "title": "Confidence", "path": "web/confidence.md", "tags": ["confidence", "release", "safe", "ready", "blocked", "risk", "verdict", "journeys", "monitors"]},
   {"id": "journeys", "category": "Using the web app", "title": "Journeys", "path": "web/journeys.md", "tags": ["journey", "business transaction", "coverage", "status", "criticality"]},

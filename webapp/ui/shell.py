@@ -11,6 +11,7 @@ from webapp.ui.monitors import MonitorsPanel
 from webapp.ui.releases import ReleasesPanel
 from webapp.ui.runners_dialog import open_runners
 from webapp.ui.ai_panels import open_ai_settings
+from webapp.ui.automations import AutomationsPanel
 from webapp.ui.confidence import ConfidencePanel
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
@@ -73,7 +74,7 @@ def register() -> None:
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
         (control_tab, confidence_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, generator_tab, history_tab,
-         schedules_tab, help_tab) = tab_elems.values()
+         schedules_tab, automations_tab, help_tab) = tab_elems.values()
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -183,5 +184,7 @@ def register() -> None:
                 panels["history"] = HistoryPanel(on_watch=watch)
             with ui.tab_panel(schedules_tab).classes("any-app any-page"):
                 SchedulesPanel(on_watch=watch)
+            with ui.tab_panel(automations_tab).classes("any-app any-page"):
+                AutomationsPanel(go=go)
             with ui.tab_panel(help_tab).classes("any-app any-page"):
                 HelpPanel()

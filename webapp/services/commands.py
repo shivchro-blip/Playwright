@@ -22,6 +22,7 @@ TABS = [
     ("Generator", "list-plus", "editor test cases pages data sets common actions record"),
     ("History", "history", "runs results reports flaky heals"),
     ("Schedules", "calendar-clock", "cron nightly timer"),
+    ("Automations", "bell", "when then rule trigger deploy webhook notify after"),
     ("Help", "circle-help", "docs guide documentation"),
 ]
 TAB_ICONS = {name: ico for name, ico, _ in TABS}
