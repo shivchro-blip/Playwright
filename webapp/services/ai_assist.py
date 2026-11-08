@@ -108,6 +108,18 @@ class TestDraft(BaseModel):
     notes: list[str] = Field(description="Assumptions and anything the pages could not express")
 
 
+class StepResolution(BaseModel):
+    line: str = Field(description="The line exactly as given")
+    page: Optional[str] = Field(description="Page name from the catalog, or null when no field fits")
+    field: Optional[str] = Field(description="Field name on that page from the catalog, or null")
+    action: Optional[Literal["fill", "click", "select", "check", "press"]]
+    value: Optional[str] = Field(description="Text to type, option to choose or key to press; null otherwise")
+
+
+class StepResolutions(BaseModel):
+    resolutions: list[StepResolution]
+
+
 class RunSummary(BaseModel):
     headline: str = Field(description="One line: overall result and what matters most")
     paragraphs: list[str] = Field(description="Two or three short paragraphs for non-testers")
@@ -333,6 +345,21 @@ class AIAssist:
         return self._ask("test_draft", TestDraft, [{"type": "text", "text": text}], "high",
                          ["request", "page catalog"], r.count)
 
+    def resolve_steps(self, *, lines: list[str], pages: dict[str, dict[str, str]]) -> tuple[StepResolutions, Usage]:
+        """Plain-language lines the rules could not match, mapped onto the catalog's fields only (the caller checks
+        every answer against the real pages: webapp/services/intent.py)."""
+        r = self.redactor()
+        catalog = "\n".join(f"- {name}: " + ", ".join(f"{f} ({t})" for f, t in fields.items())
+                            for name, fields in sorted(pages.items()))
+        text = ("Map each line of a tester's plain-language test onto one field of these pages. Use ONLY page and "
+                "field names from the catalog; when no field fits a line, give null page and field. Actions: fill "
+                "(type a value), click, select (choose an option), check (tick), press (a key). Do not invent "
+                "values: take them from the line.\n\n"
+                f"Pages and their fields (field (type)):\n{catalog or '(no pages)'}\n\n"
+                + untrusted("lines", r("\n".join(lines)), 8_000))
+        return self._ask("step_resolve", StepResolutions, [{"type": "text", "text": text}], "medium",
+                         ["lines", "page catalog"], r.count)
+
     # ───── 15: run summary ─────
 
     def summarize_run(self, *, facts: dict) -> tuple[RunSummary, Usage]:
@@ -341,6 +368,15 @@ class AIAssist:
                 "what changed since the previous run, and what to do next. Do not invent tests or causes.\n\n"
                 + untrusted("run facts", r(json.dumps(facts, ensure_ascii=False, indent=1)), 30_000))
         return self._ask("run_summary", RunSummary, [{"type": "text", "text": text}], "low", ["run facts"], r.count)
+
+
+def ai_resolver(ai):
+    """A resolver for intent.compile_lines that asks AI assist (when it is on) about the lines the rules left."""
+    def resolve(lines: list[str], pages: dict[str, dict[str, dict]]) -> dict:
+        catalog = {p: {f: str((c or {}).get("type", "text")) for f, c in fs.items()} for p, fs in pages.items()}
+        result, _ = ai.resolve_steps(lines=lines, pages=catalog)
+        return {x.line: x.model_dump() for x in result.resolutions if x.page and x.field and x.action}
+    return resolve
 
 
 def draft_to_test_case(draft: TestDraft, system: str, env: str) -> dict:
