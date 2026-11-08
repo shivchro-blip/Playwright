@@ -48,28 +48,32 @@ def build_locator(page, cfg: dict):
     placeholder, contains, label, text = cfg.get("placeholder"), cfg.get("contains"), cfg.get("label"), cfg.get("text")
     if cfg.get("nested"):
         raise ValueError("Nested locator chains aren't supported by the checker yet.")
+    within = str(cfg.get("within") or "").strip()  # a shared component's container (utils/page_components.py)
+    root = page.locator(within).first if within else page
     if locator and not role:
-        el, desc = page.locator(locator), f"page.locator({locator!r})"
+        el, desc = root.locator(locator), f"page.locator({locator!r})"
     elif placeholder:
-        el, desc = page.get_by_placeholder(placeholder), f"page.get_by_placeholder({placeholder!r})"
+        el, desc = root.get_by_placeholder(placeholder), f"page.get_by_placeholder({placeholder!r})"
     elif contains:
-        el, desc = page.locator(f"p:has-text('{contains}')"), f"page.locator(\"p:has-text('{contains}')\")"
+        el, desc = root.locator(f"p:has-text('{contains}')"), f"page.locator(\"p:has-text('{contains}')\")"
     elif label:
-        el, desc = page.get_by_label(label), f"page.get_by_label({label!r})"
+        el, desc = root.get_by_label(label), f"page.get_by_label({label!r})"
     elif text:
         if locator:
-            el, desc = page.locator(locator).get_by_text(text), f"page.locator({locator!r}).get_by_text({text!r})"
+            el, desc = root.locator(locator).get_by_text(text), f"page.locator({locator!r}).get_by_text({text!r})"
         else:
-            el, desc = page.get_by_text(text), f"page.get_by_text({text!r})"
+            el, desc = root.get_by_text(text), f"page.get_by_text({text!r})"
     elif role and name:
-        el, desc = page.get_by_role(role, name=name), f"page.get_by_role({role!r}, name={name!r})"
+        el, desc = root.get_by_role(role, name=name), f"page.get_by_role({role!r}, name={name!r})"
     elif role and locator:
-        el = page.get_by_role(role).get_by_text(locator, exact=True)
+        el = root.get_by_role(role).get_by_text(locator, exact=True)
         desc = f"page.get_by_role({role!r}).get_by_text({locator!r}, exact=True)"
     elif role:
-        el, desc = page.get_by_role(role), f"page.get_by_role({role!r})"
+        el, desc = root.get_by_role(role), f"page.get_by_role({role!r})"
     else:
         raise ValueError("The field has no locator, role, placeholder, label, text or contains to check.")
+    if within:
+        desc = f"page.locator({within!r}).first." + desc.removeprefix("page.")
     return el, desc
 
 

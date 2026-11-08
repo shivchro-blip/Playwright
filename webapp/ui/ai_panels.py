@@ -350,8 +350,8 @@ def open_draft_dialog(editor) -> None:
                     data, _ = svc.pom.load(system, rel)
                 except (OSError, ValueError, PathError):
                     continue
-                pages[name] = {f: str((c or {}).get("type", "text")) for f, c in (data.get("fields") or {}).items()
-                               if isinstance(c, dict)}
+                pages[name] = {f: str((c or {}).get("type", "text"))
+                               for f, c in svc.pom.expanded_fields(system, data).items()}
             refs, _ = svc.tests.list_tests(system)
             example = None
             if refs:

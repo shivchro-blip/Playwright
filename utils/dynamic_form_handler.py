@@ -621,10 +621,13 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
                     button = action["value"]
                     element = await get_table(row, col, tableId, page, button, action_type, index)
                 elif action_type not in ['keyboard','Payment']:
-                    element = await get_element(dictionaryContext, target, page, locator, role, index, placeholder, contains, name, text,
+                    # a shared component's field is looked for inside its container (utils/page_components.py)
+                    within = pomFields.get(target, {}).get("within")
+                    scope = page.locator(within).first if within else page
+                    element = await get_element(dictionaryContext, target, scope, locator, role, index, placeholder, contains, name, text,
                                                 label, nested, hasTextDirty)
-                    async def locate(cfg, target=target):
-                        return await get_element(dictionaryContext, target, page, cfg.get("locator"), cfg.get("role"),
+                    async def locate(cfg, target=target, scope=scope):
+                        return await get_element(dictionaryContext, target, scope, cfg.get("locator"), cfg.get("role"),
                                                  cfg.get("index"), cfg.get("placeholder"), cfg.get("contains"),
                                                  cfg.get("name"), cfg.get("text"), cfg.get("label"), None, False)
                     # the field's identity: ranked fallbacks checked against its fingerprint (utils/element_identity.py)
