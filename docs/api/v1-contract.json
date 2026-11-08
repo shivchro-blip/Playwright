@@ -1,4 +1,34 @@
 {
+ "/api/v1/automations": {
+  "get": {
+   "params": {
+    "limit": false
+   }
+  }
+ },
+ "/api/v1/automations/deploy": {
+  "post": {
+   "params": {},
+   "body": {
+    "build": false,
+    "by": false,
+    "env": true,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/automations/{rule_id}": {
+  "put": {
+   "params": {
+    "rule_id": true
+   }
+  },
+  "delete": {
+   "params": {
+    "rule_id": true
+   }
+  }
+ },
  "/api/v1/config": {
   "get": {
    "params": {}

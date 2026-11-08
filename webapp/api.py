@@ -191,6 +191,52 @@ def timeline_for(test_id: str, system: str, env: str | None = None):
     return build(test_id, system, runs, svc.audit.recent(limit=5000), svc.quarantine.all(), env)
 
 
+class DeployRequest(BaseModel):
+    system: str
+    env: str
+    build: str = ""
+    by: str = ""
+
+
+@routes.get("/automations")
+def list_automations(limit: int = 50) -> dict:
+    """The automation rules ("when X, do Y") and their latest firings, newest first."""
+    engine = services().automations
+    return {"rules": [{**r.to_dict(), "summary": r.summary} for r in engine.store.list()],
+            "recent": engine.recent(max(1, min(limit, 500)))}
+
+
+@routes.put("/automations/{rule_id}", dependencies=[require("schedule")])
+def save_automation(rule_id: str, rule: dict) -> dict:
+    """Create or replace a rule. Body: {name, enabled, when: {on, system, env, status}, do: [actions]}."""
+    from webapp.services.automations import validate
+    try:
+        saved = services().automations.store.save(validate({**rule, "id": rule_id}))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {**saved.to_dict(), "summary": saved.summary}
+
+
+@routes.delete("/automations/{rule_id}", dependencies=[require("schedule")])
+def delete_automation(rule_id: str) -> dict:
+    if not services().automations.store.delete(rule_id):
+        raise HTTPException(404, "No such rule")
+    return {"deleted": rule_id}
+
+
+@routes.post("/automations/deploy", status_code=202, dependencies=[require("run")])
+def announce_deploy(req: DeployRequest) -> dict:
+    """Call from your CI/CD after deploying: the rules that wait for a deploy to this system and environment fire
+    (for example, run the smoke tests on it). Returns the event's seq; firings show in GET /automations."""
+    svc = services()
+    if req.env not in svc.systems.environments(req.system):
+        raise HTTPException(400, f"{req.system} has no environment {req.env!r} in systemData.json")
+    event = svc.bus.publish("deploy", system=req.system, env=req.env, build=req.build, by=req.by)
+    from webapp.services.automations import matches
+    rules = [r.id for r in svc.automations.store.list() if matches(r, event)]
+    return {"seq": event["seq"], "rules": rules}
+
+
 @routes.get("/tests/{test_id}/history")
 def test_history(test_id: str, system: str | None = None, env: str | None = None, limit: int = 20) -> list[dict]:
     """A test's latest results across runs, newest first: run, at, browser, outcome, duration, retries."""
