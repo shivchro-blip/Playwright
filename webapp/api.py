@@ -312,6 +312,50 @@ def write_run_report(run_id: str) -> dict:
     return {"url": f"/runs/{run.id}/report.html"}
 
 
+class PlanRequest(BaseModel):
+    system: str
+    env: str
+    budget_minutes: float = Field(10, gt=0, le=600)
+    base: str = ""  # plan for the change since this git commit or branch
+    head: str = ""
+
+
+def _plan(req: PlanRequest):
+    from webapp.services.impact import ImpactError
+    from webapp.services.planner import plan_for
+    svc = services()
+    if req.env not in svc.systems.environments(req.system):
+        raise HTTPException(400, f"{req.system} has no environment {req.env!r} in systemData.json")
+    try:
+        return plan_for(svc, req.system, req.env, req.budget_minutes * 60, base=req.base, head=req.head)
+    except ImpactError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@routes.post("/plans")
+def make_plan(req: PlanRequest) -> dict:
+    """Run what matters: the test cases worth running in the time budget, and why each one is in or left out
+    (critical journeys always in; then by risk per second: the change, failures, flakiness, staleness)."""
+    return _plan(req).to_dict()
+
+
+@routes.post("/plans/run", status_code=201)
+def run_plan(req: PlanRequest, user=require("run")) -> dict:
+    """Make the plan and start a run of its test cases. 409 when nothing is worth running or the queue is full."""
+    from webapp.services.journeys import JourneyError
+    result = _plan(req)
+    if not result.chosen:
+        raise HTTPException(409, "Nothing in the plan: " + " ".join(result.notes))
+    try:
+        run = services().start_tests(req.system, result.test_ids, req.env, trigger="plan")
+    except JourneyError as e:
+        raise HTTPException(400, str(e)) from e
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(409, str(e)) from e
+    services().audit.record(user.username, "plan.run", run.id, tests=len(result.test_ids), via="api")
+    return {"run": run.to_dict(), "plan": result.to_dict()}
+
+
 @routes.get("/insights/flaky")
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""

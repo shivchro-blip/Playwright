@@ -203,6 +203,30 @@
    }
   }
  },
+ "/api/v1/plans": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "budget_minutes": false,
+    "env": true,
+    "head": false,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/plans/run": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "budget_minutes": false,
+    "env": true,
+    "head": false,
+    "system": true
+   }
+  }
+ },
  "/api/v1/releases": {
   "get": {
    "params": {
