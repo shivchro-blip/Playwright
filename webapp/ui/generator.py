@@ -22,6 +22,7 @@ from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
 from webapp.state import services
+from webapp.ui.studio import StudioEditor
 from webapp.ui.identity_dialog import health_label, open_identity, open_learn
 from webapp.ui.timeline_dialog import open_timeline
 from webapp.ui.live import live
@@ -1717,6 +1718,7 @@ class GeneratorPanel:
                         pages_tab = ui.tab("Pages", icon=icon("app-window"))
                         data_tab = ui.tab("Data sets", icon=icon("braces")).props('data-testid="tab-data"')
                         common_tab = ui.tab("Common actions", icon=icon("copy")).props('data-testid="tab-common"')
+                        studio_tab = ui.tab("Studio", icon=icon("play")).props('data-testid="tab-studio"')
                 self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
@@ -1727,6 +1729,8 @@ class GeneratorPanel:
                     self.data = DataSetEditor(self)
                 with ui.tab_panel(common_tab).classes("p-0"):
                     self.common = CommonActionEditor(self)
+                with ui.tab_panel(studio_tab).classes("p-0"):
+                    self.studio = StudioEditor(self)
         self.tests.load_refs()
 
     async def open_page(self, name: str) -> None:
