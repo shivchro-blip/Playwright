@@ -336,6 +336,8 @@ class HistoryPanel:
                     with ui.element("div").classes("any-fact" + (" is-wide" if label == "Options" else "")):
                         text("dt", label, "any-eyebrow")
                         text("dd", value)
+            if not run.active and any(r.outcome in ("failed", "error") for r in run.results.values()):
+                self.causes(run)
             rows = result_rows(run)
             with ui.element("div").classes("any-table-wrap"):
                 table = ui.table(rows=rows, row_key="nodeid", pagination=10, columns=RESULT_COLUMNS).classes("w-full")
@@ -346,6 +348,41 @@ class HistoryPanel:
                     .props(f'expand-icon="{icon("chevron-down")}"').classes("any-disclosure is-console"):
                 with ui.element("div").classes("any-console is-inline"):
                     ConsoleView(max_lines=300, lines=run.log[-300:] or ["(empty)"])
+
+    def causes(self, run: Run) -> None:
+        """The run's failures grouped by cause, each with what the evidence points to (failure_intel)."""
+        from webapp.services.failure_intel import for_services
+        try:
+            groups = for_services(self.svc).groups(run.config.system, run.config.env, run_id=run.id)
+        except Exception:  # noqa: BLE001 - the groups are a help; the results table below still shows everything
+            return
+        if not groups:
+            return
+        n = sum(len(g.failures) for g in groups)
+        with ui.element("div").classes("any-causes").props('aria-label="Why it failed" data-testid="causes"'):
+            with ui.element("div").classes("any-head-left"):
+                text("h3", "Why it failed", "any-title is-sm")
+                causes = f"{len(groups)} cause{'' if len(groups) == 1 else 's'}"
+                text("span", f"{n} failure{'' if n == 1 else 's'}, {causes}", "any-muted text-sm")
+            for g in groups[:8]:
+                with ui.element("div").classes("any-cause").props(f'data-kind="{g.kind}"'):
+                    text("div", g.title, "any-cause-title")
+                    if g.explanation:
+                        with ui.element("ul").classes("any-cause-why"):
+                            for line in g.explanation:
+                                text("li", line)
+                    if g.suggestion:
+                        text("div", g.suggestion, "any-cause-fix")
+                    with ui.element("div").classes("any-comp-fields"):
+                        for t in g.tests[:12]:
+                            text("span", t, "any-tag mono")
+                        if len(g.tests) > 12:
+                            text("span", f"+{len(g.tests) - 12} more", "any-muted text-xs")
+                    if g.examples_message:
+                        with ui.expansion("Error", icon=icon("terminal")).classes("any-disclosure"):
+                            text("pre", g.examples_message, "any-code")
+            if len(groups) > 8:
+                text("div", f"{len(groups) - 8} more causes: see the results below.", "any-muted text-xs")
 
     def _started_by(self, run: Run) -> str:
         if not run.trigger.startswith(TRIGGER):
