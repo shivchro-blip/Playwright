@@ -668,7 +668,9 @@ class ControlPanel:
         }
 
     async def start_run(self) -> None:
-        if not guard("run", "start run"):
+        system, env = self.system_select.value, self.env_select.value
+        if not all(guard("run", "start run", system=system, env=e)
+                   for e in dict.fromkeys([env, *(self.compare_select.value or [])])):
             return
         tags = self.tags_select.value or []
         browsers = self.browsers_select.value or ["chrome"]
@@ -732,7 +734,9 @@ class ControlPanel:
         self.history.refresh()
 
     def cancel_run(self) -> None:
-        if not guard("run", "cancel run"):
+        run = self.svc.runs.get(self.run_id) if self.run_id else None
+        if not guard("run", "cancel run", self.run_id or "", system=run.config.system if run else None,
+                     env=run.config.env if run else None):
             return
         if self.run_id and self.svc.runs.cancel(self.run_id):
             audit("run.cancel", self.run_id)

@@ -697,7 +697,7 @@ class TestEditor:
 
     def save(self) -> None:
         tc = self._current()
-        if tc is None or not guard("edit", "save test case", self.file or ""):
+        if tc is None or not guard("edit", "save test case", self.file or "", system=self.gen.system or None):
             return
         try:
             self.index, self.hash = self.svc.tests.save(self.gen.system, self.file, self.index, tc, self.hash)
@@ -712,7 +712,9 @@ class TestEditor:
 
     async def _ready_to_run(self) -> tuple[str, list[str]] | None:
         """(test ID, tags) once the guard, unsaved changes and tags are settled; None to stop."""
-        if not guard("run", "run test case"):
+        system = self.gen.system or ""
+        env = self.meta.get("env") or next(iter(self.svc.systems.environments(system)), "") if system else None
+        if not guard("run", "run test case", system=system or None, env=env or None):
             return None
         if self.dirty:
             if not await confirm("Save changes before running?", "Save and run"):
@@ -971,7 +973,7 @@ class TestEditor:
         open_file_history(f"{self.file}", path, reload)
 
     async def delete(self) -> None:
-        if self.file is None or not guard("edit", "delete test case"):
+        if self.file is None or not guard("edit", "delete test case", system=self.gen.system or None):
             return
         if not await confirm(
                 f"Delete test case '{self.meta.get('testCaseID')}' from {self.file}?", "Delete", "negative"):
@@ -1040,7 +1042,7 @@ class TestEditor:
                           lambda tid, rel: self._create(rel, {**tc, "testCaseID": tid}))
 
     def _create(self, rel: str, tc: dict) -> None:
-        if not guard("edit", "create test case"):
+        if not guard("edit", "create test case", system=self.gen.system or None):
             return
         try:
             index, sha = self.svc.tests.save(self.gen.system, rel, None, tc, None)
@@ -1387,7 +1389,7 @@ class PageEditor:
     # ───── maintenance: rename, tidy (all-or-nothing, previewed) ─────
 
     def _ready_for_refactor(self) -> bool:
-        if not guard("edit", "change pages and tests"):
+        if not guard("edit", "change pages and tests", system=self.gen.system or None):
             return False
         if self.dirty or self.gen.tests.dirty:
             ui.notify("Save or revert your unsaved edits first: this changes several files.", type="warning")
@@ -1427,7 +1429,7 @@ class PageEditor:
 
             async def apply() -> None:
                 plan = state["plan"]
-                if plan is None or not guard("edit", audit_action, audit_target):
+                if plan is None or not guard("edit", audit_action, audit_target, system=self.gen.system or None):
                     return
                 try:
                     apply_plan(plan)
@@ -1610,7 +1612,7 @@ class PageEditor:
 
     async def save(self) -> None:
         data = self._current()
-        if data is None or not guard("edit", "save page", self.rel or ""):
+        if data is None or not guard("edit", "save page", self.rel or "", system=self.gen.system or None):
             return
         gone = [n for n in self.orig_names if n not in (data.get("fields") or {})]
         broken = [n for n in gone if self.usage and self.usage.field_uses(self._page_name(), n)]
@@ -1662,7 +1664,7 @@ class PageEditor:
                 name = ui.input(placeholder="loginPage").props('for="dlg-page"').classes("w-full")
 
             def ok():
-                if not guard("edit", "create page"):
+                if not guard("edit", "create page", system=self.gen.system or None):
                     return
                 try:
                     rel = self.svc.pom.create(system, folder.value or "", name.value or "")

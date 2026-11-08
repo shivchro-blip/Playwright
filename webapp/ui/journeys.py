@@ -137,7 +137,8 @@ class JourneysPanel:
     # ───── actions ─────
 
     def run(self, journey_id: str, env: str) -> None:
-        if not guard("run", "run a journey", journey_id):
+        journey = self.svc.journeys.store.get(journey_id)
+        if not guard("run", "run a journey", journey_id, system=journey.system if journey else None, env=env):
             return
         try:
             run = self.svc.start_journey(journey_id, env)
@@ -189,7 +190,7 @@ class JourneysPanel:
         dialog.delete()
         if choice == "delete" and existing:
             from webapp.ui.generator import confirm
-            if not guard("edit", "delete a journey", existing.id) or not await confirm(
+            if not guard("edit", "delete a journey", existing.id, system=existing.system) or not await confirm(
                     f"Delete the journey '{existing.name}'? Its test cases and runs are not touched.", "Delete",
                     "negative"):
                 return
@@ -197,7 +198,7 @@ class JourneysPanel:
             audit("journey.delete", existing.id)
             self.body.refresh()
             return
-        if choice != "save" or not guard("edit", "save a journey", self.system):
+        if choice != "save" or not guard("edit", "save a journey", self.system, system=self.system):
             return
         try:
             journey = validate({"id": existing.id if existing and name.value.strip() == existing.name else "",

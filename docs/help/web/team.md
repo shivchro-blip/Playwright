@@ -27,6 +27,51 @@ Each role can do everything the one before it can.
 
 Roles are checked on the server for every UI action and API call; a refused action says which role is needed and is recorded.
 
+## Roles per system and environment
+
+Someone can have a different role in one system, in one environment of every system, or in one environment of one
+system: "editor, but only a viewer in production", "a viewer who may run the smoke tests on PORTAL's uat".
+
+```
+python -m webapp.users grant bob viewer --env prod                 # a viewer in every system's prod
+python -m webapp.users grant bob editor --system PORTAL            # an editor on PORTAL
+python -m webapp.users grant bob runner --system PORTAL --env uat  # a runner on PORTAL's uat
+python -m webapp.users ungrant bob --env prod
+```
+
+The most specific grant wins (system and environment, then system, then environment); everywhere else the user's
+own role applies. Grants are checked wherever an action belongs to a system or environment: starting, re-running
+and cancelling runs, running journeys, monitor checks, schedules and impacted tests, release checks, and editing
+test cases and pages (the API does the same). Shared things (common actions, data sets, settings, users) use the
+user's own role. The header shows the role and, on hover, the grants; `GET /api/v1/me` returns them.
+
+## Single sign-on (OpenID Connect)
+
+People can sign in with your identity provider (Entra ID, Okta, Google Workspace, Keycloak, Auth0, ...). Register
+AutoPlay there as a web application with the redirect URI `<public url>/login/sso/callback`, then set:
+
+| Setting | Meaning |
+|---|---|
+| `AUTOPLAY_OIDC_ISSUER` | The provider's issuer URL (https), e.g. `https://login.microsoftonline.com/<tenant>/v2.0` |
+| `AUTOPLAY_OIDC_CLIENT_ID` / `AUTOPLAY_OIDC_CLIENT_SECRET` | The application's id and secret |
+| `AUTOPLAY_PUBLIC_URL` | How people reach AutoPlay (used for the redirect URI) |
+| `AUTOPLAY_OIDC_USERNAME_CLAIM` | The claim that names the person (default `email`, which must not be unverified). Use a claim people cannot change themselves. |
+| `AUTOPLAY_OIDC_GROUPS_CLAIM` | The claim with the person's groups (default `groups`) |
+| `AUTOPLAY_OIDC_ROLE_MAP` | Groups to roles: `qa-leads=admin, qa=editor, portal-team=PORTAL/*:editor, ops=*/prod:runner` |
+| `AUTOPLAY_OIDC_DEFAULT_ROLE` | The role of a person in no mapped group who has no account yet (empty: refused) |
+| `AUTOPLAY_OIDC_LABEL` | The button says "Sign in with <label>" |
+| `AUTOPLAY_OIDC_ONLY` | `true`: no password sign-in for people (API tokens still work) |
+
+The sign-in page then shows **Sign in with ...**. The sign-in uses the authorization code flow with PKCE; the
+token is fetched directly from the provider and its issuer, audience, expiry and nonce are checked.
+
+`group=role` sets the role everywhere (the highest of the person's mapped groups); `group=SYSTEM/env:role` grants a
+role in one system (`PORTAL/*`), one environment (`*/prod`) or one environment of one system. When the provider sends
+mapped groups it is the source of truth: the role and grants are updated at every sign-in. A person in no mapped
+group keeps the role an admin gave them here (`python -m webapp.users add sam@contoso.com --sso --role runner`), or
+gets the default role, or is refused. With a group mapped to `admin`, no local admin is needed to start the app.
+Every SSO sign-in and refusal is in the Activity log.
+
 ## Managing users
 
 ```
@@ -35,6 +80,7 @@ python -m webapp.users add bob --role runner
 python -m webapp.users role bob editor
 python -m webapp.users passwd bob
 python -m webapp.users disable bob        # or enable / remove
+python -m webapp.users add sam@contoso.com --sso --role runner   # signs in with single sign-on only
 ```
 
 Users are stored in `reports/users.json` in the workspace (git-ignored; `AUTOPLAY_USERS_FILE` to move it). Passwords are scrypt hashes; the file never holds a usable secret. The app always keeps at least one active admin.

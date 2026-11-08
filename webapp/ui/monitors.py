@@ -138,7 +138,9 @@ class MonitorsPanel:
     # ───── actions ─────
 
     def check(self, mid: str) -> None:
-        if not guard("run", "run a monitor check", mid):
+        monitor = self.svc.monitors.store.get(mid)
+        if not guard("run", "run a monitor check", mid, system=monitor.system if monitor else None,
+                     env=monitor.env if monitor else None):
             return
         try:
             run = self.svc.monitors.check_now(mid)

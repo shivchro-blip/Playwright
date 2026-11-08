@@ -28,6 +28,17 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     insecure_no_auth: bool = False
     users_file: Path | None = None  # default: <workspace>/reports/users.json
+    # Single sign-on with OpenID Connect (webapp/services/oidc.py); on when issuer and client id are set
+    oidc_issuer: str = ""  # e.g. https://login.microsoftonline.com/<tenant>/v2.0
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_scopes: str = "openid email profile"
+    oidc_username_claim: str = "email"  # the claim that names the person (must be one they cannot change)
+    oidc_groups_claim: str = "groups"
+    oidc_role_map: str = ""  # "group=role, group=SYSTEM/env:role, ..."
+    oidc_default_role: str = ""  # for people in no mapped group who have no account yet ("": refused)
+    oidc_label: str = "single sign-on"  # the sign-in button says "Sign in with <label>"
+    oidc_only: bool = False  # no password sign-in for people (API tokens still work)
     # argv that runs the Playwright CLI for the recorder, as a JSON list (default: <python_exe> -m playwright)
     recorder_command: list[str] = Field(default_factory=list)
     # How people reach this app, for links in notifications (default http://127.0.0.1:<port>)
@@ -55,6 +66,10 @@ class Settings(BaseSettings):
     @property
     def login_required(self) -> bool:
         return self.auth_enabled or (self.host not in ("127.0.0.1", "localhost", "::1") and not self.insecure_no_auth)
+
+    @property
+    def sso_enabled(self) -> bool:
+        return bool(self.oidc_issuer and self.oidc_client_id)
 
     @property
     def resolved_public_url(self) -> str:

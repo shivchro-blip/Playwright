@@ -131,7 +131,7 @@ class HistoryPanel:
                                         .classes("any-btn")
 
     def _heal(self, item, accept: bool) -> None:
-        if not guard("edit", "review a healed locator", f"{item.screen}.{item.field}"):
+        if not guard("edit", "review a healed locator", f"{item.screen}.{item.field}", system=item.system):
             return
         user = ui_user()
         try:
@@ -368,7 +368,9 @@ class HistoryPanel:
             ui.notify("The report could not be written (see the server log).", type="negative")
 
     def rerun(self, run_id: str) -> None:
-        if not guard("run", "re-run"):
+        run = self.svc.runs.get(run_id)
+        if not guard("run", "re-run", run_id, system=run.config.system if run else None,
+                     env=run.config.env if run else None):
             return
         try:
             run = self.svc.runs.rerun(run_id)
