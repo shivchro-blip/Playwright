@@ -84,8 +84,18 @@ def test_a_monitor_checks_journeys_and_shows_uptime_and_incidents(workspace: Pat
             wait_for_check(url, "dev-watch", 2)
             expect(page.get_by_test_id("monitor-busy-dev-watch")).to_have_count(0, timeout=15000)
 
-            # edit: turn it on every 10 minutes, from the dialog
-            page.get_by_test_id("monitor-edit-dev-watch").click()
+            # edit: turn it on every 10 minutes, from the dialog. The check's history lands just after the run ends
+            # and redraws the monitor (live updates): a click on the old Edit button in that moment is lost, so
+            # click again until the dialog is open
+            for _ in range(5):
+                if page.get_by_test_id("mon-every").count():  # a slow first click opened it after all
+                    break
+                page.get_by_test_id("monitor-edit-dev-watch").click()
+                try:
+                    expect(page.get_by_test_id("mon-every")).to_be_visible(timeout=3000)
+                    break
+                except AssertionError:
+                    continue
             page.get_by_test_id("mon-every").click()
             page.get_by_role("option", name="every 10 min").click()
             page.get_by_test_id("mon-enabled").click()
