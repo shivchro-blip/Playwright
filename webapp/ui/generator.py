@@ -34,6 +34,7 @@ from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.quarantine_dialog import toggle_quarantine
 from webapp.ui.locator_health_dialog import open_locator_health
+from webapp.ui.page_components_panel import ComponentsSection, extract_dialog
 from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.recorder_dialog import open_recorder
 from webapp.ui.step_actions import (
@@ -1102,8 +1103,13 @@ class PageEditor:
             usage = UsageIndex(self.svc.tests).scan(system)
         except (OSError, ValueError):
             usage = Usage()
+        users: dict[str, int] = {}
+        for r in refs:
+            for c in r.uses:
+                users[c] = users.get(c, 0) + 1
         rows = [{"rel": r.rel, "name": r.name, "folder": r.rel.rpartition("/")[0], "fields": r.fields,
-                 "used": usage.page_count(r.name), "dup": r.duplicate} for r in refs]
+                 "used": usage.page_count(r.name) + users.get(r.name, 0), "dup": r.duplicate,
+                 "comp": r.component} for r in refs]
         has_folders = any(r["folder"] for r in rows)
         columns = [{"name": "name", "label": "Page", "field": "name", "align": "left", "sortable": True}]
         if has_folders:  # the column is only worth its width when some page is in a folder
@@ -1117,6 +1123,8 @@ class PageEditor:
             styled_table(table, len(rows))
             table.add_slot("body-cell-name", f'''
                 <q-td :props="props"><span class="any-tc-name">{{{{ props.value }}}}</span>
+                  <span v-if="props.row.comp" class="any-tag" title="Shared component: pages use its fields"
+                        >component</span>
                   <span v-if="props.row.dup" class="any-dup"
                         title="Another page has this name - the last one loaded wins"
                         aria-label="Duplicate page name">{svg("triangle-alert")}</span>
@@ -1172,6 +1180,15 @@ class PageEditor:
             self.usage = UsageIndex(self.svc.tests).scan(self.gen.system) if self.gen.system else None
         except (OSError, ValueError):
             self.usage = None
+        # a shared component's fields are used under the names the pages using it give them
+        self.aliases = self.svc.pom.aliases(self.gen.system, self._page_name()) \
+            if self.rel and self.page.get("component") is True else {}
+
+    def field_uses(self, name: str) -> list | None:
+        if self.usage is None or not name:
+            return None
+        where = getattr(self, "aliases", {}).get(name) or [(self._page_name(), name)]
+        return [u for screen, full in where for u in self.usage.field_uses(screen, full)]
 
     def build(self) -> dict:
         fields = {}
@@ -1212,6 +1229,7 @@ class PageEditor:
                         ui.menu_item("Rename page...", on_click=self.rename_page_dialog)
                         ui.menu_item("Rename a field...", on_click=self.rename_field_dialog)
                         ui.menu_item("Tidy up this page...", on_click=self.tidy_dialog)
+                        ui.menu_item("Move fields into a component...", on_click=lambda: extract_dialog(self))
                         ui.menu_item("Check all locators on the live page...",
                                      on_click=lambda: open_locator_health(self))
                 ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
@@ -1229,6 +1247,7 @@ class PageEditor:
             self.code.on_value_change(lambda: self.touch())
             return
         self.page_form()
+        self.components = ComponentsSection(self)
         self.fields_view()
 
     def page_form(self) -> None:
@@ -1320,7 +1339,7 @@ class PageEditor:
         gens = autogen + ([row.cfg[gen_key]] if row.cfg.get(gen_key) and row.cfg[gen_key] not in autogen else [])
         extra = [k for k in row.cfg if k not in ("type", "locator", "index", gen_key)]
         with ui.element("div").classes("any-field-grid"):
-            uses = self.usage.field_uses(self._page_name(), row.name) if self.usage and row.name else None
+            uses = self.field_uses(row.name)
             name_box = ui.input(value=row.name, on_change=set_name).props('aria-label="Name"').classes("mono-input")
             if uses is not None:
                 name_box.classes("is-unused" if not uses else "")
@@ -1370,6 +1389,8 @@ class PageEditor:
         owners: dict[tuple[str, str], object] = {}
         for use in self.usage.page_uses(self._page_name()):
             owners.setdefault((use.file, use.owner), use)
+        if not owners and self.page.get("component") is True:
+            return  # a shared component is used through pages: the Components section lists them
         if not owners:
             with ui.element("div").classes("any-form-row"):
                 text("span", "Not used by any test or common action", "any-pill pill-warn")
@@ -1615,7 +1636,7 @@ class PageEditor:
         if data is None or not guard("edit", "save page", self.rel or "", system=self.gen.system or None):
             return
         gone = [n for n in self.orig_names if n not in (data.get("fields") or {})]
-        broken = [n for n in gone if self.usage and self.usage.field_uses(self._page_name(), n)]
+        broken = [n for n in gone if self.field_uses(n)]
         if broken and not await confirm(
                 f"{', '.join(broken)} {'is' if len(broken) == 1 else 'are'} used by tests but no longer on this page. "
                 "Renaming or removing a field here does not update those tests (use Maintain > Rename a field). "

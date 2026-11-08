@@ -23,6 +23,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from utils import page_components
 from utils.steps_v2 import form_data
 from webapp.services.json_files import WRITES, write_count
 from webapp.services.test_case_service import base_field
@@ -294,11 +295,17 @@ class WorkspaceModel:
                         if isinstance(action, dict) else []
         pages: dict[tuple[str, str], set[str]] = {}
         page_files: dict[tuple[str, str], str] = {}
+        docs: dict[tuple[str, str], object] = {}
         for system, name, path in page_paths:
-            doc = self.files.get(path)
-            fields = doc.get("fields") if isinstance(doc, dict) else None
-            pages[(system, name)] = set(fields) if isinstance(fields, dict) else set()
+            docs[(system, name)] = self.files.get(path)
             page_files[(system, name)] = path.relative_to(self.workspace / "Pages" / system).as_posix()
+        for (system, name), doc in docs.items():
+            try:  # a page's fields include those of the shared components it uses (utils/page_components.py)
+                fields = page_components.expand_fields(doc, lambda n, s=system: docs.get((s, n))) \
+                    if isinstance(doc, dict) else None
+            except page_components.ComponentError:
+                fields = doc.get("fields")
+            pages[(system, name)] = set(fields) if isinstance(fields, dict) else set()
         data_sets = sorted(p.stem for p in others if p.parent.name == "TestData" and p.exists())
         journeys_doc = self.files.get(self.workspace / "Data" / "journeys.json")
         journeys = [j for j in (journeys_doc or {}).get("journeys", []) if isinstance(j, dict)] \

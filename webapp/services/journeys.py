@@ -359,7 +359,7 @@ class JourneyService:
                 data, _ = self.tests.pom.load(system, ref.rel)
             except (OSError, ValueError):
                 continue
-            out[Path(ref.rel).stem] = set((data.get("fields") or {}).keys())
+            out[Path(ref.rel).stem] = set(self.tests.pom.expanded_fields(system, data))
         return out
 
     def _action_steps_files(self, name: str) -> list[dict]:

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>AutoPlay components page</title></head>
+<body>
+  <h1>Two addresses</h1>
+  <fieldset id="mailing"><legend>Mailing address</legend>
+    <label>Street <input name="street"></label>
+    <label>City <input name="city"></label>
+  </fieldset>
+  <fieldset id="home"><legend>Home address</legend>
+    <label>Street <input name="street"></label>
+    <label>City <input name="city"></label>
+  </fieldset>
+  <button id="send" type="button">Send</button>
+  <p id="summary"></p>
+  <script>
+    // The same inputs twice: only a field looked for inside its block finds exactly one
+    document.getElementById('send').addEventListener('click', () => {
+      const v = (block, name) => document.querySelector(`#${block} input[name=${name}]`).value;
+      document.getElementById('summary').textContent =
+        `mailing=${v('mailing', 'street')}, ${v('mailing', 'city')}; home=${v('home', 'street')}, ${v('home', 'city')}`;
+    });
+  </script>
+</body>
+</html>

@@ -133,6 +133,7 @@ The recorder only works when the web app listens on this machine (`AUTOPLAY_HOST
 2. **Page settings**: `path` (added to the system base URL) or `fullpath` (absolute URL) to navigate on entry; title check; error locators / texts.
 3. **Fields**: name, type, locator, index and autoGen rule. **{ }** edits all keys of a field (role, name, nested, tableId, waitForNewTab, picker, ...), including **indexed**. Use the filter on large pages. A field that no test uses is shown in italics.
 4. **From page** scans the live page and proposes fields (see below).
+5. **Components**: the shared components the page uses (a header, an address block defined once for many pages), and **Shared component** to let other pages use this one. See [Shared page components](../framework/page-components.md).
 
 Page names must be unique within a system; the list marks duplicates (the last one loaded wins at run time).
 
@@ -144,6 +145,7 @@ The **Maintain** menu works on the whole page and the tests that use it:
 
 - **Rename page...** renames the file and updates every `screen` (and `override`) that names it, in tests and common actions.
 - **Rename a field...** renames it on the page and in every step that uses it, keeping pipe suffixes.
+- **Move fields into a component...** moves the chosen fields into a new shared component that the page then uses; their names stay, so no test changes.
 - **Tidy up this page...** finds fields that are exactly the same (merged into one, with `name`, `name|`, `name||` in the steps that used several), fields no test uses (removed), redundant `autoGen: "click"` on buttons, links, checkboxes and radios, and fields that differ only by `index` (a hint to use `indexed` and a step index).
 - **Check all locators on the live page...** opens the page once in headless Chromium and resolves every field the way a run does: *found*, *not found*, *hidden*, *several matches* (set `index`), *index too high*, or *not checked* (fields whose option comes from the test, table cells, nested chains, `DICT.`/`ENV.` values). Problems are listed first; **Problems only** can be turned off. It checks what is in the editor, saved or not. After a site change it turns "the nightly run failed somewhere" into a short list. A page you reach by clicking through earlier screens shows its later fields as not found or hidden: that describes the page as loaded, not always a broken locator.
 - **Suggest fixes** (in that dialog, when fields are *not found*, *hidden* or *index too high*) scans the live page and ranks the elements that could replace each one, by what the field still says: its name, its old locator (a renamed id such as `#zip-code` → `#applicantZipCode` scores high), its label, placeholder or text, and its type. Up to three suggestions per field are listed with a score and the reason; elements a working field already uses are left out. **Use** puts the locator into the field in the editor (type, autoGen and the other keys are kept); nothing is saved until you click Save. A field with no good match says so. Treat a suggestion as a lead to check, not a fix: a redesign can move a label to a different field.

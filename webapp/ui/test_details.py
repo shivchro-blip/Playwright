@@ -111,7 +111,9 @@ def open_test_details(run: Run, row: dict) -> None:
     name, code = split_test_id(test_id)
     outcome = str(row.get("outcome") or (item.status if item else ""))
 
-    with ui.dialog().props("maximized=false") as dialog, \
+    # at the page's layout, not in the History view that opened it: that view redraws when a run's events arrive,
+    # and would take an open dialog with it
+    with ui.context.client.layout, ui.dialog().props("maximized=false") as dialog, \
             ui.card().classes("any-app any-dialog any-details").props('role="dialog" aria-label="Test details"'):
         with ui.element("div").classes("any-details-head"):
             with ui.element("div").classes("min-w-0"):
@@ -212,4 +214,5 @@ def open_test_details(run: Run, row: dict) -> None:
 
         if not (message or item and (item.attachments or item.log)):
             ui.label("No failure details were recorded for this test.").classes("any-muted")
+    dialog.on("hide", dialog.delete)
     dialog.open()

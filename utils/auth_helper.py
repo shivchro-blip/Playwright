@@ -2,6 +2,7 @@ import json
 import os
 from dotenv import load_dotenv
 from utils.workspace import resolve_workspace_dir, resolve_systemdata_path
+import utils.page_components as page_components
 import time
 import logging
 from utils.log_level import from_env as _log_level
@@ -70,6 +71,10 @@ async def login_if_needed(page, system_name, environment):
         login_page = json.load(loginFile)
     with open(os.path.join(workspaceDir, "Pages", system_name, f"{landing_page_name}.json"), "r", encoding="utf-8") as landingFile:
         landing_page = json.load(landingFile)
+    # the shared components the login and landing pages use (utils/page_components.py)
+    lookup = page_components.file_lookup(page_components.folder_paths(os.path.join(workspaceDir, "Pages", system_name)))
+    login_page = page_components.expand(login_page, lookup)
+    landing_page = page_components.expand(landing_page, lookup)
     fields = login_page["fields"]
     landFields = landing_page["fields"]
     # landPath = landing_page["path"]

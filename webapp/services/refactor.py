@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
+from utils import page_components
 from utils.steps_v2 import StepError, form_data, is_v2, to_v1, to_v2
 from webapp.services.json_files import ConflictError, current_hash, read_json, safe_path, write_json
 from webapp.services.pom_service import PomService
@@ -55,7 +56,7 @@ class Doc:
     path: Path
     label: str
     data: Any
-    sha: str
+    sha: str | None  # None: a new file
     indent: str
     changes: int = 0
 
@@ -71,7 +72,8 @@ class Plan:
 
     def summary(self) -> list[str]:
         lines = [f"Rename {old.name} to {new.name}" for old, new in self.renames]
-        lines += [f"{d.label}: {d.changes} change{'' if d.changes == 1 else 's'}" for d in self.docs]
+        lines += [f"Create {d.label}" if d.sha is None
+                  else f"{d.label}: {d.changes} change{'' if d.changes == 1 else 's'}" for d in self.docs]
         return lines
 
 
@@ -149,6 +151,15 @@ class Refactor:
                 step_doc.changes += 1
             if self._rename_override(step, old, None, new, None):
                 step_doc.changes += 1
+        for user in self.pom.users_of(system, old):  # the pages that use it, when it is a shared component
+            user_doc = doc if user == old else self._page(system, user)
+            for item in user_doc.data.get("use") or []:
+                if isinstance(item, dict) and item.get("component") == old:
+                    item["component"] = new
+                    user_doc.changes += 1
+            if old in (user_doc.data.get("use") or []):
+                user_doc.data["use"] = [new if u == old else u for u in user_doc.data["use"]]
+                user_doc.changes += 1
         self._renames.append((doc.path, new_path))
 
     def rename_field(self, system: str, page: str, old: str, new: str) -> None:
@@ -158,13 +169,34 @@ class Refactor:
         doc = self._page(system, page)
         fields = doc.data.get("fields") or {}
         if old not in fields:
-            raise RefactorError(f"No field {old!r} on {page}.")
+            self._not_own(system, page, old)
         if new == old:
             raise RefactorError("That is already the field's name.")
         if new in fields:
             raise RefactorError(f"{page} already has a field named {new!r}.")
         doc.data["fields"] = {(new if k == old else k): v for k, v in fields.items()}
         doc.changes += 1
+        # where the field is used: on this page, and (for a shared component) on every page that uses it
+        for screen, full in self._aliases(system, page, old):
+            renamed = full[:len(full) - len(old)] + new
+            if screen != page and renamed in self.pom.field_configs(system, screen):
+                raise RefactorError(f"{screen} already has a field named {renamed!r}.")
+            self._rename_in_steps(system, screen, full, renamed)
+
+    def _aliases(self, system: str, page: str, name: str) -> list[tuple[str, str]]:
+        """(screen, field name) of every page this page's field is on: just itself, unless it is a component."""
+        if not page_components.is_component(self._page(system, page).data):
+            return [(page, name)]
+        return self.pom.aliases(system, page).get(name) or [(page, name)]
+
+    def _not_own(self, system: str, page: str, name: str) -> None:
+        home = self.pom.field_home(system, page, name)
+        if home and home[0] != page:
+            raise RefactorError(f"{name!r} comes from the shared component {home[0]}; change it there "
+                                f"(as {home[1]!r}).")
+        raise RefactorError(f"No field {name!r} on {page}.")
+
+    def _rename_in_steps(self, system: str, page: str, old: str, new: str) -> None:
         for step_doc, step in self._steps(system):
             with classic(step):  # a v2 step is renamed in its classic form, then written back as v2
                 if step.get("screen") == page and isinstance(step.get("formData"), dict):
@@ -183,6 +215,8 @@ class Refactor:
         """Replace fields that are exactly the same as `canonical` by it. A step that uses several of them gets
         the documented pipe repeat (name, name|, name||), in the order it already had."""
         doc = self._page(system, page)
+        if page_components.is_component(doc.data):
+            raise RefactorError("Merge the fields of a shared component by hand: each page that uses it is affected.")
         fields = doc.data.get("fields") or {}
         for name in [canonical, *duplicates]:
             if name not in fields:
@@ -223,21 +257,25 @@ class Refactor:
         doc = self._page(system, page)
         fields = doc.data.get("fields") or {}
         gone = set(names)
+        missing = gone - set(fields)
+        if missing:
+            self._not_own(system, page, sorted(missing)[0])
+        where: dict[str, set[str]] = {}  # screen -> the names the removed fields have there
+        for name in gone:
+            for screen, full in self._aliases(system, page, name):
+                where.setdefault(screen, set()).add(full)
         for step_doc, step in self._steps(system):
             used = set()
-            if step.get("screen") == page:
-                used = {_split(str(k))[0] for k in form_data(step)} & gone
+            if step.get("screen") in where:
+                used = {_split(str(k))[0] for k in form_data(step)} & where[step["screen"]]
             override = step.get("override")
             if isinstance(override, str) and override.count("|") >= 2:
                 p, f, _ = override.split("|", 2)
-                if p == page and f in gone:
+                if f in where.get(p, ()):
                     used.add(f)
             if used:
                 raise RefactorError(f"{', '.join(sorted(used))} still used in {step_doc.label}; "
                                     "only unused fields can be removed.")
-        missing = gone - set(fields)
-        if missing:
-            raise RefactorError(f"No field {', '.join(sorted(missing))} on {page}.")
         doc.data["fields"] = {k: v for k, v in fields.items() if k not in gone}
         doc.changes += len(gone)
 
@@ -251,6 +289,37 @@ class Refactor:
                 del cfg["autoGen"]
                 doc.changes += 1
 
+    def extract_component(self, system: str, page: str, names: list[str], component: str,
+                          folder: str = "components") -> None:
+        """Move fields of a page into a new shared component that the page then uses. The fields keep their names,
+        so no test changes; other pages can use the component from then on."""
+        component = component.strip().removesuffix(".json")
+        if not PAGE_NAME_OK.match(component):
+            raise RefactorError("Component name: letters, digits, '_' or '-' only.")
+        if component in self.pom.screen_index(system):
+            raise RefactorError(f"A page named {component!r} already exists in {system}.")
+        names = [n for n in dict.fromkeys(names) if n]
+        if not names:
+            raise RefactorError("Choose the fields to move into the component.")
+        doc = self._page(system, page)
+        fields = doc.data.get("fields") or {}
+        missing = [n for n in names if n not in fields]
+        if missing:
+            self._not_own(system, page, missing[0])
+        folder = folder.strip().strip("/\\")
+        rel = f"{folder}/{component}.json" if folder else f"{component}.json"
+        path = safe_path(self.pom.pages_dir(system), rel)
+        if path.exists() or any(d.path == path for d in self._docs.values()):
+            raise RefactorError(f"{rel} already exists.")
+        moved = {n: fields[n] for n in fields if n in names}  # in the page's order
+        self._docs[path] = Doc(path, f"Pages/{system}/{rel}", {"component": True, "fields": moved}, None, "  ", 1)
+        used = list(doc.data.get("use") or [])
+        rest = {k: v for k, v in doc.data.items() if k not in ("use", "fields")}
+        doc.data.clear()  # "use" just before "fields", as the docs show it
+        doc.data.update({**rest, "use": [*used, component],
+                         "fields": {k: v for k, v in fields.items() if k not in moved}})
+        doc.changes += len(moved)
+
     # ───────────── plan and apply ─────────────
 
     def plan(self) -> Plan:
@@ -261,11 +330,12 @@ def apply_plan(plan: Plan) -> None:
     """Write the plan all-or-nothing. Raises ConflictError (nothing written) if a file changed since it was read."""
     for doc in plan.docs:
         if current_hash(doc.path) != doc.sha:
-            raise ConflictError(f"{doc.label} changed on disk since the preview. Run it again.")
+            raise ConflictError(f"{doc.label} changed on disk since the preview. Run it again."
+                                if doc.sha else f"{doc.label} exists now. Run it again.")
     for old, new in plan.renames:
         if not old.exists() or new.exists():
             raise ConflictError(f"Cannot rename {old.name} to {new.name}: the folder changed. Run it again.")
-    backups = {doc.path: doc.path.read_bytes() for doc in plan.docs}
+    backups = {doc.path: doc.path.read_bytes() for doc in plan.docs if doc.sha is not None}
     written: list[Path] = []
     renamed: list[tuple[Path, Path]] = []
     try:
@@ -279,5 +349,8 @@ def apply_plan(plan: Plan) -> None:
         for old, new in reversed(renamed):
             os.replace(new, old)
         for path in written:
-            path.write_bytes(backups[path])
+            if path in backups:
+                path.write_bytes(backups[path])
+            else:  # a file the plan created
+                path.unlink(missing_ok=True)
         raise

@@ -28,8 +28,9 @@ def open_compare(run_id: str) -> None:
     base = partner or previous_run(runs, target) or (candidates[0] if candidates else None)
     state = {"show_unchanged": False}
 
-    with ui.dialog() as dialog, ui.card().classes("any-app any-dialog any-details").props(
+    with ui.context.client.layout, ui.dialog() as dialog, ui.card().classes("any-app any-dialog any-details").props(
             'role="dialog" aria-label="Compare runs"'):
+        dialog.on("hide", dialog.delete)  # it lives at the layout now: gone once closed
         with ui.element("div").classes("any-details-head"):
             with ui.element("div").classes("min-w-0"):
                 text("div", "Compare runs", "any-eyebrow")
