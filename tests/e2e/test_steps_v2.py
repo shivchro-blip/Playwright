@@ -59,6 +59,9 @@ def test_the_editor_shows_v2_steps_as_rows_and_keeps_them_v2(workspace: Path, tm
         page.get_by_test_id("tc-format").click()
         expect(page.get_by_test_id("tc-format")).to_contain_text("classic")
         page.get_by_test_id("tc-format").click()  # and back: explicit
+        # each switch redraws the editor: Save only once it shows the explicit format again
+        expect(page.get_by_test_id("tc-format")).to_contain_text("explicit")
+        expect(page.get_by_text("unsaved")).to_be_visible()
         page.get_by_role("button", name="Save", exact=True).click()
         expect(page.get_by_text("unsaved")).to_be_hidden()
         browser.close()
