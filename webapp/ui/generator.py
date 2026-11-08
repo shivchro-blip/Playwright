@@ -1669,7 +1669,7 @@ class GeneratorPanel:
         systems = self.all_systems()
         default = self.svc.env.load().get("systemConfig")
         self.system: str | None = default if default in systems else (systems[0] if systems else None)
-        with ui.element("div").classes("any-page-inner is-wide"):
+        with ui.element("div").classes("any-page-inner is-wide") as self.root:
             with ui.element("div").classes("any-page-head"):
                 with ui.element("div").classes("any-head-left"):
                     with labelled("System", "gen-system"):
@@ -1735,13 +1735,24 @@ class GeneratorPanel:
     async def show_default(self) -> None:
         """Default view when the Generator tab is opened: Pages, with the first page open in Form view.
         A page that is already open (possibly with unsaved edits) stays open."""
+        self.choose_default_section()
+        await self.open_default_page()
+
+    def choose_default_section(self) -> None:
+        """The Pages section, chosen at once (not in a background task), so a section the user clicks right after
+        opening the Generator is applied after it and wins."""
         self.sections.set_value(self.pages_tab)
+
+    async def open_default_page(self) -> None:
+        """The first page in Form view, unless a page is already open. Safe to run as a background task: it works
+        inside the Generator's own element."""
         if self.pages.rel is not None or not self.system:
             return
         refs = sorted(self.svc.pom.list_pages(self.system), key=lambda r: r.rel.casefold())
         if refs:
             self.pages.json_mode = False
-            await self.pages.open(refs[0].rel)
+            with self.root:
+                await self.pages.open(refs[0].rel)
 
     def set_ai(self, enabled: bool) -> None:
         self.tests.draft_button.set_visibility(enabled)

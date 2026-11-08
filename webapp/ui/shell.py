@@ -1,7 +1,7 @@
 """Page shell: header with the main tabs. Each tab's content lives in its own module."""
 from __future__ import annotations
 
-from nicegui import ui
+from nicegui import background_tasks, ui
 
 from webapp.auth import guard, ui_user
 from webapp.ui.activity import open_activity
@@ -82,7 +82,8 @@ def register() -> None:
                 else:
                     tab.props(remove="aria-current")
 
-        async def on_tab(e) -> None:
+        def on_tab(e) -> None:
+            # not async: handled in order with the clicks that follow (a Generator section picked right away wins)
             mark_current(e.value)
             # the address follows the tab (#history), so a link or a reload lands on the same section; not before
             # the section the address asked for has been restored
@@ -92,7 +93,9 @@ def register() -> None:
                 if opening[0]:
                     opening[0] = False  # a jump opens its own target; this tab change was that jump's
                 else:
-                    await panels["generator"].show_default()
+                    gen = panels["generator"]
+                    gen.choose_default_section()
+                    background_tasks.create(gen.open_default_page(), name="generator-default-page")
 
         tabs.on_value_change(on_tab)
         mark_current("Control")
