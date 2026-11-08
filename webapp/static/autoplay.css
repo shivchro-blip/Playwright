@@ -864,3 +864,9 @@
 .any-studio-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .any-studio-steps li { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--border-row); }
 .any-studio-steps li .q-btn { margin-left: auto; }
+
+/* Shared page components */
+.any-comp { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 14px; }
+.any-comp-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 8px 4px; border-top: 1px solid var(--border-row); }
+.any-comp-fields { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.any-tag.is-replaced { text-decoration: line-through; opacity: .6; }

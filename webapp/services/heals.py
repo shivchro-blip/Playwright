@@ -139,30 +139,37 @@ class HealService:
     def _page_rel(self, system: str, screen: str) -> str | None:
         return next((r.rel for r in self.pom.list_pages(system) if Path(r.rel).stem == screen), None)
 
+    def _home(self, system: str, screen: str, field: str) -> tuple[str, str]:
+        """Where the healed field is defined: the page, or the shared component it comes from (fixing the
+        component fixes every page that uses it)."""
+        return self.pom.field_home(system, screen, field) or (screen, field)
+
     def _already_applied(self, h: dict) -> bool:
-        rel = self._page_rel(h["system"], h["screen"])
+        screen, field = self._home(h["system"], h["screen"], h["field"])
+        rel = self._page_rel(h["system"], screen)
         if not rel:
             return False
         try:
             data, _ = self.pom.load(h["system"], rel)
         except (OSError, ValueError):
             return False
-        current = (data.get("fields") or {}).get(h["field"]) or {}
+        current = (data.get("fields") or {}).get(field) or {}
         return signature(current) == signature(h.get("new") or {})
 
     def accept(self, key: str, user: str) -> PendingHeal:
         item = next((p for p in self.pending() if p.key == key), None)
         if item is None:
             raise ValueError("That heal is no longer waiting for review.")
-        rel = self._page_rel(item.system, item.screen)
+        screen, field = self._home(item.system, item.screen, item.field)
+        rel = self._page_rel(item.system, screen)
         if rel is None:
-            raise ValueError(f"The page {item.screen} is not in {item.system} any more.")
+            raise ValueError(f"The page {screen} is not in {item.system} any more.")
         data, sha = self.pom.load(item.system, rel)
         fields = data.setdefault("fields", {})
-        if item.field not in fields:
-            raise ValueError(f"{item.screen} has no field {item.field} any more.")
-        kept = {k: v for k, v in fields[item.field].items() if k not in LOCATOR_KEYS}
-        fields[item.field] = {**kept, **{k: v for k, v in item.new.items() if k in LOCATOR_KEYS}}
+        if field not in fields:
+            raise ValueError(f"{screen} has no field {field} any more.")
+        kept = {k: v for k, v in fields[field].items() if k not in LOCATOR_KEYS}
+        fields[field] = {**kept, **{k: v for k, v in item.new.items() if k in LOCATOR_KEYS}}
         self.pom.save(item.system, rel, data, sha)  # the edit history keeps the page as it was
         self._decide(key, "accepted", user)
         return item

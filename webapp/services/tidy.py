@@ -5,6 +5,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+from utils import page_components
 from webapp.services.pom_service import PomService
 from webapp.services.refactor import CLICK_TYPES, Plan, Refactor
 from webapp.services.test_case_service import TestCaseService
@@ -32,9 +33,16 @@ def _same(cfg: dict) -> str:
 
 
 def analyze(pom: PomService, tests: TestCaseService, system: str, page: str) -> list[Finding]:
-    configs = pom.field_configs(system, page)
+    data = pom.raw(system, page) or {}
+    own = data.get("fields") if isinstance(data.get("fields"), dict) else {}
+    configs = {k: v for k, v in own.items() if isinstance(v, dict)}  # its own: a component's are tidied there
     usage = UsageIndex(tests).scan(system)
     findings: list[Finding] = []
+    component = page_components.is_component(data)
+    where = pom.aliases(system, page) if component else {}
+
+    def used(name: str) -> bool:  # a component's field is used where the pages that use it are
+        return any(usage.field_uses(s, f) for s, f in where.get(name) or [(page, name)])
 
     redundant = [n for n, c in configs.items() if c.get("type") in CLICK_TYPES
                  and str(c.get("autoGen", "")).strip().lower() == "click"]
@@ -52,9 +60,11 @@ def analyze(pom: PomService, tests: TestCaseService, system: str, page: str) -> 
         findings.append(Finding(
             f"duplicate-{n}", "duplicate", f"{len(names)} fields are exactly the same: {', '.join(names)}",
             f"Merge into '{names[0]}'. A step that uses several of them gets '{names[0]}', '{names[0]}|', "
-            f"'{names[0]}||' (the engine's way to use a field again).", names, True, False, names[0]))
+            f"'{names[0]}||' (the engine's way to use a field again)."
+            + (" A shared component's fields are merged by hand." if component else ""), names, not component,
+            False, names[0]))
 
-    unused = [n for n in configs if not usage.field_uses(page, n)]
+    unused = [n for n in configs if not used(n)]
     if unused:
         findings.append(Finding(
             "unused", "unused",

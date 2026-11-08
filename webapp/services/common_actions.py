@@ -174,7 +174,7 @@ class CommonActionService:
                 except (OSError, ValueError):
                     continue
                 out.setdefault(ref.rel.rsplit("/", 1)[-1].removesuffix(".json"), set()).update(
-                    (data.get("fields") or {}).keys())
+                    self.tests.pom.expanded_fields(system, data))
         return out
 
     # ───────────── write ─────────────

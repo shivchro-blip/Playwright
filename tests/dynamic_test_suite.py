@@ -18,6 +18,7 @@ import utils.retry_trace as retry_trace
 import utils.self_heal as self_heal
 import utils.step_events as step_events
 import utils.steps_v2 as steps_v2
+import utils.page_components as page_components
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -655,6 +656,11 @@ async def run_single_step(step, page, base_url, browser, systemConfig, dictionar
 
     with open(screen_config_path, "r", encoding="utf-8") as file:
         screen_config = json.load(file)
+    try:  # the shared components the page uses (utils/page_components.py)
+        screen_config = page_components.expand(screen_config, page_components.file_lookup(screen_config_cache))
+    except page_components.ComponentError as e:
+        await attach_allure_failure_details(page, step, name="POMFailure", extra_label=f"Page {screen_name}: {e}")
+        await addFail(f"Page {screen_name}: {e}")
 
     dynamic_page = DynamicPage(page, screen_name, screen_config, browser)
     await dynamic_page.navigate(base_url)
