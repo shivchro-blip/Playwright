@@ -10,6 +10,7 @@ from dotenv import dotenv_values
 
 from webapp.services.ai_assist import AIAssist
 from webapp.services.audit import AuditLog
+from webapp.services.automations import AutomationEngine, AutomationStore
 from webapp.services.common_actions import CommonActionService
 from webapp.services.data_sets import DataSetService
 from webapp.services import json_files
@@ -66,6 +67,7 @@ class Services:
     users: UserStore
     audit: AuditLog
     datasets: DataSetService
+    automations: AutomationEngine | None = None  # "when X, do Y" rules (webapp/services/automations.py); set below
 
 
     @property
@@ -273,7 +275,41 @@ def services() -> Services:
     svc.scheduler.credentials_for = lambda system, env, vault: svc.prepare_credentials(
         system, [env], use_vault=vault)[0]
     json_files.WRITE_LISTENERS.append(workspace_writes(runs.bus, s.workspace))
+    svc.automations = automation_engine(svc)
+    runs.bus.subscribe(svc.automations.on_event, ["run", "monitor", "deploy"])
     return svc
+
+
+def automation_engine(svc: Services) -> AutomationEngine:
+    """The automations engine with the app's own ways of starting runs and sending notifications."""
+    s = svc.settings
+
+    def start_tests(system: str, env: str, tags: list[str], trigger: str):
+        return svc.launch(system, env, tags, [], trigger=trigger)[0]
+
+    def start_journeys(system: str, ids: list[str], env: str, trigger: str):
+        ids = ids or [j.id for j in svc.journeys.store.list(system)]
+        return svc.start_journeys(system, ids, env, trigger=trigger)
+
+    def notify(rule, event: dict, channels: list[dict]) -> list[dict]:
+        from webapp.services.notifier import Message, build_message
+        run = svc.runs.get(str(event.get("id") or "")) if event.get("topic") == "run" else None
+        if run is not None:
+            msg = build_message(run, svc.runs.list(), s.resolved_public_url, rule.name)
+        else:
+            what = {"deploy": f"deploy {event.get('build') or ''} announced".replace("  ", " "),
+                    "monitor": ", ".join(f"{c.get('journey')} {c.get('state')}" for c in event.get("changes") or [])}
+            where = "/".join(x for x in (event.get("system"), event.get("env")) if x)
+            msg = Message(title=f"{rule.name}: {what.get(event.get('topic'), event.get('topic'))} on {where}",
+                          status="failed" if any(c.get("state") == "down" for c in event.get("changes") or [])
+                          else "passed", lines=[rule.summary], facts=[("Rule", rule.name), ("Where", where)],
+                          failed=[], url=s.resolved_public_url, data={"event": event.get("topic"), "rule": rule.id,
+                                                                      **{k: event.get(k) for k in ("system", "env",
+                                                                                                   "build", "by")}})
+        return svc.scheduler.notifier.send(msg, channels)
+
+    return AutomationEngine(AutomationStore(s.workspace), s.resolved_runs_dir.parent / "automations.jsonl",
+                            start_tests=start_tests, start_journeys=start_journeys, notify=notify)
 
 
 def workspace_writes(bus: EventBus, workspace: Path):
