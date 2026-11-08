@@ -1,6 +1,8 @@
 """Page shell: header with the main tabs. Each tab's content lives in its own module."""
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 from nicegui import background_tasks, ui
 
 from webapp.auth import guard, role_summary, ui_user
@@ -12,6 +14,7 @@ from webapp.ui.releases import ReleasesPanel
 from webapp.ui.runners_dialog import open_runners
 from webapp.ui.ai_panels import open_ai_settings
 from webapp.ui.automations import AutomationsPanel
+from webapp.ui.app_map import MapPanel
 from webapp.ui.confidence import ConfidencePanel
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
@@ -75,8 +78,8 @@ def register() -> None:
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
-        (control_tab, confidence_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, generator_tab, history_tab,
-         schedules_tab, automations_tab, help_tab) = tab_elems.values()
+        (control_tab, confidence_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, map_tab, generator_tab,
+         history_tab, schedules_tab, automations_tab, help_tab) = tab_elems.values()
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -180,6 +183,9 @@ def register() -> None:
                 MonitorsPanel(on_watch=watch)
             with ui.tab_panel(impact_tab).classes("any-app any-page"):
                 ImpactPanel(on_watch=watch)
+            with ui.tab_panel(map_tab).classes("any-app any-page"):
+                MapPanel(open_page=lambda system, page: run_command(SimpleNamespace(
+                    action="open_page", args={"system": system, "page": page})))
             with ui.tab_panel(generator_tab).classes("any-app any-page"):
                 panels["generator"] = GeneratorPanel(on_run=watch)
             with ui.tab_panel(history_tab).classes("any-app any-page"):

@@ -121,6 +121,13 @@
    }
   }
  },
+ "/api/v1/map/{system}": {
+  "get": {
+   "params": {
+    "system": true
+   }
+  }
+ },
  "/api/v1/me": {
   "get": {
    "params": {}

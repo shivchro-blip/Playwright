@@ -318,6 +318,16 @@ def write_run_report(run_id: str) -> dict:
     return {"url": f"/runs/{run.id}/report.html"}
 
 
+@routes.get("/map/{system}")
+def application_map(system: str) -> dict:
+    """The system's screens and how the tests move between them: per screen its test cases, journeys, latest results
+    per environment and state (untested, failing, new, tested); the moves with how many test cases make them."""
+    from webapp.services.app_map import map_for
+    if system not in services().systems.systems():
+        raise HTTPException(404, "No such system")
+    return map_for(services(), system).to_dict()
+
+
 @routes.get("/insights/flaky")
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""

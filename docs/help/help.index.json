@@ -26,6 +26,7 @@
   {"id": "system-data", "category": "Test framework", "title": "Systems, environments and login", "path": "framework/system-data.md", "tags": ["systemData", "login", "base_url"]},
   {"id": "common-actions", "category": "Test framework", "title": "Common actions and reusable tests", "path": "framework/common-actions.md", "tags": ["commonAction", "reuse"]},
   {"id": "page-components", "category": "Test framework", "title": "Shared page components", "path": "framework/page-components.md", "tags": ["component", "use", "shared", "reuse", "prefix", "within", "header", "address", "fields"]},
+  {"id": "application-map", "category": "Using the web app", "title": "Application map", "path": "web/application-map.md", "tags": ["map", "screens", "coverage", "untested", "heat", "transitions", "moves", "new"]},
   {"id": "explicit-steps", "category": "Test framework", "title": "Explicit steps and common action parameters", "path": "framework/explicit-steps.md", "tags": ["do", "steps", "v2", "explicit", "params", "with", "commonAction", "formData"]},
   {"id": "custom-fields", "category": "Test framework", "title": "Custom fields (CUSTOMFIELD_*)", "path": "framework/custom-fields.md", "tags": ["customfield", "random data"]},
   {"id": "executables", "category": "Test framework", "title": "Action types (executables)", "path": "framework/executables.md", "tags": ["action", "click", "fill", "confirmtext"]},
