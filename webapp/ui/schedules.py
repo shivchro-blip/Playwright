@@ -179,7 +179,9 @@ class SchedulesPanel:
         opts0 = existing.options if existing else {"headlessMode": True}
         channels0 = {c["type"]: c for c in (existing.channels if existing else [])}
 
-        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog any-details any-schedule").props(
+        # at the page's top level: the view that opened it refreshes on live updates, which would remove it
+        with ui.context.client.layout, ui.dialog() as dialog, \
+                ui.card().classes("any-app any-dialog any-details any-schedule").props(
                 f'role="dialog" aria-label="{"Edit schedule" if existing else "New schedule"}"'):
             with ui.element("div").classes("any-details-head"):
                 with ui.element("div").classes("min-w-0"):

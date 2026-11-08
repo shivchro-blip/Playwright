@@ -163,7 +163,8 @@ class MonitorsPanel:
             return
         channels0 = {c["type"]: c for c in (existing.channels if existing else [])}
         lookup = svc.monitors.notifier.lookup
-        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]").props(
+        # at the page's top level: the view that opened it refreshes on live updates, which would remove it
+        with ui.context.client.layout, ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]").props(
                 'role="dialog" aria-label="Monitor"'):
             text("h2", f"Edit {existing.name}" if existing else "New monitor", "any-title")
             name = ui.input("Name", value=existing.name if existing else "", placeholder="Production filings") \
