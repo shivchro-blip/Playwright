@@ -157,7 +157,8 @@ class JourneysPanel:
         options = self.svc.journeys.test_ids(self.system)
         chosen = list(existing.tests) if existing else []
         options = sorted(set(options) | set(chosen), key=str.casefold)
-        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]").props(
+        # at the page's top level: the view that opened it refreshes on live updates, which would remove it
+        with ui.context.client.layout, ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]").props(
                 'role="dialog" aria-label="Journey"'):
             text("h2", f"Edit {existing.name}" if existing else f"New journey in {self.system}", "any-title")
             name = ui.input("Name", value=existing.name if existing else "",
@@ -216,7 +217,8 @@ class JourneysPanel:
         if found is None:
             return
         j = found.journey
-        with ui.dialog() as dialog, ui.card().classes("any-app any-dialog any-details").props(
+        # at the page's top level: the view that opened it refreshes on live updates, which would remove it
+        with ui.context.client.layout, ui.dialog() as dialog, ui.card().classes("any-app any-dialog any-details").props(
                 'role="dialog" aria-label="Journey details" data-testid="journey-detail"'):
             with ui.element("div").classes("any-details-head"):
                 with ui.element("div").classes("min-w-0"):
