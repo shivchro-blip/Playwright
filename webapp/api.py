@@ -346,9 +346,10 @@ def make_plan(req: PlanRequest) -> dict:
 
 
 @routes.post("/plans/run", status_code=201)
-def run_plan(req: PlanRequest, user=require("run")) -> dict:
+def run_plan(req: PlanRequest, user=require("run", scoped=True)) -> dict:
     """Make the plan and start a run of its test cases. 409 when nothing is worth running or the queue is full."""
     from webapp.services.journeys import JourneyError
+    authorize(user, "run", req.system, req.env, "/plans/run")
     result = _plan(req)
     if not result.chosen:
         raise HTTPException(409, "Nothing in the plan: " + " ".join(result.notes))

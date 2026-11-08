@@ -74,7 +74,7 @@ def open_plan(system: str | None, env: str | None, on_started: Callable[[str], N
 
         def start() -> None:
             result = state["plan"]
-            if result is None or not result.chosen or not guard("run", "run a plan", system):
+            if result is None or not result.chosen or not guard("run", "run a plan", system, system=system, env=env):
                 return
             try:
                 started = svc.start_tests(system, result.test_ids, env, trigger="plan")
