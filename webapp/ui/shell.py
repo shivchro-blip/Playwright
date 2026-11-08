@@ -1,7 +1,7 @@
 """Page shell: header with the main tabs. Each tab's content lives in its own module."""
 from __future__ import annotations
 
-from nicegui import ui
+from nicegui import background_tasks, ui
 
 from webapp.auth import guard, ui_user
 from webapp.ui.activity import open_activity
@@ -11,6 +11,7 @@ from webapp.ui.monitors import MonitorsPanel
 from webapp.ui.releases import ReleasesPanel
 from webapp.ui.runners_dialog import open_runners
 from webapp.ui.ai_panels import open_ai_settings
+from webapp.ui.confidence import ConfidencePanel
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.help import HelpPanel
@@ -71,8 +72,8 @@ def register() -> None:
             with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
                 ui.label("API")
                 ui.icon(icon("external-link")).props('aria-hidden="true"')
-        (control_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, generator_tab, history_tab, schedules_tab,
-         help_tab) = tab_elems.values()
+        (control_tab, confidence_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, generator_tab, history_tab,
+         schedules_tab, help_tab) = tab_elems.values()
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -81,7 +82,8 @@ def register() -> None:
                 else:
                     tab.props(remove="aria-current")
 
-        async def on_tab(e) -> None:
+        def on_tab(e) -> None:
+            # not async: handled in order with the clicks that follow (a Generator section picked right away wins)
             mark_current(e.value)
             # the address follows the tab (#history), so a link or a reload lands on the same section; not before
             # the section the address asked for has been restored
@@ -91,7 +93,9 @@ def register() -> None:
                 if opening[0]:
                     opening[0] = False  # a jump opens its own target; this tab change was that jump's
                 else:
-                    await panels["generator"].show_default()
+                    gen = panels["generator"]
+                    gen.choose_default_section()
+                    background_tasks.create(gen.open_default_page(), name="generator-default-page")
 
         tabs.on_value_change(on_tab)
         mark_current("Control")
@@ -163,6 +167,8 @@ def register() -> None:
         with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent"):
             with ui.tab_panel(control_tab).classes("any-app"):
                 panels["control"] = ControlPanel()
+            with ui.tab_panel(confidence_tab).classes("any-app any-page"):
+                ConfidencePanel(go=go)
             with ui.tab_panel(journeys_tab).classes("any-app any-page"):
                 panels["journeys"] = JourneysPanel(on_watch=watch)
             with ui.tab_panel(releases_tab).classes("any-app any-page"):

@@ -1,4 +1,11 @@
 {
+ "/api/v1/confidence": {
+  "get": {
+   "params": {
+    "system": true
+   }
+  }
+ },
  "/api/v1/config": {
   "get": {
    "params": {}
