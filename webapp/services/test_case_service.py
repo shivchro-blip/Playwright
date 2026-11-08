@@ -10,6 +10,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from utils.steps_v2 import StepError, form_data, is_v2, to_v1
 from utils.data_sets import DataSetError, load_file, references
 from webapp.services.json_files import ConflictError, NAME_RE, PathError, read_json, safe_path, write_json
 from webapp.services.pom_service import PomService
@@ -202,7 +203,13 @@ class TestCaseService:
                     v.warnings.append(f"Step {n}: page '{target}' not found in Pages/{step_system}.")
                     continue
                 configs = self.pom.field_configs(step_system, target)
-                for key, value in (step.get("formData") or {}).items():
+                if is_v2(step):
+                    try:
+                        to_v1(step)
+                    except StepError as e:
+                        v.errors.append(f"Step {n}: {e}")
+                        continue
+                for key, value in form_data(step).items():
                     name = base_field(key)
                     if name not in configs and name not in custom and not name.startswith("CUSTOMFIELD_"):
                         v.warnings.append(f"Step {n}: field '{name}' is not on page '{target}'.")

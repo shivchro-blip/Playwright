@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
+from utils.steps_v2 import form_data
 from webapp.services.json_files import read_json
 from webapp.services.test_case_service import TestCaseService, base_field
 
@@ -89,8 +90,7 @@ def step_refs(step: dict) -> list[tuple[str, str | None]]:
     screen = step.get("screen")
     if isinstance(screen, str) and screen:
         refs.append((screen, None))
-        form = step.get("formData")
-        for key in form if isinstance(form, dict) else []:
+        for key in form_data(step):  # classic formData or a v2 "do" list
             refs.append((screen, base_field(str(key))))
     override = step.get("override")
     if isinstance(override, str) and override.count("|") >= 2:

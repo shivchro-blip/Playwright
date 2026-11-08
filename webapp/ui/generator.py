@@ -9,6 +9,7 @@ from typing import Callable
 
 from nicegui import ui
 
+from utils.steps_v2 import StepError, is_v2, to_v1, to_v2
 from webapp.services.json_files import ConflictError, PathError, safe_path
 from utils.data_sets import DataSetError
 from utils.data_sets import load_file as load_data_file
@@ -111,14 +112,21 @@ class StepModel:
     rows: list[FormRow] = field(default_factory=list)
     had_form: bool = False
     extra: dict = field(default_factory=dict)  # other step keys (override, loop, ...) kept as-is
+    v2: bool = False  # written as a steps-v2 "do" list (utils/steps_v2.py): edited as rows, saved back as v2
 
     @classmethod
     def from_step(cls, step: dict) -> "StepModel":
+        v2 = is_v2(step)
+        if v2:
+            try:
+                step = to_v1(step)
+            except StepError:
+                v2 = False  # a broken v2 step: shown as it is (the JSON view and the validator say what is wrong)
         kind = next((k for k in STEP_KINDS if k in step), "screen")
         form = step.get("formData")
         rows = [FormRow(k, value_kind(v), value_text(v, value_kind(v))) for k, v in (form or {}).items()]
         extra = {k: v for k, v in step.items() if k not in (kind, "formData")}
-        return cls(kind, str(step.get(kind, "")), rows, isinstance(form, dict), extra)
+        return cls(kind, str(step.get(kind, "")), rows, isinstance(form, dict), extra, v2)
 
     def to_step(self, n: int) -> dict:
         step: dict = {self.kind: self.target}
@@ -136,7 +144,7 @@ class StepModel:
                 except ValueError as e:
                     raise ValueError(f"Step {n}, field '{key}': invalid {row.kind} value ({e}).") from e
             step["formData"] = form
-        return step
+        return to_v2(step) if self.v2 else step
 
 
 class TestEditor:
@@ -296,6 +304,12 @@ class TestEditor:
                              "Quarantine: keep running it, but don't let its failures fail the run")
                 ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
                     .props('data-testid="tc-history"').classes("any-btn is-38").tooltip("Earlier versions of this file")
+                explicit = any(s.v2 for s in self.steps if s.kind == "screen")
+                ui.button("Steps: explicit" if explicit else "Steps: classic", icon=icon("list-checks"), color=None,
+                          on_click=lambda: self.set_format(not explicit)) \
+                    .props('data-testid="tc-format"').classes("any-btn is-38") \
+                    .tooltip("Classic: actions in formData, repeats as name|. Explicit: a plain list of actions "
+                             "(\"do\"). Both run the same; switching rewrites this test case when you Save.")
                 ui.button("Timeline", icon=icon("activity"), color=None,
                           on_click=lambda: open_timeline(str(self.meta.get("testCaseID") or ""), self.gen.system,
                                                          on_change=self.editor.refresh)) \
@@ -582,6 +596,16 @@ class TestEditor:
         self.code.on_value_change(lambda: self.touch())
 
     # ───── step / row actions ─────
+
+    def set_format(self, explicit: bool) -> None:
+        """Write the screen steps as explicit "do" lists or as classic formData (on the next Save)."""
+        for step in self.steps:
+            if step.kind == "screen":
+                step.v2 = explicit
+        self.touch()
+        self.editor.refresh()
+        ui.notify("Explicit steps: each action listed in order" if explicit else "Classic steps (formData)",
+                  type="info")
 
     def add_step(self, kind: str) -> None:
         self.steps.append(StepModel(kind, ""))

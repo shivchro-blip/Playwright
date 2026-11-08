@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable
 
+from utils.steps_v2 import form_data
 from webapp.services.json_files import NAME_RE, ConflictError, read_json, write_json
 from webapp.services.run_insights import FAILING, FINISHED_RUNS, PASSING
 from webapp.services.run_manager import query_runs
@@ -283,7 +284,7 @@ def coverage(journey: Journey, steps_of: Callable[[str], list[dict] | None],
             screen = step.get("screen")
             if isinstance(screen, str) and screen:
                 bucket = used.setdefault(screen, set())
-                for key in step.get("formData") or {} if isinstance(step.get("formData"), dict) else {}:
+                for key in form_data(step):  # classic formData or a v2 "do" list
                     bucket.add(base_field(str(key)))
             override = step.get("override")
             if isinstance(override, str) and override.count("|") >= 2:

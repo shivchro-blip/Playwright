@@ -17,6 +17,7 @@ import utils.checkpoints as checkpoints
 import utils.retry_trace as retry_trace
 import utils.self_heal as self_heal
 import utils.step_events as step_events
+import utils.steps_v2 as steps_v2
 from utils.auth_helper import login_if_needed
 from utils.errors import addFail, addWarn, allure_step, attach_allure_failure_details
 from utils.dictionary import Dictionary
@@ -508,6 +509,7 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
         if step_reporter:
             step_reporter.start(step_no, step)
         try:
+            step = steps_v2.to_v1(step)  # a v2 step ("do": [...]) runs as the classic step it means
             if "commonAction" in step:
                 commonAction = step["commonAction"]
                 allure.dynamic.feature(f"Common Action: {commonAction}")
@@ -515,7 +517,8 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
                 logger.info("Executing Common Action: %s", commonAction)
 
                 with allure.step(f"- Common Action: {commonAction} -"):
-                    comActSteps = commonActions.get(commonAction, {}).get("steps", [])
+                    # its own copy of the action's steps, with this call's parameters ("with") filled in
+                    comActSteps = steps_v2.expand_common(commonActions.get(commonAction, {}), step)
                     if not comActSteps:
                         logger.error("[ERROR] Common Action '%s' not found!", commonAction)
                         await attach_allure_failure_details(page, step, name="CommonActionFailure", extra_label="Common Action Not Found!")
