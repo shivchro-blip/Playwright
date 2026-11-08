@@ -81,7 +81,7 @@ class ReleasesPanel:
                                     _pill("failed", "evidence changed")
 
     async def new_check(self) -> None:
-        if not self.system or not guard("run", "check a release", self.system):
+        if not self.system or not guard("run", "check a release", self.system, system=self.system):
             return
         envs = self.svc.systems.environments(self.system)
         journeys = self.svc.journeys.store.list(self.system)

@@ -70,7 +70,7 @@ class StudioEditor:
         return page_url(login.base_url if login else "", page or {})
 
     async def open(self) -> None:
-        if self.busy or not guard("record", "open the Studio"):
+        if self.busy or not guard("record", "open the Studio", system=self.gen.system or None):
             return
         self.busy = True
         self.open_button.props("loading")
@@ -233,7 +233,7 @@ class StudioEditor:
             .props('data-testid="studio-save"').classes("any-primary")
 
     async def save(self) -> None:
-        if not guard("record", "save from the Studio"):
+        if not guard("record", "save from the Studio", system=self.gen.system or None):
             return
         svc, system = self.svc, self.gen.system
         login = svc.systems.login(system, self.env.value) if self.env.value else None
