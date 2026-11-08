@@ -36,10 +36,20 @@ def main() -> None:
     svc = services()
     s = svc.settings
 
-    if s.login_required and not any(u.role == "admin" and not u.disabled for u in svc.users.list()):
+    sso_admins = False
+    if s.sso_enabled:
+        from webapp.auth import sso_problem
+        from webapp.services.oidc import RoleMap
+        problem = sso_problem(s)
+        if problem:
+            raise SystemExit(f"Single sign-on is set up wrong: {problem}")
+        sso_admins = "admin" in RoleMap.parse(s.oidc_role_map).roles.values()
+    if s.login_required and not sso_admins and \
+            not any(u.role == "admin" and not u.disabled for u in svc.users.list()):
         raise SystemExit(f"Login is required (AUTOPLAY_AUTH_ENABLED or host {s.host!r}) but there is no admin "
                          f"in {s.resolved_users_file}. Create one with:\n"
-                         "  python -m webapp.users add <name> --role admin")
+                         "  python -m webapp.users add <name> --role admin\n"
+                         "or map an identity provider group to admin in AUTOPLAY_OIDC_ROLE_MAP.")
     # Order matters: install_auth's middleware must run after (inside) install_security's host/origin checks
     storage_secret = install_auth(app, s)
     install_security(app, s)

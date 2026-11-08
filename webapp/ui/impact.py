@@ -161,7 +161,9 @@ class ImpactPanel:
                  + " (system settings or a shared file changed).", "any-muted text-xs any-jr-pad")
 
     def run(self, env: str | None) -> None:
-        if not env or self.report is None or not guard("run", "run the impacted test cases", env):
+        if not env or self.report is None or not all(
+                guard("run", "run the impacted test cases", env, system=system, env=env)
+                for system in self.report.selection()):
             return
         try:
             runs = self.svc.impact.run(self.report, env)
