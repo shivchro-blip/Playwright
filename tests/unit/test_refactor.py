@@ -170,3 +170,22 @@ def test_tidy_finds_what_to_clean_and_the_plan_applies_it(ws):
     assert list(page["fields"]) == ["Name", "Save"] and "autoGen" not in page["fields"]["Save"]
     cases = load(root, "Tests", "SYS", "MasterRegressionSuite", "T.json")["testCases"]
     assert list(cases[0]["steps"][0]["formData"]) == ["Name", "Save", "Save|", "Save||"]
+
+
+def test_v2_steps_are_read_renamed_and_kept_v2(ws):
+    root, pom, tests = ws
+    path = root / "Tests" / "SYS" / "MasterRegressionSuite" / "V2.json"
+    w(path, {"testCases": [{"testCaseID": "TC-V2", "system": "SYS", "steps": [
+        {"screen": "Form", "do": [{"field": "Name", "value": "Ann"}, {"field": "Save", "click": True},
+                                  {"field": "Name", "value": "again"}]}]}]})
+    usage = UsageIndex(tests).scan("SYS")
+    assert "TC-V2" in {u.owner for u in usage.field_uses("Form", "Name")}  # v2 fields are seen like classic ones
+    r = Refactor(pom, tests)
+    r.rename_field("SYS", "Form", "Name", "FullName")
+    apply_plan(r.plan())
+    step = load(root, "Tests", "SYS", "MasterRegressionSuite", "V2.json")["testCases"][0]["steps"][0]
+    assert step == {"screen": "Form", "do": [{"field": "FullName", "value": "Ann"}, {"field": "Save", "click": True},
+                                             {"field": "FullName", "value": "again"}]}
+    with pytest.raises(RefactorError, match="still used"):
+        r2 = Refactor(pom, tests)
+        r2.remove_fields("SYS", "Form", ["Save"])

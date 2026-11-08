@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import os
 import re
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
+from utils.steps_v2 import StepError, form_data, is_v2, to_v1, to_v2
 from webapp.services.json_files import ConflictError, current_hash, read_json, safe_path, write_json
 from webapp.services.pom_service import PomService
 from webapp.services.test_case_service import TestCaseService
@@ -20,6 +22,28 @@ from webapp.services.usage import Source, iter_steps, list_sources
 CLICK_TYPES = {"button", "link", "checkbox", "radio", "table"}
 NAME_OK = re.compile(r"^[\w\-.]+$")
 PAGE_NAME_OK = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+
+@contextmanager
+def classic(step: dict):
+    """Let code that edits a classic step's formData edit a v2 step too: the step is turned into its classic form
+    for the block and back into v2 after it (steps v2 is lossless both ways). Other steps are left as they are."""
+    if not is_v2(step):
+        yield step
+        return
+    try:
+        v1 = to_v1(step)
+    except StepError:  # a broken v2 step: leave it for the validator to report
+        yield step
+        return
+    step.clear()
+    step.update(v1)
+    try:
+        yield step
+    finally:
+        v2 = to_v2(dict(step))
+        step.clear()
+        step.update(v2)
 
 
 class RefactorError(ValueError):
@@ -142,17 +166,18 @@ class Refactor:
         doc.data["fields"] = {(new if k == old else k): v for k, v in fields.items()}
         doc.changes += 1
         for step_doc, step in self._steps(system):
-            if step.get("screen") == page and isinstance(step.get("formData"), dict):
-                form = {}
-                for key, value in step["formData"].items():
-                    name, suffix = _split(str(key))
-                    if name == old:
-                        key = new + suffix
-                        step_doc.changes += 1
-                    form[key] = value
-                step["formData"] = form
-            if self._rename_override(step, page, old, None, new):
-                step_doc.changes += 1
+            with classic(step):  # a v2 step is renamed in its classic form, then written back as v2
+                if step.get("screen") == page and isinstance(step.get("formData"), dict):
+                    form = {}
+                    for key, value in step["formData"].items():
+                        name, suffix = _split(str(key))
+                        if name == old:
+                            key = new + suffix
+                            step_doc.changes += 1
+                        form[key] = value
+                    step["formData"] = form
+                if self._rename_override(step, page, old, None, new):
+                    step_doc.changes += 1
 
     def merge_fields(self, system: str, page: str, canonical: str, duplicates: list[str]) -> None:
         """Replace fields that are exactly the same as `canonical` by it. A step that uses several of them gets
@@ -166,30 +191,31 @@ class Refactor:
             raise RefactorError("Only fields with exactly the same settings can be merged.")
         dups = set(duplicates)
         for step_doc, step in self._steps(system):
-            if step.get("screen") == page and isinstance(step.get("formData"), dict):
-                produced: set[str] = set()
-                form = {}
-                touched = False
-                for key, value in step["formData"].items():
-                    name, suffix = _split(str(key))
-                    if name in dups or name == canonical:
-                        candidate = canonical + suffix
-                        while candidate in produced:
-                            if suffix.strip("|"):
-                                raise RefactorError(
-                                    f"{step_doc.label} uses {canonical!r} and its duplicates with repeat settings "
-                                    f"in one step ({key!r}); merge them by hand.")
-                            candidate += "|"
-                        touched = touched or candidate != key
-                        key = candidate
-                    produced.add(str(key))
-                    form[key] = value
-                if touched:
-                    step["formData"] = form
-                    step_doc.changes += 1
-            for d in dups:
-                if self._rename_override(step, page, d, None, canonical):
-                    step_doc.changes += 1
+            with classic(step):  # a v2 step is merged in its classic form, then written back as v2
+                if step.get("screen") == page and isinstance(step.get("formData"), dict):
+                    produced: set[str] = set()
+                    form = {}
+                    touched = False
+                    for key, value in step["formData"].items():
+                        name, suffix = _split(str(key))
+                        if name in dups or name == canonical:
+                            candidate = canonical + suffix
+                            while candidate in produced:
+                                if suffix.strip("|"):
+                                    raise RefactorError(
+                                        f"{step_doc.label} uses {canonical!r} and its duplicates with repeat settings "
+                                        f"in one step ({key!r}); merge them by hand.")
+                                candidate += "|"
+                            touched = touched or candidate != key
+                            key = candidate
+                        produced.add(str(key))
+                        form[key] = value
+                    if touched:
+                        step["formData"] = form
+                        step_doc.changes += 1
+                for d in dups:
+                    if self._rename_override(step, page, d, None, canonical):
+                        step_doc.changes += 1
         doc.data["fields"] = {k: v for k, v in fields.items() if k not in dups}
         doc.changes += 1
 
@@ -199,8 +225,8 @@ class Refactor:
         gone = set(names)
         for step_doc, step in self._steps(system):
             used = set()
-            if step.get("screen") == page and isinstance(step.get("formData"), dict):
-                used = {_split(str(k))[0] for k in step["formData"]} & gone
+            if step.get("screen") == page:
+                used = {_split(str(k))[0] for k in form_data(step)} & gone
             override = step.get("override")
             if isinstance(override, str) and override.count("|") >= 2:
                 p, f, _ = override.split("|", 2)

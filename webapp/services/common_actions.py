@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from utils.steps_v2 import StepError, form_data, is_v2, to_v1
 from webapp.services.json_files import ConflictError, PathError, read_json, safe_path, write_json
 from webapp.services.test_case_service import TestCaseService, base_field
 from webapp.services.usage import iter_steps, list_sources
@@ -123,8 +124,8 @@ class CommonActionService:
         """The values a test can change with an override: every field of every step's formData."""
         out = []
         for step in (action or {}).get("steps") or []:
-            if isinstance(step, dict) and isinstance(step.get("formData"), dict):
-                for key, value in step["formData"].items():
+            if isinstance(step, dict) and form_data(step):
+                for key, value in form_data(step).items():
                     out.append(Parameter(str(step.get("screen", "")), base_field(str(key)),
                                          value if isinstance(value, str) else repr(value)))
         return out
@@ -145,7 +146,13 @@ class CommonActionService:
             if not isinstance(screen, str) or not screen.strip():
                 result.errors.append(f'Step {n}: needs a "screen" (the page name).')
                 continue
-            form = step.get("formData", {})
+            if is_v2(step):
+                try:
+                    to_v1(step)
+                except StepError as e:
+                    result.errors.append(f"Step {n}: {e}")
+                    continue
+            form = form_data(step) if is_v2(step) else step.get("formData", {})
             if not isinstance(form, dict):
                 result.errors.append(f'Step {n}: "formData" must be an object.')
                 continue

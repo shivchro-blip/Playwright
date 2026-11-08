@@ -23,6 +23,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from utils.steps_v2 import form_data
 from webapp.services.json_files import WRITES, write_count
 from webapp.services.test_case_service import base_field
 from webapp.services.usage import Source, Usage, Use, iter_steps, list_sources, step_refs
@@ -159,8 +160,7 @@ class Snapshot:
             screen = step.get("screen")
             if isinstance(screen, str) and screen:
                 fp.pages.add(screen)
-                form = step.get("formData")
-                for key in form if isinstance(form, dict) else []:
+                for key in form_data(step):  # classic formData or a v2 "do" list
                     fp.fields.add((screen, base_field(str(key))))
             override = step.get("override")
             if isinstance(override, str) and override.count("|") >= 2:

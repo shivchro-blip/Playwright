@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
+from utils.steps_v2 import form_data
 from webapp.services.test_case_service import base_field
 
 SUITE = "MasterRegressionSuite"
@@ -278,8 +279,7 @@ def footprint(node: TestNode, model: Model) -> Footprint:
             screen = step.get("screen")
             if isinstance(screen, str) and screen:
                 fp.pages.add(screen)
-                form = step.get("formData")
-                for key in form if isinstance(form, dict) else []:
+                for key in form_data(step):  # classic formData or a v2 "do" list
                     fp.fields.add((screen, base_field(str(key))))
             override = step.get("override")
             if isinstance(override, str) and override.count("|") >= 2:
