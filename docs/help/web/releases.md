@@ -52,3 +52,31 @@ The call needs the *runner* role.
 - `GET /api/releases?system=` lists checks.
 - `GET /api/releases/<id>` returns the pack with its sign-offs and verification.
 - `POST /api/releases/<id>/signoff` signs off (*editor* role).
+
+## After each deploy (deploy-aware releases)
+
+Announce each deploy from your CI/CD pipeline and every deploy carries its own release check:
+
+```
+curl -X POST <app>/api/v1/deploys -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+     -d '{"system": "PORTAL", "env": "uat", "build": "482",
+          "repo": "acme/portal", "sha": "<commit>", "callback_url": "https://ci.example/hook"}'
+```
+
+AutoPlay then, on its own:
+
+1. runs the system's journeys on that environment (or only those listed in `journeys`);
+2. when the run finishes, makes a release check from that run's results (only results since the deploy count), named
+   after the system and build, created by "deploy";
+3. reports **GO** or **NO-GO**:
+   - to `callback_url`: a POST with the decision, its reasons, the run, the release check and a link to its report;
+   - with `repo` and `sha`: a GitHub commit status "AutoPlay release check", *pending* at once, then *success* or
+     *failure* with the first reason and a link to the evidence (needs `RELEASE_GITHUB_TOKEN` in `.env`, or the
+     `ISSUE_GITHUB_TOKEN` already set for filing bugs; `RELEASE_GITHUB_API_URL` for GitHub Enterprise);
+4. on GO, starts a check of each monitor watching that system and environment.
+
+The call answers at once with the deploy (status *running*); `GET /api/v1/deploys/{id}` follows it to *decided* (or
+*failed*, with the reason, also sent to the callback and as an *error* status). Automation rules waiting for a deploy
+fire on the same announcement. The **After each deploy** card on this tab lists recent deploys with their decision,
+release check and what was reported. Announcing needs a run permission for that system and environment.
+

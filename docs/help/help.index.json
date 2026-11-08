@@ -12,7 +12,7 @@
   {"id": "ci", "category": "Using the web app", "title": "Run in CI", "path": "web/ci.md", "tags": ["ci", "github actions", "pipeline", "headless", "cli", "exit code", "commit", "schedule"]},
   {"id": "confidence", "category": "Using the web app", "title": "Confidence", "path": "web/confidence.md", "tags": ["confidence", "release", "safe", "ready", "blocked", "risk", "verdict", "journeys", "monitors"]},
   {"id": "journeys", "category": "Using the web app", "title": "Journeys", "path": "web/journeys.md", "tags": ["journey", "business transaction", "coverage", "status", "criticality"]},
-  {"id": "releases", "category": "Using the web app", "title": "Release checks", "path": "web/releases.md", "tags": ["release", "go", "no-go", "evidence", "sign-off", "gate"]},
+  {"id": "releases", "category": "Using the web app", "title": "Release checks", "path": "web/releases.md", "tags": ["deploy", "pipeline", "commit status", "callback", "release", "go", "no-go", "evidence", "sign-off", "gate"]},
   {"id": "monitoring", "category": "Using the web app", "title": "Monitoring", "path": "web/monitoring.md", "tags": ["monitor", "production", "uptime", "incident", "alert", "synthetic"]},
   {"id": "change-impact", "category": "Using the web app", "title": "Change impact", "path": "web/change-impact.md", "tags": ["impact", "change", "diff", "git", "affected", "selection", "which tests"]},
   {"id": "control-plane", "category": "Using the web app", "title": "Control plane: many teams, one view", "path": "web/control-plane.md", "tags": ["tenant", "multi-tenant", "teams", "portfolio", "control plane", "isolation"]},

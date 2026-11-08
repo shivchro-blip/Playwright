@@ -339,6 +339,51 @@ def run_causes(run_id: str) -> dict:
     return {**summary(groups), "items": [g.to_dict() for g in groups]}
 
 
+class DeployAnnouncement(BaseModel):
+    system: str
+    env: str
+    build: str = ""
+    by: str = ""
+    journeys: list[str] = []  # empty: all of the system's journeys
+    callback_url: str = ""  # POSTed the decision when it is made
+    repo: str = ""  # owner/repo and commit: a GitHub commit status (pending, then GO / NO-GO)
+    sha: str = ""
+
+
+@routes.post("/deploys", status_code=202)
+def announce_release_deploy(req: DeployAnnouncement, user=require("run", scoped=True)) -> dict:
+    """After a deploy: run the journeys on that environment, then make a release check from that run, report GO or
+    NO-GO (callback_url, GitHub commit status) and, on GO, start the environment's monitor checks. Returns the
+    deploy at once (status "running"); GET /deploys/{id} follows it. Automation rules waiting for a deploy fire too."""
+    from webapp.services.deploys import DeployError
+    authorize(user, "run", req.system, req.env, "/deploys")
+    svc = services()
+    if req.env not in svc.systems.environments(req.system):
+        raise HTTPException(400, f"{req.system} has no environment {req.env!r} in systemData.json")
+    try:
+        deploy = svc.deploys.start(req.system, req.env, build=req.build, by=req.by or user.username,
+                                   journeys=req.journeys, callback_url=req.callback_url, repo=req.repo, sha=req.sha)
+    except DeployError as e:
+        raise HTTPException(400, str(e)) from e
+    svc.audit.record(user.username, "deploy.announce", deploy.id, system=req.system, env=req.env, build=req.build,
+                     run=deploy.run_id, via="api")
+    return deploy.to_dict()
+
+
+@routes.get("/deploys")
+def list_deploys(limit: int = 50) -> list[dict]:
+    """Recent deploys, newest first, with their run, decision, release check and what was reported."""
+    return [d.to_dict() for d in services().deploys.store.list(max(1, min(limit, 200)))]
+
+
+@routes.get("/deploys/{deploy_id}")
+def get_deploy(deploy_id: str) -> dict:
+    deploy = services().deploys.store.get(deploy_id)
+    if deploy is None:
+        raise HTTPException(404, "No such deploy")
+    return deploy.to_dict()
+
+
 @routes.get("/insights/flaky")
 def list_flaky(system: str, env: str | None = None) -> list[dict]:
     """Tests that passed and failed in their recent runs, changing result at least twice."""

@@ -45,6 +45,50 @@ class ReleasesPanel:
                              "must be proven working on the environment. The evidence is kept and signed, and people "
                              "approve or reject it.").classes("any-muted text-sm")
                 self.body()
+            self.deploys()
+        from webapp.ui.live import live
+        live(self.svc.bus, ["run", "deploy"], self.deploys.refresh,
+             when=lambda e: e["topic"] == "deploy" or str(e.get("trigger") or "").startswith("deploy:"))
+
+    @ui.refreshable_method
+    def deploys(self) -> None:
+        """Deploys announced by CI/CD, each with its run, decision and release check (webapp/services/deploys.py)."""
+        items = self.svc.deploys.store.list(15) if self.svc.deploys else []
+        url = (self.svc.settings.resolved_public_url or "http://<host>:8080").rstrip("/")
+        with ui.element("section").classes("any-card").props('aria-label="Deploys" data-testid="deploys"'):
+            with ui.element("div").classes("any-card-head"):
+                with ui.element("div").classes("any-head-left"):
+                    text("h2", "After each deploy", "any-title")
+                    text("span", str(len(items)), "any-count-pill")
+            ui.label("Announce each deploy from your pipeline: the journeys run on that environment, a release check "
+                     "is made from that run, GO or NO-GO goes back to the pipeline (and to the commit on GitHub), "
+                     "and on GO the environment's monitors check it.").classes("any-muted text-sm px-4")
+            text("pre", f'curl -X POST {url}/api/v1/deploys -H "Authorization: Bearer <token>" '
+                        '-H "Content-Type: application/json" -d \'{"system": "PORTAL", "env": "uat", "build": "482", '
+                        '"repo": "acme/portal", "sha": "<commit>", "callback_url": "https://ci.example/hook"}\'',
+                 "any-code mx-4")
+            if not items:
+                ui.label("No deploys yet.").classes("any-muted p-4")
+                return
+            with ui.element("ul").classes("any-auto-recent px-4"):
+                for d in items:
+                    with ui.element("li").props(f'data-deploy="{d.id}" data-status="{d.status}"'):
+                        text("span", d.at.replace("T", " ")[:16], "any-muted text-xs")
+                        text("span", f"{d.system} / {d.env}" + (f" · build {d.build}" if d.build else ""),
+                             "any-auto-name")
+                        if d.status == "running":
+                            text("span", f"running {d.run_id}", "any-tag")
+                        elif d.status == "failed":
+                            text("span", f"failed: {d.error}", "any-tag is-failed")
+                        else:
+                            text("span", "GO" if d.decision == "go" else "NO-GO",
+                                 "any-pill " + ("pill-passed" if d.decision == "go" else "pill-failed"))
+                            text("span", f"release check {d.release_id}", "any-muted text-sm mono")
+                        for r in d.reported:
+                            text("span", f"{r['to']}: {'sent' if r['ok'] else r['detail']}",
+                                 "any-tag" + ("" if r["ok"] else " is-failed"))
+                        if d.monitors:
+                            text("span", f"monitors checking: {', '.join(d.monitors)}", "any-muted text-xs")
 
     @ui.refreshable_method
     def body(self) -> None:
