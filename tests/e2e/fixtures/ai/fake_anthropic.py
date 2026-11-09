@@ -24,6 +24,10 @@ CANNED = {
                      "tags": ["smoke"], "steps": [{"kind": "screen", "target": "SmokeHome", "form_data": [
                          {"field": "searchBox", "value": "shoes"}, {"field": "notes", "value": None}]}],
                      "notes": ["Assumed the search box is on SmokeHome."]},
+    "resolutions": {"resolutions": [{"line": "Look for shoes", "page": "SmokeHome", "field": "searchBox",
+                                     "action": "fill", "value": "shoes"},
+                                    {"line": "Make up a field", "page": "SmokeHome", "field": "noSuchField",
+                                     "action": "click", "value": None}]},
     "headline": {"headline": "All smoke tests passed.", "paragraphs": ["Both checks ran in Chromium and passed."],
                  "action_items": ["Nothing to do."]},
 }
