@@ -24,6 +24,7 @@ from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.studio import StudioEditor
 from webapp.ui.identity_dialog import health_label, open_identity, open_learn
+from webapp.ui.intent_dialog import open_intent_dialog
 from webapp.ui.timeline_dialog import open_timeline
 from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
@@ -397,6 +398,10 @@ class TestEditor:
                                         ("testCase", "Reusable test")):
                         ui.button(label, icon=icon("plus"), color=None, on_click=lambda k=kind: self.add_step(k)) \
                             .classes("any-btn is-32")
+                    ui.button("Plain words", icon=icon("pencil"), color=None,
+                              on_click=lambda: open_intent_dialog(self)) \
+                        .props('data-testid="intent-open"').classes("any-btn is-32") \
+                        .tooltip("Write steps in your own words; they become steps on the pages' real fields")
             if not self.steps:
                 ui.label("No steps yet.").classes("any-muted text-sm")
             for i, step in enumerate(self.steps):

@@ -28,6 +28,34 @@ A variable that is **not** set in `.env` or the environment gets a box: type the
 
 Preview of what will run: test case, tags, file and step count. **Selected only** hides tests that do not match the tags. Duplicate test IDs are flagged.
 
+## Run what matters (Plan)
+
+**Plan** (next to Run) picks the test cases worth running in the time you have, on the chosen system and
+environment, and says why each one is in or left out:
+
+| Risk | Why it counts |
+|---|---|
+| The change breaks it / reaches it | With **Change since** a git commit or branch: the test cases the change reaches (see Change impact) |
+| Critical journey | Always in, even past the budget: the plan says when they alone go over it |
+| High journey, journey | Business weight from Journeys |
+| Failed in its last run | On this environment |
+| Flaky lately | Its result changed back and forth in recent runs |
+| Never run here / not run for days | Unknown risk |
+
+After the critical journeys' test cases, the rest are taken by risk per second of run time until the budget is spent;
+a test case's time is its median duration in recent runs (or the system's typical test time when it has none).
+**Left out** lists the rest with the reason ("over the budget", "nothing points to a risk"), and a risky test case
+that did not fit is named at the top. **Run these N** starts a run of exactly the planned test cases.
+
+From CI, for a pull request within a time budget:
+
+```
+curl -X POST <app>/api/v1/plans/run -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+     -d '{"system": "PORTAL", "env": "uat", "budget_minutes": 10, "base": "origin/main"}'
+```
+
+`POST /api/v1/plans` returns the plan without running it.
+
 ## Current run
 
 - Status badge, progress bar and per-status counts.
