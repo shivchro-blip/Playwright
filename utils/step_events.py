@@ -59,11 +59,14 @@ class StepReporter:
         self._started[step_no] = time.monotonic()
         _write({**self._base(step_no, step), "phase": "start"})
 
-    def end(self, step_no: int, step: dict, error: BaseException | None = None) -> None:
+    def end(self, step_no: int, step: dict, error: BaseException | None = None) -> dict:
+        """Write the step's end; returns the event (n, kind, label, status, seconds, error)."""
         seconds = round(time.monotonic() - self._started.pop(step_no, time.monotonic()), 2)
         message = ""
         if error is not None:
             message = str(getattr(error, "msg", "") or error).strip().splitlines()
             message = message[0][:ERROR_CHARS] if message else type(error).__name__
-        _write({**self._base(step_no, step), "phase": "end", "status": "failed" if error else "passed",
-                "seconds": seconds, "error": message})
+        record = {**self._base(step_no, step), "phase": "end", "status": "failed" if error else "passed",
+                  "seconds": seconds, "error": message}
+        _write(record)
+        return record

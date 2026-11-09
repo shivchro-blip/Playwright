@@ -230,6 +230,10 @@ class ControlPanel:
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
                         self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
                             .props('data-testid="sw-a11y"')
+                        self.step_capture = ui.switch("Step pictures", value=_truthy(cfg["stepCapture"])) \
+                            .props('data-testid="sw-steps"') \
+                            .tooltip("Save the page after each step, to scrub through and compare with the last "
+                                     "pass in a test's details")
                         self.heal = ui.switch("Self-heal locators", value=_truthy(cfg["selfHeal"])) \
                             .props('data-testid="sw-heal"') \
                             .tooltip("When a locator finds nothing, use the element that best matches it, and list "
@@ -668,6 +672,7 @@ class ControlPanel:
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
             "a11yScan": bool(self.a11y.value),
+            "stepCapture": bool(self.step_capture.value),
             "selfHeal": bool(self.heal.value),
             "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
