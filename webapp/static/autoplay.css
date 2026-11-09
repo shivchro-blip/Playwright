@@ -871,6 +871,15 @@
 .any-comp-fields { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .any-tag.is-replaced { text-decoration: line-through; opacity: .6; }
 
+/* Failure intelligence: why a run failed */
+.any-causes { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.any-cause { padding: 10px 12px; border: 1px solid var(--border); border-left: 3px solid var(--fail); border-radius: 8px; background: var(--surface-subtle); display: flex; flex-direction: column; gap: 6px; }
+.any-cause-title { font-weight: 600; color: var(--ink); }
+.any-cause-why { margin: 0; padding-left: 18px; color: var(--ink); font-size: 13px; }
+.any-cause-fix { font-size: 13px; color: var(--ink); }
+.any-cause-fix::before { content: "Try: "; font-weight: 600; }
+.any-cause pre.any-code { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px var(--font-mono, ui-monospace, monospace); margin: 0; }
+
 /* Step time travel (Test details > Step by step) */
 .any-travel { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
 .any-travel-diffs { list-style: none; margin: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-left: 3px solid var(--warn, #b45309); border-radius: 8px; }

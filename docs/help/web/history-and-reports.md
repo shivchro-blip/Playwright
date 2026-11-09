@@ -27,6 +27,29 @@ A failed test names where it failed: the screen, the action and the field (for e
 - at the top of the test's details (click the row), as a trail of steps with the screenshot taken at that moment;
 - in the built-in report: under each failed test, and a **Failures by screen** table, because several failures on one screen usually have one cause.
 
+## Why it failed (failures grouped by cause)
+
+A run's details open with **Why it failed** when tests failed. Failures that have the same cause are one group:
+"12 tests fail on Applicant > zip: element not found in time" is one fix, not twelve failures to read. The cause is
+where the test failed (the screen and field of the failing step) and the kind of error (element not found in time,
+several elements match, hidden or disabled, expected text missing, page or field missing, site unreachable, sign-in
+failed, test data, a failed check, or the error's first line with the changing parts taken out).
+
+Each group says what the evidence points to:
+
+- **One field in many tests**: fix the locator on the page once.
+- **Only one environment**: the same tests pass in another environment, so look at the environment, its data or its
+  latest deploy before the tests.
+- **New since a run**: the tests passed in the run before it. The page and test case files edited after that last
+  passing run are listed with when they were saved.
+- **Comes and goes**: the tests also passed in between (flaky, or timing), or **failing in every recent run**.
+
+A **Try** line suggests the next step, and **Error** shows one of the messages. Every test of the group is listed.
+The groups use what runs already keep, so they work on earlier runs too.
+
+From scripts: `GET /api/v1/runs/{id}/causes` (one run) and `GET /api/v1/insights/failures?system=S&env=E&runs=10`
+(the latest finished runs of a system, grouped across runs).
+
 ## Allure reports
 
 Install the Allure CLI (needs Java), for example:

@@ -1,9 +1,9 @@
 [
   {"id": "getting-started", "category": "Using the web app", "title": "Getting started", "path": "web/getting-started.md", "tags": ["setup", "start", "workspace", "search", "shortcut", "ctrl+k", "palette"]},
-  {"id": "control-tab", "category": "Using the web app", "title": "Control tab", "path": "web/control-tab.md", "tags": ["run", "tags", "browsers", "credentials"]},
+  {"id": "control-tab", "category": "Using the web app", "title": "Control tab", "path": "web/control-tab.md", "tags": ["run", "tags", "browsers", "credentials", "plan", "budget", "risk", "what matters", "pull request"]},
   {"id": "generator-tab", "category": "Using the web app", "title": "Generator tab", "path": "web/generator-tab.md", "tags": ["edit", "test case", "page", "pom", "recorder", "codegen", "data set", "test data"]},
   {"id": "studio", "category": "Using the web app", "title": "Studio", "path": "web/studio.md", "tags": ["studio", "live", "author", "pick", "element", "step", "record", "create test"]},
-  {"id": "history-and-reports", "category": "Using the web app", "title": "History and reports", "path": "web/history-and-reports.md", "tags": ["allure", "report", "history", "video", "trace", "index", "api", "events", "live", "timeline", "step", "pictures", "time travel", "screenshot", "last pass"]},
+  {"id": "history-and-reports", "category": "Using the web app", "title": "History and reports", "path": "web/history-and-reports.md", "tags": ["allure", "report", "history", "video", "trace", "index", "api", "events", "live", "timeline", "why", "cause", "failures", "group", "triage", "step", "pictures", "time travel", "screenshot", "last pass"]},
   {"id": "team", "category": "Using the web app", "title": "Accounts, roles and the audit trail", "path": "web/team.md", "tags": ["login", "users", "roles", "token", "audit", "activity", "queue", "security", "sso", "oidc", "single sign-on", "grant", "environment", "prod"]},
   {"id": "api", "category": "Using the web app", "title": "The API (v1)", "path": "web/api.md", "tags": ["api", "v1", "rest", "curl", "scripts", "ci", "token"]},
   {"id": "ai-assist", "category": "Using the web app", "title": "AI assist", "path": "web/ai-assist.md", "tags": ["ai", "claude", "triage", "locator", "draft", "summary", "anthropic"]},
