@@ -49,6 +49,7 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("selfHeal", "bool", "false", "Artifacts", "Self-heal locators that find nothing"),
     EnvField("selfHealMinScore", "int", "60", "Debug", "Lowest score a healed locator may have"),
     EnvField("a11yScan", "bool", "false", "Artifacts", "Accessibility scan of each screen"),
+    EnvField("stepCapture", "bool", "false", "Artifacts", "Step pictures: the page after each step (time travel)"),
     EnvField("del_allure", "bool", "true", "Artifacts", "Clear old Allure results"),
     EnvField("LOG_LEVEL", "choice", "INFO", "Logging", "Log level", LEVELS),
     EnvField("TestSuiteLoggerLevel", "choice", "INFO", "Logging", "Suite logger", LEVELS),

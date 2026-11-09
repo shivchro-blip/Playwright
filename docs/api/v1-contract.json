@@ -98,6 +98,15 @@
    }
   }
  },
+ "/api/v1/insights/failures": {
+  "get": {
+   "params": {
+    "env": false,
+    "runs": false,
+    "system": true
+   }
+  }
+ },
  "/api/v1/insights/flaky": {
   "get": {
    "params": {
@@ -215,6 +224,30 @@
    }
   }
  },
+ "/api/v1/plans": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "budget_minutes": false,
+    "env": true,
+    "head": false,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/plans/run": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "budget_minutes": false,
+    "env": true,
+    "head": false,
+    "system": true
+   }
+  }
+ },
  "/api/v1/releases": {
   "get": {
    "params": {
@@ -298,6 +331,13 @@
  },
  "/api/v1/runs/{run_id}/cancel": {
   "post": {
+   "params": {
+    "run_id": true
+   }
+  }
+ },
+ "/api/v1/runs/{run_id}/causes": {
+  "get": {
    "params": {
     "run_id": true
    }

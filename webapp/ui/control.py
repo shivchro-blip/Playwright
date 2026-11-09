@@ -18,6 +18,7 @@ from webapp.ui.components import (
 from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.test_details import open_test_details, result_rows
+from webapp.ui.plan_dialog import open_plan
 from webapp.ui.theme import icon, svg
 
 BROWSERS = ["chrome", "msedge", "chromium", "firefox", "webkit"]
@@ -229,6 +230,10 @@ class ControlPanel:
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
                         self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
                             .props('data-testid="sw-a11y"')
+                        self.step_capture = ui.switch("Step pictures", value=_truthy(cfg["stepCapture"])) \
+                            .props('data-testid="sw-steps"') \
+                            .tooltip("Save the page after each step, to scrub through and compare with the last "
+                                     "pass in a test's details")
                         self.heal = ui.switch("Self-heal locators", value=_truthy(cfg["selfHeal"])) \
                             .props('data-testid="sw-heal"') \
                             .tooltip("When a locator finds nothing, use the element that best matches it, and list "
@@ -312,6 +317,11 @@ class ControlPanel:
                         self.f_runs_word = text("span", "")
                 with ui.element("div").classes("any-launch-right"):
                     self.run_helper = ui.label("Select at least one test and one browser").classes("any-helper")
+                    ui.button("Plan", icon=icon("list-checks"), color=None,
+                              on_click=lambda: open_plan(self.system_select.value, self.env_select.value,
+                                                         self.view_run)) \
+                        .props('flat unelevated no-caps data-testid="plan-open"').classes("any-btn is-38") \
+                        .tooltip("Run what matters: the test cases worth running in the time you have")
                     with ui.button(on_click=self.start_run, color=None) \
                             .props('unelevated no-caps data-testid="run-button"') \
                             .classes("any-run") as self.run_button:
@@ -662,6 +672,7 @@ class ControlPanel:
             "tracing": bool(self.tracing.value),
             "snapshots": bool(self.snapshots.value),
             "a11yScan": bool(self.a11y.value),
+            "stepCapture": bool(self.step_capture.value),
             "selfHeal": bool(self.heal.value),
             "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
