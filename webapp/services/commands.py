@@ -19,6 +19,7 @@ TABS = [
     ("Releases", "shield", "go no-go evidence release check"),
     ("Monitors", "activity", "production uptime incidents"),
     ("Impact", "git-compare", "change diff affected tests"),
+    ("Map", "app-window", "application map screens coverage untested heat transitions"),
     ("Generator", "list-plus", "editor test cases pages data sets common actions record"),
     ("History", "history", "runs results reports flaky heals"),
     ("Schedules", "calendar-clock", "cron nightly timer"),

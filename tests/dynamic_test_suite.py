@@ -17,6 +17,7 @@ import utils.checkpoints as checkpoints
 import utils.retry_trace as retry_trace
 import utils.self_heal as self_heal
 import utils.step_events as step_events
+import utils.step_capture as step_capture
 import utils.steps_v2 as steps_v2
 import utils.page_components as page_components
 from utils.auth_helper import login_if_needed
@@ -632,10 +633,17 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
 
         except BaseException as step_error:  # a failure stops the test here: say which step it was
             if step_reporter:
-                step_reporter.end(step_no, step, step_error)
+                record = step_reporter.end(step_no, step, step_error)
+                if step_capture.enabled() and not isinstance(step_error, (KeyboardInterrupt, SystemExit,
+                                                                          asyncio.CancelledError)):
+                    await step_capture.capture(step_reporter.nodeid, record["n"], record["kind"], record["label"],
+                                               page, "failed", record["seconds"], record["error"])
             raise
         if step_reporter:
-            step_reporter.end(step_no, step)
+            record = step_reporter.end(step_no, step)
+            if step_capture.enabled():  # what the page looked like after the step (utils/step_capture.py)
+                await step_capture.capture(step_reporter.nodeid, record["n"], record["kind"], record["label"], page,
+                                           "passed", record["seconds"])
         if after_step:
             await after_step(step_no, page)
     return page

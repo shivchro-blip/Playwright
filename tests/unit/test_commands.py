@@ -39,7 +39,7 @@ def test_everything_is_offered_with_what_to_do():
 
 def test_empty_query_lists_sections_and_latest_runs():
     found = rank("", build(snapshot(), runs()))
-    assert [c.kind for c in found][:11] == ["tab"] * 11 and found[11].kind == "run"
+    assert [c.kind for c in found][:12] == ["tab"] * 12 and found[12].kind == "run"
 
 
 def test_ranking_prefers_exact_then_start_then_word_start():

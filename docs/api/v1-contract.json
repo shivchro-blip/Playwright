@@ -130,6 +130,13 @@
    }
   }
  },
+ "/api/v1/map/{system}": {
+  "get": {
+   "params": {
+    "system": true
+   }
+  }
+ },
  "/api/v1/me": {
   "get": {
    "params": {}
@@ -214,6 +221,30 @@
    "body": {
     "data": true,
     "hash": false
+   }
+  }
+ },
+ "/api/v1/plans": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "budget_minutes": false,
+    "env": true,
+    "head": false,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/plans/run": {
+  "post": {
+   "params": {},
+   "body": {
+    "base": false,
+    "budget_minutes": false,
+    "env": true,
+    "head": false,
+    "system": true
    }
   }
  },
