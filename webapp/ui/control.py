@@ -18,6 +18,7 @@ from webapp.ui.components import (
 from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.test_details import open_test_details, result_rows
+from webapp.ui.plan_dialog import open_plan
 from webapp.ui.theme import icon, svg
 
 BROWSERS = ["chrome", "msedge", "chromium", "firefox", "webkit"]
@@ -312,6 +313,11 @@ class ControlPanel:
                         self.f_runs_word = text("span", "")
                 with ui.element("div").classes("any-launch-right"):
                     self.run_helper = ui.label("Select at least one test and one browser").classes("any-helper")
+                    ui.button("Plan", icon=icon("list-checks"), color=None,
+                              on_click=lambda: open_plan(self.system_select.value, self.env_select.value,
+                                                         self.view_run)) \
+                        .props('flat unelevated no-caps data-testid="plan-open"').classes("any-btn is-38") \
+                        .tooltip("Run what matters: the test cases worth running in the time you have")
                     with ui.button(on_click=self.start_run, color=None) \
                             .props('unelevated no-caps data-testid="run-button"') \
                             .classes("any-run") as self.run_button:
