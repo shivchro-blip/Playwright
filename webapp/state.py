@@ -68,6 +68,7 @@ class Services:
     audit: AuditLog
     datasets: DataSetService
     automations: AutomationEngine | None = None  # "when X, do Y" rules (webapp/services/automations.py); set below
+    deploys: object | None = None  # deploy-aware releases (webapp/services/deploys.py); set below
 
 
     @property
@@ -277,7 +278,39 @@ def services() -> Services:
     json_files.WRITE_LISTENERS.append(workspace_writes(runs.bus, s.workspace))
     svc.automations = automation_engine(svc)
     runs.bus.subscribe(svc.automations.on_event, ["run", "monitor", "deploy"])
+    svc.deploys = deploy_flow(svc)
+    runs.bus.subscribe(svc.deploys.on_event, ["run"])
     return svc
+
+
+def deploy_flow(svc: Services):
+    """Deploy-aware releases with the app's runs, release checks, monitors and .env (webapp/services/deploys.py)."""
+    from webapp.services.deploys import DeployFlow, DeployStore, http_post
+    from webapp.services.releases import Policy
+    s = svc.settings
+
+    def start_journeys(system: str, ids: list[str], env: str, trigger: str):
+        ids = ids or [j.id for j in svc.journeys.store.list(system)]
+        return svc.start_journeys(system, ids, env, trigger=trigger)
+
+    def make_release(deploy) -> dict:
+        name = f"{deploy.system} {deploy.build or deploy.at.replace('T', ' ')[:16]} deploy"[:80]
+        return svc.releases.create(name, deploy.system, deploy.env, deploy.journeys or None,
+                                   Policy(since=deploy.at), "deploy" + (f" by {deploy.by}" if deploy.by else ""))
+
+    def check_monitors(system: str, env: str) -> list[str]:
+        started = []
+        for m in svc.monitors.store.list():
+            if m.system == system and m.env == env and m.enabled and svc.monitors.check_now(m.id) is not None:
+                started.append(m.id)
+        return started
+
+    return DeployFlow(DeployStore(s.resolved_runs_dir.parent / "deploys.json"), start_journeys=start_journeys,
+                      make_release=make_release,
+                      report_url=lambda pack: f"{s.resolved_public_url}/api/v1/releases/{pack['id']}/report",
+                      post=http_post, lookup=_github_lookup(svc),
+                      check_monitors=check_monitors,
+                      publish=svc.runs.bus.publish)
 
 
 def automation_engine(svc: Services) -> AutomationEngine:
@@ -323,3 +356,9 @@ def workspace_writes(bus: EventBus, workspace: Path):
             return  # not a workspace file (e.g. the runners or users list)
         bus.publish("workspace", path=rel, folder=rel.split("/", 1)[0])
     return published
+
+
+def _github_lookup(svc: Services):
+    """RELEASE_GITHUB_* keys, falling back to ISSUE_GITHUB_* (the same token often serves both)."""
+    release, issue = prefixed_lookup(svc.env, "RELEASE_GITHUB_"), prefixed_lookup(svc.env, "ISSUE_GITHUB_")
+    return lambda key: release(key) if key.startswith("RELEASE_GITHUB_") else issue(key)

@@ -52,6 +52,33 @@
    }
   }
  },
+ "/api/v1/deploys": {
+  "get": {
+   "params": {
+    "limit": false
+   }
+  },
+  "post": {
+   "params": {},
+   "body": {
+    "build": false,
+    "by": false,
+    "callback_url": false,
+    "env": true,
+    "journeys": false,
+    "repo": false,
+    "sha": false,
+    "system": true
+   }
+  }
+ },
+ "/api/v1/deploys/{deploy_id}": {
+  "get": {
+   "params": {
+    "deploy_id": true
+   }
+  }
+ },
  "/api/v1/events": {
   "get": {
    "params": {
