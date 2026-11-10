@@ -1,0 +1,222 @@
+"""Failure details for one test of a run: error, traceback, screenshots, DOM snapshot, trace, video, log.
+
+Opened from the results tables (Control and History). Everything shown comes from the run's own files;
+attachment text is rendered as text, and HTML snapshots open in a new tab that the app serves sandboxed.
+"""
+from __future__ import annotations
+
+from nicegui import ui
+
+from webapp.services.run_artifacts import TestDetails
+from webapp.services.run_insights import trends
+from webapp.services.run_manager import Run
+from webapp.services.trace_viewer import blocker as trace_blocker
+from webapp.services.trace_viewer import open_trace
+from webapp.state import services
+from webapp.ui.timeline_dialog import open_timeline
+from webapp.ui.ai_panels import ai_enabled, triage_section
+from webapp.ui.components import fmt_seconds, icon_button, split_test_id, text, tone
+from webapp.ui.console_view import ConsoleView
+from webapp.ui.issue_dialog import issue_button
+from webapp.ui.step_travel import step_travel
+from webapp.ui.theme import icon
+
+LOG_LINES = 1500
+
+
+def details_for(run: Run) -> dict[tuple[str, str], TestDetails]:
+    return services().artifacts.details(run.id, run.results_dir)
+
+
+def has_details(details: dict[tuple[str, str], TestDetails], test_id: str, browser: str) -> bool:
+    item = details.get((test_id, browser))
+    return bool(item and (item.has_artifacts or item.log))
+
+
+def result_rows(run: Run) -> list[dict]:
+    """Rows for a per-test results table (see components.result_slots), with each test's recent results."""
+    details = details_for(run)
+    recent = trends(services().runs.list(), run.config.system, run.config.env, until=run.created_at)
+    rows = []
+    for r in list(run.results.values()):
+        name, code = split_test_id(r.test_id)
+        trend = recent.get((r.test_id, r.browser))
+        rows.append({"nodeid": r.nodeid, "outcome": r.outcome, "test_id": r.test_id, "name": name, "code": code,
+                     "browser": r.browser, "duration": r.duration,
+                     "message": f"Step {r.step}" if r.outcome == "running" and r.step else r.message,
+                     "step": r.step, "steps": list(r.steps),
+                     "where": details[(r.test_id, r.browser)].failure.short
+                     if (r.test_id, r.browser) in details and details[(r.test_id, r.browser)].failure else "",
+                     "has_details": has_details(details, r.test_id, r.browser),
+                     "recent": trend.outcomes if trend else [], "flaky": bool(trend and trend.flaky),
+                     "retries": r.retries, "healed": r.healed})
+    return rows
+
+
+def _link(label: str, url: str, icon_name: str, download: bool = False) -> None:
+    props = f'href="{url}" target="_blank" rel="noopener"' + (" download" if download else "")
+    with ui.element("a").classes("any-artifact-link").props(props):
+        ui.icon(icon(icon_name)).props('aria-hidden="true"')
+        text("span", label)
+
+
+def _trace_actions(run: Run, traces: list) -> None:
+    """Open the trace in Playwright's viewer when the app runs on this machine; otherwise say how."""
+    svc = services()
+    reason = trace_blocker(svc.settings.host)
+    if not reason:
+        with ui.element("div").classes("any-artifact-row"):
+            for att in traces:
+                def open_it(att=att) -> None:
+                    try:
+                        open_trace(run.results_dir, att.url, svc.recorder.command)
+                    except ValueError as e:
+                        ui.notify(str(e), type="negative")
+                    else:
+                        ui.notify("Opening the trace viewer on this computer...", type="info")
+                ui.button("Open in trace viewer", icon=icon("play"), color=None, on_click=open_it) \
+                    .props('flat unelevated no-caps data-testid="open-trace"').classes("any-btn is-38")
+    ui.label("Or open the downloaded file with `playwright show-trace <file>`, or drop it on trace.playwright.dev "
+             "(it is processed in your browser, not uploaded).").classes("any-muted text-xs")
+
+
+STEP_TONE = {"passed": "passed", "failed": "failed", "running": "running", "stopped": "idle"}
+STEP_KIND = {"page": "page", "common": "common action", "test": "reused test", "api": "API request"}
+
+
+def step_list(steps: list[dict]) -> None:
+    """A test's own steps as they ran: number, what it did, result, time, and the error of the failing one."""
+    with ui.element("section").classes("any-run-steps").props('data-testid="test-steps"'):
+        text("div", "Steps", "any-eyebrow")
+        with ui.element("ol").classes("any-run-step-list"):
+            for s in steps:
+                with ui.element("li").classes(f"any-run-step is-{s.get('status', '')}"):
+                    text("span", str(s.get("n", "")), "any-run-step-n")
+                    with ui.element("span").classes("any-run-step-what"):
+                        text("span", str(s.get("label", "")), "any-run-step-label")
+                        text("span", STEP_KIND.get(str(s.get("kind", "")), ""), "any-run-step-kind")
+                    with ui.element("span").classes(f"any-pill pill-{STEP_TONE.get(s.get('status'), 'idle')}"):
+                        ui.element("span").classes("dot").props('aria-hidden="true"')
+                        text("span", str(s.get("status", "")))
+                    seconds = s.get("seconds")
+                    text("span", fmt_seconds(float(seconds)) if isinstance(seconds, (int, float)) else "",
+                         "any-run-step-time")
+                    if s.get("error"):
+                        text("div", str(s["error"]), "any-run-step-error")
+
+
+def open_test_details(run: Run, row: dict) -> None:
+    """row: a results-table row (test_id, browser, outcome, duration, message)."""
+    test_id, browser = str(row.get("test_id") or ""), str(row.get("browser") or "")
+    item = details_for(run).get((test_id, browser))
+    name, code = split_test_id(test_id)
+    outcome = str(row.get("outcome") or (item.status if item else ""))
+
+    # at the page's layout, not in the History view that opened it: that view redraws when a run's events arrive,
+    # and would take an open dialog with it
+    with ui.context.client.layout, ui.dialog().props("maximized=false") as dialog, \
+            ui.card().classes("any-app any-dialog any-details").props('role="dialog" aria-label="Test details"'):
+        with ui.element("div").classes("any-details-head"):
+            with ui.element("div").classes("min-w-0"):
+                text("div", "Test details", "any-eyebrow")
+                with ui.element("div").classes("any-run-title"):
+                    text("h2", name, "any-title any-details-name")
+                    with ui.element("span").classes(f"any-pill pill-{tone(outcome)}"):
+                        ui.element("span").classes("dot").props('aria-hidden="true"')
+                        text("span", outcome or "unknown")
+                with ui.element("div").classes("any-meta"):
+                    if code:
+                        text("span", code, "v")
+                    if browser:
+                        text("span", browser, "v")
+                    duration = row.get("duration")
+                    if duration:
+                        text("span", fmt_seconds(float(duration)), "v")
+                    text("span", f"Run {run.id}", "v")
+            with ui.element("div").classes("any-toolbar"):
+                issue_button(run, row, item)
+                ui.button("Timeline", icon=icon("activity"), color=None,
+                          on_click=lambda: open_timeline(test_id, run.config.system, run.config.env)) \
+                    .props('flat no-caps data-testid="details-timeline"').classes("any-btn is-38") \
+                    .tooltip("Every result of this test case, with heals, quarantine and edits")
+                icon_button("x", "Close", dialog.close)
+
+        point = item.failure if item else None
+        if point:
+            with ui.element("section").classes("any-failat").props('data-testid="failed-at"'):
+                with ui.element("div").classes("min-w-0 flex flex-col gap-2"):
+                    text("div", "Failed at", "any-eyebrow")
+                    with ui.element("ol").classes("any-crumbs"):
+                        for crumb in point.crumbs:
+                            text("li", crumb)
+                shot = point.screenshot
+                if shot:
+                    with ui.element("a").props(f'href="{shot.url}" target="_blank" rel="noopener" '
+                                               'aria-label="Open the failure screenshot"'):
+                        ui.element("img").props(f'src="{shot.url}" alt="{shot.name}" loading="lazy"') \
+                            .classes("any-failat-shot")
+        steps = row.get("steps") or next((list(r.steps) for r in run.results.values()
+                                          if r.test_id == test_id and r.browser == browser), [])
+        if steps:
+            step_list(steps)
+        nodeid = str(row.get("nodeid") or next((r.nodeid for r in run.results.values()
+                                                if r.test_id == test_id and r.browser == browser), ""))
+        step_travel(run, nodeid)
+        message = (item.message if item else "") or str(row.get("message") or "")
+        if message:
+            with ui.element("section").classes("any-error-box"):
+                text("div", "Error", "any-eyebrow")
+                text("pre", message, "any-pre is-error")
+        if ai_enabled() and outcome in ("failed", "error", "broken"):
+            triage_section(run, {**row, "test_id": test_id, "browser": browser, "outcome": outcome}, item)
+        if item and item.trace:
+            with ui.expansion("Traceback", icon=icon("terminal")).classes("any-disclosure"):
+                text("pre", item.trace, "any-pre")
+
+        images = item.by_kind("image") if item else []
+        if images:
+            with ui.element("section").classes("any-shots"):
+                text("div", "Screenshots", "any-eyebrow")
+                with ui.element("div").classes("any-shot-grid"):
+                    for shot in images:
+                        with ui.element("figure").classes("any-shot"):
+                            with ui.element("a").props(f'href="{shot.url}" target="_blank" rel="noopener" '
+                                                       f'aria-label="Open screenshot {shot.name}"'):
+                                ui.element("img").props(f'src="{shot.url}" alt="{shot.name}" loading="lazy"')
+                            text("figcaption", shot.name)
+
+        videos = item.by_kind("video") if item else []
+        for video in videos:
+            with ui.element("section").classes("any-shots"):
+                text("div", video.name or "Video", "any-eyebrow")
+                ui.element("video").props(f'src="{video.url}" controls preload="metadata"').classes("any-video")
+
+        links = [(a, "file-text", False) for a in (item.by_kind("html") if item else [])]
+        links += [(a, "save", True) for a in (item.by_kind("trace") if item else [])]
+        links += [(a, "file-text", False) for a in (item.by_kind("other") if item else [])]
+        if links:
+            with ui.element("section").classes("any-artifacts"):
+                text("div", "Files", "any-eyebrow")
+                with ui.element("div").classes("any-artifact-row"):
+                    for att, ico, download in links:
+                        label = ("Playwright trace (.zip)" if att.kind == "trace"
+                                 else "DOM snapshot" if att.kind == "html" and att.name == "DOM Snapshot"
+                                 else att.name or att.kind)
+                        _link(label, att.url, ico, download)
+                if item and item.by_kind("trace"):
+                    _trace_actions(run, item.by_kind("trace"))
+
+        texts = item.by_kind("text") if item else []
+        for att in texts:
+            with ui.expansion(att.name, icon=icon("braces")).classes("any-disclosure"):
+                text("pre", att.text or "", "any-pre")
+
+        if item and item.log:
+            with ui.expansion("Test log", icon=icon("terminal")).classes("any-disclosure is-console"):
+                with ui.element("div").classes("any-console is-inline"):
+                    ConsoleView(max_lines=LOG_LINES, lines=item.log.splitlines()[-LOG_LINES:])
+
+        if not (message or item and (item.attachments or item.log)):
+            ui.label("No failure details were recorded for this test.").classes("any-muted")
+    dialog.on("hide", dialog.delete)
+    dialog.open()

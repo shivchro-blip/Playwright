@@ -14,8 +14,7 @@ from webapp.services.locator_suggest import KEYS as LOCATOR_KEYS
 from webapp.services.locator_suggest import signature, suggest
 from webapp.state import services
 from webapp.ui.components import field as labelled
-from webapp.ui.components import icon_button, text
-from webapp.ui.recorder_dialog import _describe
+from webapp.ui.components import _describe, icon_button, text
 from webapp.ui.theme import icon
 
 if TYPE_CHECKING:

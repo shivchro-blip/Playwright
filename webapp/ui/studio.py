@@ -17,8 +17,7 @@ from webapp.services.recorder import RecorderError, save_recording
 from webapp.services.studio import ACTIONS, VIEWPORT, Draft, Picked, Step, StudioError, StudioSession
 from webapp.state import services
 from webapp.ui.components import field as labelled
-from webapp.ui.components import icon_button, text
-from webapp.ui.recorder_dialog import _describe
+from webapp.ui.components import _describe, icon_button, text
 from webapp.ui.theme import icon
 
 if TYPE_CHECKING:

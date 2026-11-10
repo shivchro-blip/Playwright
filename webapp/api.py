@@ -12,6 +12,7 @@ from webapp.services.run_insights import compare, flaky_tests, previous_run, sum
 from webapp.services.run_manager import RunConfig
 from webapp.services.schedules import validate as validate_schedule
 from webapp.auth import authorize, require, require_user
+from webapp.services.timeline import timeline_for
 from webapp.state import services
 
 API_VERSION = 1
@@ -185,13 +186,6 @@ def test_timeline(test_id: str, system: str, env: str | None = None) -> dict:
     why, retries), the heals and identity fallbacks it needed, quarantine decisions and saves; with a summary
     (pass rate, changes of result, flaky, typical time and whether it is slowing, quarantine)."""
     return timeline_for(test_id, system, env).to_dict()
-
-
-def timeline_for(test_id: str, system: str, env: str | None = None):
-    from webapp.services.timeline import RECENT_RUNS, build
-    svc = services()
-    runs = svc.runs.query(system, env, finished_only=True, limit=RECENT_RUNS)
-    return build(test_id, system, runs, svc.audit.recent(limit=5000), svc.quarantine.all(), env)
 
 
 class DeployRequest(BaseModel):

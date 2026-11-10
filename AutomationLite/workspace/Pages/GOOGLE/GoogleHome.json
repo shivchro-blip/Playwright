@@ -1,0 +1,12 @@
+{
+  "fields": {
+    "searchBox": {
+      "locator": "textarea[name='q']",
+      "type": "text"
+    },
+    "pressEnter": {
+      "locator": "textarea[name='q']",
+      "type": "keyboard"
+    }
+  }
+}

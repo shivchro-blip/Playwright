@@ -5,12 +5,15 @@ import logging
 
 from nicegui import app, ui
 
-from webapp.api import install_api
-from webapp.runner_api import router as runner_router
 from webapp.auth import install_auth
+from webapp.edition import LITE, NAME
 from webapp.security import install_security
 from webapp.state import services
 from webapp.ui import shell
+
+if not LITE:  # the REST API and the remote-runner API are not part of AutoPlay Lite
+    from webapp.api import install_api
+    from webapp.runner_api import router as runner_router
 
 
 def _exit_with_parent() -> None:
@@ -53,12 +56,13 @@ def main() -> None:
     # Order matters: install_auth's middleware must run after (inside) install_security's host/origin checks
     storage_secret = install_auth(app, s)
     install_security(app, s)
-    install_api(app)
-    app.include_router(runner_router)
+    if not LITE:
+        install_api(app)
+        app.include_router(runner_router)
     # Per-run folders: allure-report/index.html, console.log, raw allure-results
     app.add_static_files("/runs", s.resolved_runs_dir, max_cache_age=0)
     shell.register()
-    if s.scheduler_enabled:
+    if s.scheduler_enabled and not LITE:  # Lite has no schedules or monitors
         svc.scheduler.start()
         svc.monitors.start()
     if s.exit_with_parent:
@@ -70,8 +74,8 @@ def main() -> None:
         "found" if svc.runs.allure_available() else f"'{s.allure_cmd}' not found (reports disabled)",
     )
     ui.run(
-        host=s.host, port=s.port, title="AutoPlay", reload=False, show=False,
-        fastapi_docs=True, show_welcome_message=True, storage_secret=storage_secret,
+        host=s.host, port=s.port, title=NAME, reload=False, show=False,
+        fastapi_docs=not LITE, show_welcome_message=True, storage_secret=storage_secret,
     )
 
 

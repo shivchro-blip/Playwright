@@ -13,8 +13,7 @@ from webapp.services.locator_check import page_url
 from webapp.services.page_scan import PageScan, scan_page
 from webapp.state import services
 from webapp.ui.components import field as labelled
-from webapp.ui.components import icon_button, text
-from webapp.ui.recorder_dialog import _describe
+from webapp.ui.components import _describe, icon_button, text
 from webapp.ui.theme import icon
 
 if TYPE_CHECKING:

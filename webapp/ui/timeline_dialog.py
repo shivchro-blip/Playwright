@@ -24,7 +24,7 @@ def _seconds(value: float | None) -> str:
 def open_timeline(test_id: str, system: str, env: str | None = None,
                   on_open: Callable[[str, str], object] | None = None,
                   on_change: Callable[[], object] | None = None) -> None:
-    from webapp.api import timeline_for
+    from webapp.services.timeline import timeline_for
     from webapp.ui.quarantine_dialog import toggle_quarantine
 
     svc = services()

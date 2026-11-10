@@ -210,3 +210,8 @@ def placeholder(select: ui.select, hint: str) -> ui.select:
     select.on_value_change(lambda _: sync())
     sync()
     return select
+
+
+def _describe(cfg: dict) -> str:
+    keys = ("locator", "role", "name", "label", "placeholder", "text", "index")
+    return "  ".join(f"{k}={cfg[k]!r}" for k in keys if cfg.get(k) not in (None, ""))

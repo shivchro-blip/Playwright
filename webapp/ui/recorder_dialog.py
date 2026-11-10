@@ -14,7 +14,7 @@ from webapp.services.recorder import (
 from webapp.auth import audit, guard
 from webapp.state import services
 from webapp.ui.components import field as labelled
-from webapp.ui.components import icon_button, text
+from webapp.ui.components import _describe, icon_button, text
 from webapp.ui.theme import icon
 
 if TYPE_CHECKING:
@@ -22,11 +22,6 @@ if TYPE_CHECKING:
 
 NEW_FILE = "+ New file..."
 SAVE_ERRORS = (RecorderError, ConflictError, PathError, ValueError, OSError)
-
-
-def _describe(cfg: dict) -> str:
-    keys = ("locator", "role", "name", "label", "placeholder", "text", "index")
-    return "  ".join(f"{k}={cfg[k]!r}" for k in keys if cfg.get(k) not in (None, ""))
 
 
 def open_recorder(gen: GeneratorPanel) -> None:
