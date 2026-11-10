@@ -55,6 +55,16 @@ def _copy_tree(src: Path, dst: Path) -> None:
             shutil.copy2(item, dst / item.name)
 
 
+SETUP_CMD = """@echo off
+rem Runs setup.ps1 for this run only with the PowerShell execution policy bypassed (Windows refuses to run a
+rem downloaded .ps1 file directly), and clears the "downloaded from the internet" mark on this folder's scripts.
+cd /d "%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-ChildItem -LiteralPath '%~dp0.' -File | Unblock-File"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup.ps1" %*
+pause
+"""
+
+
 def readme() -> str:
     return """# AutoPlay Lite
 
@@ -70,8 +80,8 @@ tests on **Control**, press **Run**, watch the console and open the report and A
 ## First time on a machine
 
 1. Install Python 3.12 or newer (python.org) and tick "Add python.exe to PATH".
-2. Open PowerShell in this folder and run `./setup.ps1` (creates `.venv`, installs the packages and the
-   Playwright browser, and creates `.env`).
+2. Double-click `setup.cmd` (creates `.venv`, installs the packages and the Playwright browser, and creates
+   `.env`). Use it instead of `setup.ps1`: Windows refuses to run a downloaded .ps1 file directly.
 3. Put the passwords your tests need in `.env` (never in a test file).
 4. Put the shared test files in `workspace/` (`Tests/`, `Pages/`, `Data/`), keeping the folder layout.
 
@@ -114,6 +124,7 @@ def build(out: Path, reset_workspace: bool = False) -> None:
         (out / name).write_text(body.replace("Start AutoPlay", "Start AutoPlay Lite")
                                 .replace(" AutoPlay Setup ", " AutoPlay Lite Setup ")
                                 .replace("Starts the AutoPlay web app", "Starts AutoPlay Lite"), encoding="utf-8")
+    (out / "setup.cmd").write_bytes(SETUP_CMD.replace("\n", "\r\n").encode("utf-8"))
     (out / "README.md").write_text(readme(), encoding="utf-8")
 
     workspace = out / "workspace"

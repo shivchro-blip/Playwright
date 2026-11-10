@@ -12,8 +12,8 @@ tests on **Control**, press **Run**, watch the console and open the report and A
 ## First time on a machine
 
 1. Install Python 3.12 or newer (python.org) and tick "Add python.exe to PATH".
-2. Open PowerShell in this folder and run `./setup.ps1` (creates `.venv`, installs the packages and the
-   Playwright browser, and creates `.env`).
+2. Double-click `setup.cmd` (creates `.venv`, installs the packages and the Playwright browser, and creates
+   `.env`). Use it instead of `setup.ps1`: Windows refuses to run a downloaded .ps1 file directly.
 3. Put the passwords your tests need in `.env` (never in a test file).
 4. Put the shared test files in `workspace/` (`Tests/`, `Pages/`, `Data/`), keeping the folder layout.
 

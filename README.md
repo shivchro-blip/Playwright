@@ -48,7 +48,7 @@ Sign-in is off on your own machine (`127.0.0.1`). For a shared server, create an
 
 ## AutoPlay Lite (for people who only run tests)
 
-`AutomationLite/` is a smaller edition to hand to team members who run tests someone else wrote: **Control** (run, live console, report, Allure), **History**, and the **Generator** without the Recorder and the Studio. No other sections, no REST API. Download the folder from git and follow its `README.md` (`setup.ps1` once, then `start.cmd`). Its `workspace/` holds the shared test files and is never overwritten by a rebuild.
+`AutomationLite/` is a smaller edition to hand to team members who run tests someone else wrote: **Control** (run, live console, report, Allure), **History**, and the **Generator** without the Recorder and the Studio. No other sections, no REST API. Download the folder from git and follow its `README.md` (double-click `setup.cmd` once, then `start.cmd`). Its `workspace/` holds the shared test files and is never overwritten by a rebuild.
 
 It is generated from this code (`webapp/edition.py` switched to Lite, minus the left-out files): after changing the app, run `python tools/build_lite.py` and commit the folder. `python tools/build_lite.py --check` (and a unit test in CI) fails when the folder is out of date. To try the Lite screens without building: `AUTOPLAY_EDITION=lite python -m webapp`.
 
