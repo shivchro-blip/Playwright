@@ -12,7 +12,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-TABS = [
+from webapp.edition import LITE, LITE_TABS
+
+ALL_TABS = [
     ("Control", "circle-play", "run start tests console"),
     ("Confidence", "chart-column", "safe to release ready blocked risk working production verdict"),
     ("Journeys", "circle-check", "business coverage status"),
@@ -26,6 +28,7 @@ TABS = [
     ("Automations", "bell", "when then rule trigger deploy webhook notify after"),
     ("Help", "circle-help", "docs guide documentation"),
 ]
+TABS = [t for t in ALL_TABS if not LITE or t[0] in LITE_TABS]
 TAB_ICONS = {name: ico for name, ico, _ in TABS}
 KIND_ORDER = {"tab": 0, "action": 1, "test": 2, "journey": 3, "page": 4, "field": 5, "run": 6}
 RECENT_RUNS = 8
@@ -57,8 +60,8 @@ def action_commands() -> list[Command]:
                 "tab", {"name": "Generator", "section": "tests"}, "create add"),
         Command("action:trends", "action", "Open trends", "Pass rate, slowest tests and where tests fail",
                 "chart-column", "open_trends", {}, "charts statistics history"),
-        Command("action:help", "action", "Search the help", "Help", "circle-help", "tab", {"name": "Help"},
-                "docs how"),
+        *([] if LITE else [Command("action:help", "action", "Search the help", "Help", "circle-help", "tab",
+                                   {"name": "Help"}, "docs how")]),
     ]
 
 
@@ -77,7 +80,7 @@ def model_commands(snapshot) -> list[Command]:
         for name in sorted(fields):
             out.append(Command(f"field:{system}:{page}:{name}", "field", name, f"Field of {page} · {system}",
                                "tag", "open_page", {"system": system, "page": page, "field": name}, page))
-    for journey in snapshot.journeys:
+    for journey in (() if LITE else snapshot.journeys):
         name, system = str(journey.get("name", "")), str(journey.get("system", ""))
         if name:
             out.append(Command(f"journey:{system}:{journey.get('id', name)}", "journey", name,

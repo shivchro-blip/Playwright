@@ -1,0 +1,9 @@
+{
+  "config": {
+    "headlessMode": "false",
+    "systemConfig": "GOOGLE",
+    "envConfig": "dev",
+    "runTags": [ "all" ],
+    "requiredTag": []
+  }
+}

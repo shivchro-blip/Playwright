@@ -21,8 +21,8 @@ from webapp.services.usage import Usage, UsageIndex
 from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
+from webapp.edition import LITE
 from webapp.state import services
-from webapp.ui.studio import StudioEditor
 from webapp.ui.identity_dialog import health_label, open_identity, open_learn
 from webapp.ui.intent_dialog import open_intent_dialog
 from webapp.ui.timeline_dialog import open_timeline
@@ -37,12 +37,15 @@ from webapp.ui.quarantine_dialog import toggle_quarantine
 from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_components_panel import ComponentsSection, extract_dialog
 from webapp.ui.page_scan_dialog import open_page_scan
-from webapp.ui.recorder_dialog import open_recorder
 from webapp.ui.step_actions import (
     HINTS, KEY_NAMES, action_options, apply_action, default_action, has_value_slot, json_value, loop_of,
     ref_value, row_action, set_json_value, split_key, with_loop,
 )
 from webapp.ui.theme import icon, svg
+
+if not LITE:  # the Recorder and the Studio are not part of AutoPlay Lite
+    from webapp.ui.recorder_dialog import open_recorder
+    from webapp.ui.studio import StudioEditor
 
 RUN_PILLS = {"queued": ("idle", "Queued"), "running": ("running", "Running"), "passed": ("passed", "Passed"),
              "failed": ("failed", "Failed"), "error": ("failed", "Error"), "cancelled": ("idle", "Cancelled")}
@@ -1730,23 +1733,25 @@ class GeneratorPanel:
                             .props('for="gen-system"').classes("w-48")
                     ui.label("Edits are saved straight to the workspace JSON files.").classes("any-muted text-sm")
                 with ui.element("div").classes("any-head-right"):
-                    with ui.element("div").classes("any-recorder"):
-                        self.recorder_switch = ui.switch("Recorder", value=self.svc.recorder_enabled(),
-                                                         on_change=self._toggle_recorder) \
-                            .props('data-testid="recorder-switch"') \
-                            .tooltip("Record tests in a real browser (Playwright codegen). Saved to .env.")
-                        self.record_button = ui.button("Record", icon=icon("circle-play"), color=None,
-                                                       on_click=lambda: guard("record", "record") and
-                                                       open_recorder(self)) \
-                            .props('flat unelevated no-caps data-testid="record-button"').classes("any-btn is-38")
-                        self.record_button.set_visibility(bool(self.recorder_switch.value))
+                    if not LITE:
+                        with ui.element("div").classes("any-recorder"):
+                            self.recorder_switch = ui.switch("Recorder", value=self.svc.recorder_enabled(),
+                                                             on_change=self._toggle_recorder) \
+                                .props('data-testid="recorder-switch"') \
+                                .tooltip("Record tests in a real browser (Playwright codegen). Saved to .env.")
+                            self.record_button = ui.button("Record", icon=icon("circle-play"), color=None,
+                                                           on_click=lambda: guard("record", "record") and
+                                                           open_recorder(self)) \
+                                .props('flat unelevated no-caps data-testid="record-button"').classes("any-btn is-38")
+                            self.record_button.set_visibility(bool(self.recorder_switch.value))
                     with ui.tabs().props('no-caps inline-label indicator-color="transparent" '
                                          'aria-label="Generator sections"').classes("any-subtabs") as tabs:
                         tests_tab = ui.tab("Test cases", icon=icon("list-checks"))
                         pages_tab = ui.tab("Pages", icon=icon("app-window"))
                         data_tab = ui.tab("Data sets", icon=icon("braces")).props('data-testid="tab-data"')
                         common_tab = ui.tab("Common actions", icon=icon("copy")).props('data-testid="tab-common"')
-                        studio_tab = ui.tab("Studio", icon=icon("play")).props('data-testid="tab-studio"')
+                        if not LITE:
+                            studio_tab = ui.tab("Studio", icon=icon("play")).props('data-testid="tab-studio"')
                 self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
@@ -1757,8 +1762,9 @@ class GeneratorPanel:
                     self.data = DataSetEditor(self)
                 with ui.tab_panel(common_tab).classes("p-0"):
                     self.common = CommonActionEditor(self)
-                with ui.tab_panel(studio_tab).classes("p-0"):
-                    self.studio = StudioEditor(self)
+                if not LITE:
+                    with ui.tab_panel(studio_tab).classes("p-0"):
+                        self.studio = StudioEditor(self)
         self.tests.load_refs()
 
     async def open_page(self, name: str) -> None:

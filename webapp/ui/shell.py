@@ -6,28 +6,30 @@ from types import SimpleNamespace
 from nicegui import background_tasks, ui
 
 from webapp.auth import guard, role_summary, ui_user
-from webapp.ui.activity import open_activity
-from webapp.ui.impact import ImpactPanel
-from webapp.ui.journeys import JourneysPanel
-from webapp.ui.monitors import MonitorsPanel
-from webapp.ui.releases import ReleasesPanel
-from webapp.ui.runners_dialog import open_runners
+from webapp.edition import LITE, NAME
 from webapp.ui.ai_panels import open_ai_settings
-from webapp.ui.automations import AutomationsPanel
-from webapp.ui.app_map import MapPanel
-from webapp.ui.confidence import ConfidencePanel
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
-from webapp.ui.help import HelpPanel
 from webapp.ui.history import HistoryPanel
 from webapp.ui.palette import HASH_EVENT, SHORTCUT_JS, CommandPalette
-from webapp.ui.schedules import SchedulesPanel
 from webapp.ui.trends_dialog import open_trends
 from webapp.state import services
 from webapp.services.commands import TABS
 from webapp.ui.components import text
 from webapp.ui.theme import add_head, apply_brand, icon, register_assets
 
+if not LITE:  # the sections AutoPlay Lite leaves out (the Lite build does not ship these files)
+    from webapp.ui.activity import open_activity
+    from webapp.ui.app_map import MapPanel
+    from webapp.ui.automations import AutomationsPanel
+    from webapp.ui.confidence import ConfidencePanel
+    from webapp.ui.help import HelpPanel
+    from webapp.ui.impact import ImpactPanel
+    from webapp.ui.journeys import JourneysPanel
+    from webapp.ui.monitors import MonitorsPanel
+    from webapp.ui.releases import ReleasesPanel
+    from webapp.ui.runners_dialog import open_runners
+    from webapp.ui.schedules import SchedulesPanel
 
 
 def register() -> None:
@@ -35,7 +37,7 @@ def register() -> None:
 
     @ui.page("/")
     def index() -> None:
-        ui.page_title("AutoPlay")
+        ui.page_title(NAME)
         add_head()
         apply_brand()
         # Panels own their padding (the Control tab is full-bleed)
@@ -46,7 +48,7 @@ def register() -> None:
             with ui.element("div").classes("any-brand"):
                 with ui.element("div").classes("any-brand-mark"):
                     ui.icon(icon("play-solid")).props('aria-hidden="true"')
-                ui.label("AutoPlay")
+                ui.label(NAME)
             with ui.tabs().props('inline-label no-caps indicator-color="transparent" '
                                  'aria-label="Main sections"') as tabs:
                 tab_elems = {name: ui.tab(name, icon=icon(ico)) for name, ico in tab_defs}
@@ -58,11 +60,12 @@ def register() -> None:
                 ui.label("Search")
                 text("kbd", "Ctrl K", "any-kbd")
             user = ui_user()
-            ui.button("AI", icon=icon("sparkles"), color=None,
-                      on_click=lambda: guard("settings", "ai settings") and open_ai_settings(on_ai_change)) \
-                .props('flat unelevated no-caps aria-label="AI assist settings" data-testid="ai-settings"') \
-                .classes("any-nav-btn")
-            if user and user.can("users"):
+            if not LITE:
+                ui.button("AI", icon=icon("sparkles"), color=None,
+                          on_click=lambda: guard("settings", "ai settings") and open_ai_settings(on_ai_change)) \
+                    .props('flat unelevated no-caps aria-label="AI assist settings" data-testid="ai-settings"') \
+                    .classes("any-nav-btn")
+            if not LITE and user and user.can("users"):
                 ui.button("Runners", icon=icon("server"), color=None, on_click=open_runners) \
                     .props('flat unelevated no-caps data-testid="runners"').classes("any-nav-btn")
                 ui.button("Activity", icon=icon("history"), color=None, on_click=open_activity) \
@@ -75,11 +78,11 @@ def register() -> None:
                     role.tooltip(role_summary(user))  # the roles per system and environment, when there are any
                     with ui.element("a").classes("any-signout").props('href="/logout"'):
                         ui.label("Sign out")
-            with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
-                ui.label("API")
-                ui.icon(icon("external-link")).props('aria-hidden="true"')
-        (control_tab, confidence_tab, journeys_tab, releases_tab, monitors_tab, impact_tab, map_tab, generator_tab,
-         history_tab, schedules_tab, automations_tab, help_tab) = tab_elems.values()
+            if not LITE:
+                with ui.element("a").classes("any-api").props('href="/docs" target="_blank" rel="noopener"'):
+                    ui.label("API")
+                    ui.icon(icon("external-link")).props('aria-hidden="true"')
+        control_tab = tab_elems["Control"]
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -139,7 +142,7 @@ def register() -> None:
                     if args.get("field"):
                         gen.pages.field_filter = args["field"]
                         gen.pages.fields_view.refresh()
-            elif action == "open_journey":
+            elif action == "open_journey" and not LITE:
                 go("Journeys")
                 panels["journeys"].show_system(args["system"])
             elif action == "open_run":
@@ -173,26 +176,27 @@ def register() -> None:
         with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent"):
             with ui.tab_panel(control_tab).classes("any-app"):
                 panels["control"] = ControlPanel()
-            with ui.tab_panel(confidence_tab).classes("any-app any-page"):
-                ConfidencePanel(go=go)
-            with ui.tab_panel(journeys_tab).classes("any-app any-page"):
-                panels["journeys"] = JourneysPanel(on_watch=watch)
-            with ui.tab_panel(releases_tab).classes("any-app any-page"):
-                ReleasesPanel()
-            with ui.tab_panel(monitors_tab).classes("any-app any-page"):
-                MonitorsPanel(on_watch=watch)
-            with ui.tab_panel(impact_tab).classes("any-app any-page"):
-                ImpactPanel(on_watch=watch)
-            with ui.tab_panel(map_tab).classes("any-app any-page"):
-                MapPanel(open_page=lambda system, page: run_command(SimpleNamespace(
-                    action="open_page", args={"system": system, "page": page})))
-            with ui.tab_panel(generator_tab).classes("any-app any-page"):
+            with ui.tab_panel(tab_elems["Generator"]).classes("any-app any-page"):
                 panels["generator"] = GeneratorPanel(on_run=watch)
-            with ui.tab_panel(history_tab).classes("any-app any-page"):
+            with ui.tab_panel(tab_elems["History"]).classes("any-app any-page"):
                 panels["history"] = HistoryPanel(on_watch=watch)
-            with ui.tab_panel(schedules_tab).classes("any-app any-page"):
-                SchedulesPanel(on_watch=watch)
-            with ui.tab_panel(automations_tab).classes("any-app any-page"):
-                AutomationsPanel(go=go)
-            with ui.tab_panel(help_tab).classes("any-app any-page"):
-                HelpPanel()
+            if not LITE:
+                with ui.tab_panel(tab_elems["Confidence"]).classes("any-app any-page"):
+                    ConfidencePanel(go=go)
+                with ui.tab_panel(tab_elems["Journeys"]).classes("any-app any-page"):
+                    panels["journeys"] = JourneysPanel(on_watch=watch)
+                with ui.tab_panel(tab_elems["Releases"]).classes("any-app any-page"):
+                    ReleasesPanel()
+                with ui.tab_panel(tab_elems["Monitors"]).classes("any-app any-page"):
+                    MonitorsPanel(on_watch=watch)
+                with ui.tab_panel(tab_elems["Impact"]).classes("any-app any-page"):
+                    ImpactPanel(on_watch=watch)
+                with ui.tab_panel(tab_elems["Map"]).classes("any-app any-page"):
+                    MapPanel(open_page=lambda system, page: run_command(SimpleNamespace(
+                        action="open_page", args={"system": system, "page": page})))
+                with ui.tab_panel(tab_elems["Schedules"]).classes("any-app any-page"):
+                    SchedulesPanel(on_watch=watch)
+                with ui.tab_panel(tab_elems["Automations"]).classes("any-app any-page"):
+                    AutomationsPanel(go=go)
+                with ui.tab_panel(tab_elems["Help"]).classes("any-app any-page"):
+                    HelpPanel()

@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @contextlib.contextmanager
-def running_app(tmp_path: Path, **extra_env: str):
+def running_app(tmp_path: Path, cwd: Path | None = None, **extra_env: str):
     env_file = tmp_path / "ui.env"
     env_file.write_text("systemConfig=SMOKE\nenvConfig=dev\nrunTags=smoke\nbrowsers=chromium\nheadlessMode=true\n",
                         encoding="utf-8")
@@ -36,7 +36,7 @@ def running_app(tmp_path: Path, **extra_env: str):
            "AUTOPLAY_RECORDER_COMMAND": json.dumps([sys.executable, str(fake_codegen)]),
            "ANTHROPIC_BASE_URL": ai_url, "ANTHROPIC_API_KEY": "sk-ant-test-not-a-real-key", **extra_env}
     log = (tmp_path / "webapp.log").open("w", encoding="utf-8")
-    proc = subprocess.Popen([sys.executable, "-m", "webapp"], cwd=REPO_ROOT, env=env, stdout=log,
+    proc = subprocess.Popen([sys.executable, "-m", "webapp"], cwd=cwd or REPO_ROOT, env=env, stdout=log,
                             stderr=subprocess.STDOUT)
     url = f"http://127.0.0.1:{port}/"
     try:

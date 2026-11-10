@@ -160,3 +160,11 @@ def build(test_id: str, system: str, runs, audit_entries=(), quarantine: dict | 
     tl.state, tl.flips, tl.flaky = trend.state, trend.flips, trend.flaky
     tl.quarantine = dict((quarantine or {}).get(tl.test_id) or {})
     return tl
+
+
+def timeline_for(test_id: str, system: str, env: str | None = None):
+    """The timeline of one test case in one system (and optionally one environment)."""
+    from webapp.state import services
+    svc = services()
+    runs = svc.runs.query(system, env, finished_only=True, limit=RECENT_RUNS)
+    return build(test_id, system, runs, svc.audit.recent(limit=5000), svc.quarantine.all(), env)

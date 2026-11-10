@@ -14,14 +14,13 @@ from webapp.services.schedules import TRIGGER
 from webapp.ui.timeline_dialog import open_timeline
 from webapp.ui.live import live
 from webapp.ui.components import (
-    RESULT_COLUMNS, field, icon_button, placeholder, result_slots, split_test_id, status_pill_template, styled_table,
-    text,
+    RESULT_COLUMNS, _describe, field, icon_button, placeholder, result_slots, split_test_id,
+    status_pill_template, styled_table, text,
 )
 from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.ai_panels import open_run_summary
 from webapp.ui.quarantine_dialog import toggle_quarantine
-from webapp.ui.recorder_dialog import _describe
 from webapp.ui.trends_dialog import open_trends
 from webapp.ui.run_compare import open_compare
 from webapp.ui.test_details import open_test_details, result_rows

@@ -1,0 +1,22 @@
+{
+  "fullpath": "https://www.google.com/advanced_search",
+  "fields": {
+    "pageTitle": {
+      "locator": "body",
+      "type": "text",
+      "contains": "Advanced Search"
+    },
+    "allWords": {
+      "locator": "input[name='as_q']",
+      "type": "text"
+    },
+    "exactPhrase": {
+      "locator": "input[name='as_epq']",
+      "type": "text"
+    },
+    "noneWords": {
+      "locator": "input[name='as_eq']",
+      "type": "text"
+    }
+  }
+}

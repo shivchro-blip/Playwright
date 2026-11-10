@@ -1,0 +1,55 @@
+{
+  "testCases": [
+    {
+      "testCaseID": "TC-GOOGLE-001-HomePage",
+      "description": "Open google.com and type into the search box.",
+      "system": "GOOGLE",
+      "module": "google",
+      "environment": ["dev"],
+      "tags": ["GOOGLE", "smoke"],
+      "steps": [
+        {
+          "screen": "GoogleHome",
+          "formData": {
+            "searchBox": "Playwright"
+          }
+        }
+      ]
+    },
+    {
+      "testCaseID": "TC-GOOGLE-002-AdvancedSearchForm",
+      "description": "Open Advanced Search, confirm the page, fill three fields. Not submitted: Google answers automated searches with a captcha.",
+      "system": "GOOGLE",
+      "module": "google",
+      "environment": ["dev"],
+      "tags": ["GOOGLE", "form"],
+      "steps": [
+        {
+          "screen": "GoogleAdvancedSearch",
+          "formData": {
+            "pageTitle": { "type": "confirmtext" },
+            "allWords": "playwright python",
+            "exactPhrase": "end to end testing",
+            "noneWords": "selenium"
+          }
+        }
+      ]
+    },
+    {
+      "testCaseID": "TC-GOOGLE-003-AboutPage",
+      "description": "Navigate to about.google and confirm the page text.",
+      "system": "GOOGLE",
+      "module": "google",
+      "environment": ["dev"],
+      "tags": ["GOOGLE", "smoke"],
+      "steps": [
+        {
+          "screen": "GoogleAbout",
+          "formData": {
+            "pageBody": { "type": "confirmtext" }
+          }
+        }
+      ]
+    }
+  ]
+}
