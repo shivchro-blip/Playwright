@@ -30,9 +30,12 @@ def test_the_build_leaves_out_the_other_sections_and_the_apis(lite: Path):
     for rel in build.EXCLUDE:
         assert not (lite / rel).exists(), rel
     for rel in ("webapp/ui/control.py", "webapp/ui/history.py", "webapp/ui/generator.py", "webapp/state.py",
-                "tests/dynamic_test_suite.py", "conftest.py", "start.cmd", "setup.ps1", "README.md",
+                "tests/dynamic_test_suite.py", "conftest.py", "start.cmd", "setup.ps1", "setup.cmd", "README.md",
                 "workspace/Data/systemData.json"):
         assert (lite / rel).exists(), rel
+    setup = (lite / "setup.cmd").read_bytes()
+    assert b"-ExecutionPolicy Bypass -File" in setup and b"setup.ps1" in setup and b"\r\n" in setup
+    assert "setup.cmd" in (lite / "README.md").read_text(encoding="utf-8")
     assert "LITE = True" in (lite / "webapp" / "edition.py").read_text(encoding="utf-8")
 
 
