@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 
 from webapp.pytest_events import PREFIX
 from webapp.services.archives import extract_safely
+from webapp.services.cleanup import looks_like_run_folder, remove_tree, tree_size
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.events import EventBus
 from webapp.services.json_files import NAME_RE
@@ -78,6 +79,15 @@ class RunConfig:
 
 STEP_POLL_SECONDS = 0.5  # how often a running run's step events are read
 LOG_PUBLISH_SECONDS = 0.5  # at most one "log" event per run this often
+
+
+@dataclass
+class Purged:
+    """What RunManager.purge_finished deleted: run ids, leftover folders, bytes, and what could not be removed."""
+    runs: list[str] = field(default_factory=list)
+    orphans: list[str] = field(default_factory=list)
+    bytes_freed: int = 0
+    failures: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -478,12 +488,49 @@ class RunManager:
         if self.runs_dir.resolve() not in folder.parents:
             return False
         shutil.rmtree(folder, ignore_errors=True)
-        with self._lock:
-            self._runs.pop(run_id, None)
-        self._index_call("remove", run_id)
-        self.bus.publish("run", id=run_id, change="deleted", status=run.status, system=run.config.system,
-                         env=run.config.env)
+        self._forget(run)
         return True
+
+    def _forget(self, run: Run) -> None:
+        """Drop a deleted run from memory and the results index, and tell the pages."""
+        with self._lock:
+            self._runs.pop(run.id, None)
+        self._index_call("remove", run.id)
+        self.bus.publish("run", id=run.id, change="deleted", status=run.status, system=run.config.system,
+                         env=run.config.env)
+
+    def purge_finished(self) -> "Purged":
+        """Delete every finished run's folder, and leftover run folders no run owns. Runs in progress or waiting
+        are never touched. A run whose folder could not be removed completely stays listed (and is reported), so
+        the history never claims something is gone that is still on disk."""
+        with self._lock:  # start() creates a run's folder under this lock: no new run can look like a leftover
+            finished = [r for r in self._runs.values() if not r.active]
+            owned = set(self._runs)
+        out = Purged()
+        base = self.runs_dir.resolve()
+        for run in finished:
+            folder = run.dir.resolve()
+            if base not in folder.parents:
+                continue
+            size = tree_size(folder)
+            failures = remove_tree(folder)
+            out.failures += failures
+            if folder.exists():  # not completely gone: keep it listed
+                out.bytes_freed += max(size - tree_size(folder), 0)
+                continue
+            out.bytes_freed += size
+            out.runs.append(run.id)
+            self._forget(run)
+        for folder in sorted(self.runs_dir.iterdir()) if self.runs_dir.is_dir() else []:
+            if folder.name in owned or not looks_like_run_folder(folder):
+                continue
+            size = tree_size(folder)
+            out.failures += remove_tree(folder)
+            if not folder.exists():
+                out.orphans.append(folder.name)
+                out.bytes_freed += size
+        self._index_call("sync", self.runs_dir)  # drop index rows whose folders are gone
+        return out
 
     def rerun(self, run_id: str) -> Run:
         old = self._runs.get(run_id)

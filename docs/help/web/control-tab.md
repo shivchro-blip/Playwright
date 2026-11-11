@@ -65,6 +65,22 @@ curl -X POST <app>/api/v1/plans/run -H "Authorization: Bearer <token>" -H "Conte
 - **Clear** (before **Report**, shown once a run has finished) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
 - **Allure report** opens the HTML report when the Allure CLI is installed (see *History and Reports*).
 
+## Clear all
+
+**Clear all** (top bar, on every tab) deletes everything previous runs left behind so the next run starts clean. It first lists what will go and what stays, and you confirm. It needs the delete permission, and it is written to the Activity trail.
+
+Deleted from disk, not only hidden:
+
+- every finished run's folder under the runs folder: console log, results, report, screenshots, traces and saved states for *From step* (so a saved state is gone too), and its entry in History, Control and the Generator (the run shown under a test case's toolbar);
+- leftover run folders no run owns (for example from a crash). Only folders named like a run and holding a run's files are touched;
+- the suite's own files: `<workspace>/logs/automation.log*`, `logs/context_log_*.json`, and `reports/videos`, `reports/downloads`, `reports/screenshots` and `reports/traces` in the app's folder.
+
+Kept: your tests, pages, data sets and input files (`Data/`), `.env` and settings, saved logins and the secret store, users and API tokens, the audit trail, schedules, monitors, release packs, quarantine and heal decisions, edit history, source code and dependencies. A run that is queued or running is kept with its folder, and the shared logs, videos, downloads, screenshots and traces are left alone until it ends, because a running test writes to them.
+
+When it finishes, a message says how much was deleted and lists any file it could not delete (for example one another program has open) with the reason. A run whose folder could not be removed completely stays listed in History; close what uses the file and run Clear all again.
+
+The **Clear** button next to **Report** still deletes just the run on show, or every finished run, without touching the shared files.
+
 Only one run at a time is allowed by default, because local runs drive real browser windows.
 
 ## Run one test from the Generator

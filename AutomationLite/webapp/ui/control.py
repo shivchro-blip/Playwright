@@ -762,6 +762,15 @@ class ControlPanel:
             self._clear_view()
         self.history.refresh()
 
+    def runs_cleared(self) -> None:
+        """After Clear all: empty the card of a run that is gone and show the run that was kept, if any."""
+        if self._run() is None:
+            self._clear_view()
+            kept = next(iter(self.svc.runs.list()), None)  # only a run in progress or waiting survives
+            if kept:
+                self.view_run(kept.id)
+        self.history.refresh()
+
     def _clear_view(self) -> None:
         self.run_id = None
         self.log_pos = 0

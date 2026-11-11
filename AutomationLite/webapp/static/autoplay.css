@@ -792,6 +792,7 @@
 .any-palette-empty { padding: 18px 12px; color: var(--muted); }
 .any-palette-foot { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 12px; }
 @media (max-width: 640px) { .any-nav .any-nav-search .any-kbd, .any-nav .any-nav-search .q-btn__content > div { display: none; } }
+.any-nav .any-nav-clear.q-btn:hover { color: #fecaca; }
 
 /* Element identity (Generator Pages) */
 .any-identity.is-none .q-icon { opacity: 0.35; }

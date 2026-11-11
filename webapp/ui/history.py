@@ -419,6 +419,12 @@ class HistoryPanel:
                   type="info" if position else "positive")
         self.on_watch(run.id)
 
+    def runs_cleared(self) -> None:
+        """After Clear all: forget a selection that is gone and redraw the runs."""
+        if self.selected and not self.svc.runs.get(self.selected):
+            self.selected = None
+        self.refresh()
+
     async def clear(self, run_id: str) -> None:
         deleted = await clear_runs(self.svc.runs.get(run_id))
         if deleted:

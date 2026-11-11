@@ -8,6 +8,7 @@ from nicegui import background_tasks, ui
 from webapp.auth import guard, role_summary, ui_user
 from webapp.edition import LITE, NAME
 from webapp.ui.ai_panels import open_ai_settings
+from webapp.ui.clear_all import clear_all
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.history import HistoryPanel
@@ -70,6 +71,9 @@ def register() -> None:
                     .props('flat unelevated no-caps data-testid="runners"').classes("any-nav-btn")
                 ui.button("Activity", icon=icon("history"), color=None, on_click=open_activity) \
                     .props('flat unelevated no-caps data-testid="activity"').classes("any-nav-btn is-next")
+            ui.button("Clear all", icon=icon("trash-2"), color=None, on_click=lambda: clear_all(after_clear_all)) \
+                .props('flat unelevated no-caps aria-label="Clear all runs, logs and generated files" '
+                       'data-testid="clear-all"').classes("any-nav-btn is-next any-nav-clear")
             if services().settings.login_required and user:
                 with ui.element("div").classes("any-user").props('data-testid="signed-in"'):
                     text("span", user.username, "any-user-name")
@@ -170,6 +174,12 @@ def register() -> None:
             tabs.set_value(control_tab)
             panels["control"].view_run(run_id)
             panels["control"].history.refresh()
+
+        def after_clear_all() -> None:
+            """Empty what the pages still show of the runs that were deleted."""
+            panels["control"].runs_cleared()
+            panels["generator"].runs_cleared()
+            panels["history"].runs_cleared()
 
         palette = CommandPalette(run_command)
 

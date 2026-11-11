@@ -770,6 +770,11 @@ class TestEditor:
         self.run_id = ""
         self.run_panel.refresh()
 
+    def runs_cleared(self) -> None:
+        """After Clear all: the run shown under the toolbar (and its console) is gone with its folder."""
+        if self.run_id and self.svc.runs.get(self.run_id) is None:
+            self._hide_run()
+
     @ui.refreshable_method
     def run_panel(self) -> None:
         run = self.svc.runs.get(self.run_id) if self.run_id else None
@@ -1815,6 +1820,9 @@ class GeneratorPanel:
             self.pages.json_mode = False
             with self.root:
                 await self.pages.open(refs[0].rel)
+
+    def runs_cleared(self) -> None:
+        self.tests.runs_cleared()
 
     def set_ai(self, enabled: bool) -> None:
         self.tests.draft_button.set_visibility(enabled)
