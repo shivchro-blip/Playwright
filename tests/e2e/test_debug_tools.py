@@ -28,7 +28,8 @@ def open_test(page, number: str) -> None:
     page.get_by_role("tab", name="Generator").click()
     page.get_by_role("tab", name="Test cases").click()
     page.get_by_text(f"TC-SMOKE-{number}").first.click()
-    page.wait_for_function(f"document.querySelector('#tc-id') && document.querySelector('#tc-id').value.includes('TC-SMOKE-{number}')")
+    page.wait_for_function(
+        f"document.querySelector('#tc-id') && document.querySelector('#tc-id').value.includes('TC-SMOKE-{number}')")
 
 
 def start_debug(page) -> None:
