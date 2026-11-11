@@ -17,7 +17,7 @@ from webapp.ui.components import (
 )
 from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
-from webapp.ui.debug_panel import debug_banner
+from webapp.ui.debug_panel import debug_banner, debug_note
 from webapp.ui.failure_panel import failure_panel
 from webapp.ui.run_actions import cancel_run
 from webapp.ui.test_details import open_test_details, result_rows
@@ -92,11 +92,11 @@ def _chip_slot(kind: str) -> str:
 
 
 class ControlPanel:
-    def __init__(self, jump=None, has_unsaved=None):
+    def __init__(self, jump=None, has_unsaved=None, on_fixed=None):
         """jump(kind, system, name, field=""): open a test case or page in the Generator (the paused-run panel's
         links); has_unsaved(): are there edits in the Generator that are not on disk yet."""
         self.svc = services()
-        self.jump, self.has_unsaved = jump, has_unsaved
+        self.jump, self.has_unsaved, self.on_fixed = jump, has_unsaved, on_fixed
         self.entered: dict[str, str] = {}  # login values typed for the next run; memory only
         cfg = self.svc.env.load()
         systems = sorted(set(self.svc.systems.systems()) | set(self.svc.catalog.systems_with_tests()))
@@ -250,6 +250,13 @@ class ControlPanel:
                                      "page, save, and resume in the same browser. One test at a time, on this "
                                      "machine. Not saved as a default.")
                         self.debug.on_value_change(self._on_debug_change)
+                        self.pause_before = ui.input("Pause before steps", placeholder="all, or 3,5") \
+                            .props('dense outlined data-testid="in-pause-before" '
+                                   'aria-label="Pause before these steps (all, or numbers like 3,5)"') \
+                            .classes("w-full") \
+                            .tooltip("Walk a test step by step: wait before every step (all) or before the ones "
+                                     "you name. Turns Pause on failure on.")
+                        self.pause_before.on_value_change(self._on_pause_before_change)
                         self.tracing = ui.switch("Playwright trace", value=_truthy(cfg["tracing"]))
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
                         self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
@@ -552,7 +559,9 @@ class ControlPanel:
     @ui.refreshable_method
     def debug_view(self, run: Run | None) -> None:
         if run and run.paused:
-            debug_banner(run, self.jump, self.has_unsaved)
+            debug_banner(run, self.jump, self.has_unsaved, self.on_fixed)
+        elif run:
+            debug_note(run)
 
     @ui.refreshable_method
     def failure_view(self, run: Run | None, rows: list[dict]) -> None:
@@ -570,7 +579,8 @@ class ControlPanel:
         rows = [{
             "id": r.id, "status": r.status, "system": r.config.system, "env": r.config.env,
             "tags": ", ".join(r.config.tags), "browsers": ", ".join(r.config.browsers),
-            "result": " ".join(f"{k}:{v}" for k, v in sorted(r.counts().items())),
+            "result": " ".join(f"{k}:{v}" for k, v in sorted(r.counts().items()))
+            + (f" · debugged ({r.debug_pauses}x paused)" if r.debug_pauses else ""),
             "started": (r.started_at or r.created_at).replace("T", " "),
         } for r in runs]
         if not rows:
@@ -667,6 +677,10 @@ class ControlPanel:
             ui.notify("Headless is on: the browser will have no window to look at (you get a picture of the page "
                       "instead). Turn Headless off to see it.", type="info", timeout=6000)
 
+    def _on_pause_before_change(self) -> None:
+        if str(self.pause_before.value or "").strip() and not self.debug.value:
+            self.debug.value = True
+
     def _on_workers_change(self) -> None:
         value = int(self.workers.value or WORKERS_MIN)
         self.workers_minus.set_enabled(value > WORKERS_MIN)
@@ -727,6 +741,7 @@ class ControlPanel:
             "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
             "debugOnFailure": bool(self.debug.value),
+            "debugPauseBefore": str(self.pause_before.value or "").strip() if self.debug.value else "",
         }
 
     async def start_run(self) -> None:
@@ -842,7 +857,8 @@ class ControlPanel:
             "browsers": self.browsers_select.value or ["chrome"],
             **self._options(),
         }
-        values.pop("debugOnFailure", None)  # never a default: a scheduled run would wait for nobody
+        for key in ("debugOnFailure", "debugPauseBefore"):  # never defaults: a scheduled run would wait for nobody
+            values.pop(key, None)
         try:
             self.svc.env.save(values)
         except (ValueError, OSError) as e:
@@ -880,7 +896,18 @@ class ControlPanel:
         self.log_view.clear()
         self.tick()
 
+    def _follow_new_run(self) -> None:
+        """A run someone started (here or from the Generator) takes over the card when the run on it is over: no
+        opening Control by hand to see what the run is doing."""
+        current = self._run()
+        if current is not None and current.active:
+            return
+        newest = next((r for r in self.svc.runs.list() if r.active and not r.trigger), None)
+        if newest is not None and newest.id != self.run_id:
+            self.view_run(newest.id)
+
     def tick(self) -> None:
+        self._follow_new_run()
         self._sync_runners()
         run = self._run()
         self._update_buttons(run)

@@ -23,7 +23,8 @@ def open_compare(run_id: str) -> None:
         ui.notify("Run not found.", type="negative")
         return
     runs = svc.runs.list()
-    candidates = [r for r in reversed(finished(runs, target.config.system)) if r.id != target.id]
+    candidates = [r for r in reversed(finished(runs, target.config.system, include_debugged=True))
+                  if r.id != target.id]
     partner = partner_run(runs, target)  # started together on another environment: compare with that first
     base = partner or previous_run(runs, target) or (candidates[0] if candidates else None)
     state = {"show_unchanged": False}

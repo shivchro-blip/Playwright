@@ -77,15 +77,9 @@ def build_locator(page, cfg: dict):
     return el, desc
 
 
-def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, timeout_ms: int = 15000,
-                  wait_until: str = "load", capture_html: bool = False) -> LocatorCheck:
-    """Open `url`, resolve the field config, count and highlight the matches, screenshot the viewport."""
-    started = time.monotonic()
-    result = LocatorCheck(ok=False, url=url)
-    parts = urlsplit(url or "")
-    if parts.scheme not in ("http", "https") or not parts.netloc:
-        result.error = "Enter a full http(s) URL (the page's path and the system's base_url make one)."
-        return result
+def _prepare(cfg: dict) -> LocatorCheck:
+    """A result carrying what can be said about the config before any page is looked at."""
+    result = LocatorCheck(ok=False, url="")
     for key in ("locator", "text", "name", "label", "placeholder", "contains"):
         if TOKEN_RE.search(str(cfg.get(key) or "")):
             result.warnings.append(f"'{key}' uses DICT./ENV. values, which only exist during a run; "
@@ -94,6 +88,60 @@ def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, tim
     result.index = int(index) if isinstance(index, (int, float)) or str(index or "").isdigit() else None
     if cfg.get("hasTextDirty"):
         result.warnings.append("hasTextDirty is set: the run applies extra text filters; checked as a plain locator.")
+    return result
+
+
+def _inspect(page, cfg: dict, result: LocatorCheck, *, capture_html: bool = False, cleanup: bool = False) -> None:
+    """Resolve the field config on a page that is already open: count and outline the matches, screenshot the
+    viewport. `cleanup`: take the outlines off again (a page someone is working in is not left marked)."""
+    result.title, result.final_url = page.title(), page.url
+    if capture_html:
+        result.html = page.content()
+    el, result.description = build_locator(page, cfg)
+    if result.index is not None:
+        result.description += f".nth({result.index})"
+    result.count = el.count()
+    if result.index is None and result.count > 1:
+        result.warnings.append(f"The locator matches {result.count} elements: actions like fill and click "
+                               "fail in Playwright's strict mode unless you set index.")
+    if result.index is not None and result.index >= result.count:
+        result.warnings.append(f"index {result.index} is out of range: the locator matches "
+                               f"{result.count} element(s), so the run would find nothing.")
+    handles = el.element_handles()[:MAX_MATCHES]
+    for i, h in enumerate(handles):
+        info = h.evaluate("""(e) => ({tag: e.tagName.toLowerCase(),
+            text: (e.innerText || e.value || e.getAttribute('aria-label') || '').trim().slice(0, 120)})""")
+        info["visible"] = h.is_visible()
+        info["selected"] = result.index == i
+        result.matches.append(info)
+    if result.count:
+        el.evaluate_all(f"""(els) => els.forEach((e, i) => {{
+            e.setAttribute('data-any-outline', e.style.outline + '|' + e.style.outlineOffset);
+            e.style.outline = i === {result.index if result.index is not None else -1}
+                ? '{SELECTED}' : '{HIGHLIGHT}';
+            e.style.outlineOffset = '2px'; }})""")
+        target = handles[result.index] if result.index is not None and result.index < len(handles) \
+            else handles[0] if handles else None
+        if target:
+            target.scroll_into_view_if_needed(timeout=2000)
+    result.screenshot = page.screenshot(type="png")
+    if cleanup and result.count:
+        el.evaluate_all("""(els) => els.forEach((e) => {
+            const [o, off] = (e.getAttribute('data-any-outline') || '|').split('|');
+            e.style.outline = o; e.style.outlineOffset = off; e.removeAttribute('data-any-outline'); })""")
+    result.ok = True
+
+
+def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, timeout_ms: int = 15000,
+                  wait_until: str = "load", capture_html: bool = False) -> LocatorCheck:
+    """Open `url`, resolve the field config, count and highlight the matches, screenshot the viewport."""
+    started = time.monotonic()
+    result = _prepare(cfg)
+    result.url = url
+    parts = urlsplit(url or "")
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        result.error = "Enter a full http(s) URL (the page's path and the system's base_url make one)."
+        return result
 
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
@@ -106,39 +154,26 @@ def check_locator(url: str, cfg: dict, *, storage_state: Path | None = None, tim
                 context = browser.new_context(viewport={"width": 1280, "height": 800}, storage_state=state)
                 page = context.new_page()
                 page.goto(url, wait_until=wait_until, timeout=timeout_ms)
-                result.title, result.final_url = page.title(), page.url
-                if capture_html:
-                    result.html = page.content()
-                el, result.description = build_locator(page, cfg)
-                if result.index is not None:
-                    result.description += f".nth({result.index})"
-                result.count = el.count()
-                if result.index is None and result.count > 1:
-                    result.warnings.append(f"The locator matches {result.count} elements: actions like fill and click "
-                                           "fail in Playwright's strict mode unless you set index.")
-                if result.index is not None and result.index >= result.count:
-                    result.warnings.append(f"index {result.index} is out of range: the locator matches "
-                                           f"{result.count} element(s), so the run would find nothing.")
-                handles = el.element_handles()[:MAX_MATCHES]
-                for i, h in enumerate(handles):
-                    info = h.evaluate("""(e) => ({tag: e.tagName.toLowerCase(),
-                        text: (e.innerText || e.value || e.getAttribute('aria-label') || '').trim().slice(0, 120)})""")
-                    info["visible"] = h.is_visible()
-                    info["selected"] = result.index == i
-                    result.matches.append(info)
-                if result.count:
-                    el.evaluate_all(f"""(els) => els.forEach((e, i) => {{
-                        e.style.outline = i === {result.index if result.index is not None else -1}
-                            ? '{SELECTED}' : '{HIGHLIGHT}';
-                        e.style.outlineOffset = '2px'; }})""")
-                    target = handles[result.index] if result.index is not None and result.index < len(handles) \
-                        else handles[0] if handles else None
-                    if target:
-                        target.scroll_into_view_if_needed(timeout=2000)
-                result.screenshot = page.screenshot(type="png")
-                result.ok = True
+                _inspect(page, cfg, result, capture_html=capture_html)
             finally:
                 browser.close()
+    except ValueError as e:
+        result.error = str(e)
+    except PlaywrightError as e:
+        result.error = str(e).split("\n=====")[0].strip()[:1500]
+    result.seconds = round(time.monotonic() - started, 2)
+    return result
+
+
+def check_open_page(page, cfg: dict) -> LocatorCheck:
+    """The same check on a page that is already open (a paused test's page): nothing is navigated, and the outlines
+    drawn for the screenshot are taken off again."""
+    started = time.monotonic()
+    result = _prepare(cfg)
+    result.url = page.url
+    from playwright.sync_api import Error as PlaywrightError
+    try:
+        _inspect(page, cfg, result, cleanup=True)
     except ValueError as e:
         result.error = str(e)
     except PlaywrightError as e:

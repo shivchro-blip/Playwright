@@ -346,6 +346,12 @@ def _refresh_definitions():
     build_screen_cache(RUN_SYSTEM_CONFIG)
     build_screen_cache(systemConfig)
     load_common_actions()
+    try:  # systemData.json too: a fixed base_url or login check is what the sign-in tries next
+        with open(SYSTEMDATA_FILE, "r", encoding="utf-8") as f:
+            login_data.clear()
+            login_data.update(json.load(f))
+    except (OSError, ValueError) as e:
+        logger.warning("[debug] could not read systemData.json again: %s", e)
     reusableTestCases.clear()
     for case in load_all_test_cases(os.path.join(workspaceDir, "Tests"), "all", ["applications"], ["dev"]):
         reusableTestCases[case["testCaseID"]] = case
@@ -519,13 +525,25 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
     global reportDescription
     if current_login_state.get("system") != system_needed:
         logger.info(f"[LOGIN SWITCH] CURRENT = {current_login_state.get('system')} → NEW = {system_needed}")
+        debug_pause.begin_step()
+        try:
+            system_data = login_data["systems"].get(system_needed, {}).get(envConfig, {})
+            if not system_data:
+                raise ValueError(f"Missing login data for system '{system_needed}' in env '{envConfig}'")
 
-        system_data = login_data["systems"].get(system_needed, {}).get(envConfig, {})
-        if not system_data:
-            raise ValueError(f"Missing login data for system '{system_needed}' in env '{envConfig}'")
-
-        build_screen_cache(system_needed)
-        base_url = await run_login_pretest(page, browser, dictionaryContext, system_needed)
+            build_screen_cache(system_needed)
+            base_url = await run_login_pretest(page, browser, dictionaryContext, system_needed)
+        except BaseException as login_error:
+            if debug_pause.pausable(login_error):  # pause on failure covers signing in too: fix it, try again
+                decision = await debug_pause.on_failure(
+                    login_error, page=page, step_no=1 + step_offset, step={}, of=step_offset + len(steps),
+                    kind="login", label="Sign-in", reload_steps=reload_steps, test_id=test_id)
+                if decision is not None:
+                    return await run_steps(decision.steps, page, browser, dictionaryContext, testSystem,
+                                           current_login_state, system_needed, parent_override=parent_override,
+                                           start_url=start_url, after_step=after_step, step_reporter=step_reporter,
+                                           reload_steps=reload_steps, test_id=test_id, step_offset=decision.offset)
+            raise
         #await asyncio.sleep(2)
         current_login_state["system"] = system_needed
         current_login_state["base_url"] = base_url
@@ -547,6 +565,17 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
 
     for step_no, step in enumerate(steps, 1 + step_offset):
         debug_pause.begin_step()
+        if step_reporter is not None and debug_pause.stop_before(step_no):  # step through: wait before this step
+            kind, label = step_events.describe(step if isinstance(step, dict) else {})
+            decision = await debug_pause.on_breakpoint(page=page, step_no=step_no, step=step,
+                                                       of=step_offset + len(steps), kind=kind, label=label,
+                                                       reload_steps=reload_steps, test_id=test_id)
+            if decision is None:
+                pytest.fail(f"Ended at step {step_no} ({label}) by the person who was stepping through the test.")
+            return await run_steps(decision.steps, page, browser, dictionaryContext, testSystem,
+                                   current_login_state, system_needed, parent_override=parent_override,
+                                   after_step=after_step, step_reporter=step_reporter, reload_steps=reload_steps,
+                                   test_id=test_id, step_offset=decision.offset, resume=True)
         if step_reporter:
             step_reporter.start(step_no, step)
         try:
@@ -873,6 +902,9 @@ async def browser_context(test_case, suite_browser):
             "slow_mo": int(slowmoConfig),
             **extra_launch,  # channel, etc.
         }
+        if debug_pause.enabled() and getattr(browser_type, "name", "") == "chromium":
+            # pause on failure: the web app can look at the paused page (check or pick a locator on it) over this port
+            launch_args.setdefault("args", []).append(f"--remote-debugging-port={debug_pause.reserve_cdp_port()}")
 
         try:
             if maximized:
@@ -987,6 +1019,7 @@ if test_cases:
 
         all_steps = test_case["steps"]
         first, last = checkpoints.steps_window(len(all_steps))
+        debug_pause.set_window(first)
         resume = checkpoints.load_resume(testCaseId)
         if checkpoints.is_windowed(len(all_steps)) or resume:
             logger.info(f"[steps] Running steps {first}-{last} of {len(all_steps)} of {testCaseId}")
