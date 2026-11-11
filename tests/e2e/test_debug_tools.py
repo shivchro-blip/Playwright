@@ -199,8 +199,9 @@ def test_add_a_field_from_the_live_page_before_the_failed_one(workspace: Path, t
         page.get_by_test_id("debug-abort").click()
         expect(page.get_by_test_id("tc-run-status")).to_have_text("Failed", timeout=120_000)
         browser.close()
-    log = console(tmp_path)
+    log = console(tmp_path).split("= FAILURES =")[0]  # a failed test's report repeats its log: count the first
     assert log.count("Performing FILL on 'searchBox'") == 1 and log.count("Performing FILL on 'extraPhone'") == 1
+    assert log.count("Performing FILL on 'notes'") == 1  # the two fields before the new one were not run again
 
 
 def test_save_the_state_keep_waiting_and_see_what_was_saved_since(workspace: Path, tmp_path: Path):
