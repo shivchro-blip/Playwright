@@ -921,7 +921,8 @@ class ControlPanel:
         counts = run.counts()
         signature = (run.status, run.report_status, len(run.results), tuple(sorted(counts.items())),
                      tuple(r.step for r in list(run.results.values())),
-                     (run.paused or {}).get("seq"), (run.paused or {}).get("notice"), run.debug_pauses)
+                     (run.paused or {}).get("seq"), (run.paused or {}).get("notice"), (run.paused or {}).get("info"),
+                     run.debug_pauses)
         if signature == self.last_signature:
             return
         was_active = bool(self.last_signature) and self.last_signature[0] in ACTIVE

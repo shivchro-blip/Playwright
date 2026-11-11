@@ -840,7 +840,7 @@ class TestEditor:
             return
         sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5,
                tuple((r.step, len(r.steps)) for r in run.results.values()),
-               (run.paused or {}).get("seq"), (run.paused or {}).get("notice"))
+               (run.paused or {}).get("seq"), (run.paused or {}).get("notice"), (run.paused or {}).get("info"))
         if sig != self._run_sig:
             self._run_sig = sig
             self.run_panel.refresh()

@@ -36,15 +36,14 @@ def start_debug(page) -> None:
     page.get_by_role("region", name="Test case editor").get_by_role("button", name="Debug").click()
 
 
-def click_on_picture(page, port: int, selector: str) -> None:
+def click_on_picture(page, p, port: int, selector: str) -> None:
     """Click, on the picture of the paused page, where `selector` is on that page (asked of the browser itself)."""
-    with sync_playwright() as p2:
-        remote = p2.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
-        try:
-            target = next(pg for ctx in remote.contexts for pg in ctx.pages if not pg.is_closed())
-            box = target.locator(selector).first.bounding_box()
-        finally:
-            remote.close()
+    remote = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+    try:
+        target = next(pg for ctx in remote.contexts for pg in ctx.pages if not pg.is_closed())
+        box = target.locator(selector).first.bounding_box()
+    finally:
+        remote.close()
     assert box, f"{selector} is not on the paused page"
     picture = page.get_by_test_id("fix-picture")
     shown = picture.bounding_box()
@@ -155,7 +154,7 @@ def test_fix_the_locator_on_the_live_page_then_run_again_and_mark_the_run(worksp
         dialog.get_by_test_id("fix-suggest").click()
         expect(dialog.get_by_test_id("fix-results")).to_be_visible()
 
-        click_on_picture(page, port, "#notes")  # pick what the test should have used
+        click_on_picture(page, p, port, "#notes")  # pick what the test should have used
         picked = dialog.get_by_test_id("fix-picked")
         expect(picked).to_be_visible(timeout=60_000)
         expect(picked).to_contain_text("notes")
@@ -188,7 +187,7 @@ def test_add_a_field_from_the_live_page_before_the_failed_one(workspace: Path, t
         port = int(banner.get_attribute("data-cdp"))
         banner.get_by_test_id("debug-fix").click()
         dialog = page.get_by_role("dialog", name="Fix on the live page")
-        click_on_picture(page, port, "#phone")
+        click_on_picture(page, p, port, "#phone")
         expect(dialog.get_by_test_id("fix-picked")).to_be_visible(timeout=60_000)
         dialog.get_by_test_id("fix-new-name").fill("extraPhone")
         dialog.get_by_test_id("fix-new-value").fill("555-0100")
