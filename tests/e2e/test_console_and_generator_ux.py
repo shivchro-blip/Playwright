@@ -66,7 +66,8 @@ def test_a_reopened_run_shows_its_whole_log_and_the_tools_find_filter_wrap_and_c
         wrap.click()
         expect(wrap).to_have_attribute("aria-pressed", "true")
         expect(page.locator(".any-console-body.is-wrap")).to_have_count(1)
-        copy = tools.get_by_role("button", name="Copy")
+        copy = tools.locator("button.any-ct-btn").last  # its name changes to "Copied": find it by place
+        expect(copy).to_have_text("Copy")
         copy.click()
         expect(copy).to_have_text("Copied")
         # a screen reader is not read every line: the log is not a live region, the status line is
