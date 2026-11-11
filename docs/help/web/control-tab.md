@@ -78,6 +78,22 @@ A step that fails normally ends the test and closes the browser. With **Pause on
 | **Skip this field** | Leaves the failed field out and carries on with the next. |
 | **End the test** | The failure stands: the test fails as usual and the browser closes. |
 
+**Signing in pauses too.** If the sign-in before the first step fails (for example `logged_in_check` is missing from `systemData.json`), the run waits with **Try signing in again**; `systemData.json` and the sign-in steps are read again.
+
+**Waiting fast.** A run with Pause on failure gives up on a missing element after 5 seconds instead of 30 (`AUTOPLAY_DEBUG_FAST_FAIL_MS`), so the pause comes sooner; you decide what to do from there.
+
+**Step through.** Type step numbers (`3,5`) or `all` in **Pause before steps** (Control), tick **Pause before every step** in *From step...*, or choose **Step through** in the test case's **More** menu. The test waits *before* those steps: **Run this step**, **Skip this step**, **Run to the end** (no more stops), or **End the test**. Edits you save are read again before the step runs.
+
+**Fix on the live page** (Chromium browsers: chrome, msedge, chromium). The paused browser is looked at in place, on this machine only, without moving the page:
+
+- **Check '<field>'** says what the field's current locator matches on the page as the test left it, with the matches outlined.
+- **Suggest fixes** ranks elements of that page that could replace it; **Use** writes the new locator to the page file.
+- **Click the picture** to pick the element the test should have used: it finds the most reliable locator for it. **Use this for '<field>'** replaces the field's locator, or **Add it and run again** adds it to the test as a new field *before* the failed one (name, action and value are asked) and runs again. The page and test files are saved with the same checks as the Generator's save, so a file someone else changed meanwhile is refused, not overwritten.
+
+**While paused you can also** **Save state here** (the browser as it is becomes the start point for *Run from step N*, even after the run ends; it holds whatever the step had already done), see **how long it will wait** and **Keep waiting** in the last 5 minutes, and see **which files were saved since the pause** (the ones the run will read again).
+
+**Runs that paused are not clean results.** They are left out of trends, flaky detection and comparison with the previous run, and marked *debugged* in History. **Control follows a run you started from the Generator** by itself when the run it shows is over.
+
 What a fix can change while paused: page files (locators, fields), the test case's steps and form data, common actions, reusable tests. It cannot change `.env` values, logins, browser settings (headless, size, slow-mo) or the framework's own code: those need a new run. If the edited file cannot be read (half-saved JSON), the panel says so and the run keeps waiting. If you change the steps *before* the failed one, the resume point may not match: use **Run the step again**. If **Headless** is on there is no browser window, only the picture; turn Headless off to look and click in the browser.
 
 Limits: it runs one test at a time (Parallel workers must be 1), on this machine only (not a remote runner), and only for runs you start yourself in the app: schedules, monitors, pipelines, the REST API and `.env` can never turn it on, and it is never saved by **Save as defaults**. A paused run holds the run slot, so other runs queue behind it. It waits up to 30 minutes (`AUTOPLAY_DEBUG_TIMEOUT_MINUTES`), then ends the test as failed; closing the browser window, or **Cancel**, ends it too. A run that paused is not a clean result: it is marked in its log and `run.json` (`debug_pauses`) and a pass after a fix is a pass of the fixed test.
