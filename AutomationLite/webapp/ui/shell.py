@@ -181,13 +181,30 @@ def register() -> None:
             panels["generator"].runs_cleared()
             panels["history"].runs_cleared()
 
+        async def jump(kind: str, system: str, name: str, field: str = "") -> None:
+            """Open the test case or page a paused run needs fixed, in the Generator."""
+            if kind == "page":
+                await run_command(SimpleNamespace(action="open_page",
+                                                  args={"system": system, "page": name, "field": field}))
+                return
+            refs, _errors = services().tests.list_tests(system)
+            ref = next((r for r in refs if r.test_id == name), None)
+            if ref is None:
+                ui.notify(f"{name} was not found in {system}.", type="warning")
+                return
+            await run_command(SimpleNamespace(action="open_test", args={"system": system, "rel": ref.file,
+                                              "index": ref.index}))
+
+        def has_unsaved() -> bool:
+            return panels["generator"].has_unsaved()
+
         palette = CommandPalette(run_command)
 
         with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent"):
             with ui.tab_panel(control_tab).classes("any-app"):
-                panels["control"] = ControlPanel()
+                panels["control"] = ControlPanel(jump=jump, has_unsaved=has_unsaved)
             with ui.tab_panel(tab_elems["Generator"]).classes("any-app any-page"):
-                panels["generator"] = GeneratorPanel(on_run=watch)
+                panels["generator"] = GeneratorPanel(on_run=watch, jump=jump)
             with ui.tab_panel(tab_elems["History"]).classes("any-app any-page"):
                 panels["history"] = HistoryPanel(on_watch=watch)
             if not LITE:

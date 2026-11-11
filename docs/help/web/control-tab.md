@@ -65,6 +65,22 @@ curl -X POST <app>/api/v1/plans/run -H "Authorization: Bearer <token>" -H "Conte
 - **Clear** (before **Report**, shown once a run has finished) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
 - **Allure report** opens the HTML report when the Allure CLI is installed (see *History and Reports*).
 
+## Pause on failure: keep the browser open, fix the test, resume
+
+A step that fails normally ends the test and closes the browser. With **Pause on failure** (Browser & artifacts here; the **Debug** button next to **Run** in the Generator, or a tick in **From step...**) the test **waits** instead, with its browser, the page as it was, and everything it saved earlier (`DICT` values, the login) still alive. The run shows **Paused: waiting for you**, with the step and field that failed, the error, a picture of the page, and:
+
+| Button | What it does |
+|---|---|
+| **Open test case / Open page** | Jump to the Generator to fix the test case or the page (the field is filtered for you). Save the file. |
+| **Run '<field>' again** | Reads the test case, pages, common actions and reusable tests from disk again, runs the failed field again, and carries on, in the same browser. Fields before it do not run again. |
+| **Run the step again** | The same, from the step's first field. Fields that clicked or submitted something run twice. |
+| **Skip this field** | Leaves the failed field out and carries on with the next. |
+| **End the test** | The failure stands: the test fails as usual and the browser closes. |
+
+What a fix can change while paused: page files (locators, fields), the test case's steps and form data, common actions, reusable tests. It cannot change `.env` values, logins, browser settings (headless, size, slow-mo) or the framework's own code: those need a new run. If the edited file cannot be read (half-saved JSON), the panel says so and the run keeps waiting. If you change the steps *before* the failed one, the resume point may not match: use **Run the step again**. If **Headless** is on there is no browser window, only the picture; turn Headless off to look and click in the browser.
+
+Limits: it runs one test at a time (Parallel workers must be 1), on this machine only (not a remote runner), and only for runs you start yourself in the app: schedules, monitors, pipelines, the REST API and `.env` can never turn it on, and it is never saved by **Save as defaults**. A paused run holds the run slot, so other runs queue behind it. It waits up to 30 minutes (`AUTOPLAY_DEBUG_TIMEOUT_MINUTES`), then ends the test as failed; closing the browser window, or **Cancel**, ends it too. A run that paused is not a clean result: it is marked in its log and `run.json` (`debug_pauses`) and a pass after a fix is a pass of the fixed test.
+
 ## Clear all
 
 **Clear all** (top bar, on every tab) deletes everything previous runs left behind so the next run starts clean. It first lists what will go and what stays, and you confirm. It needs the delete permission, and it is written to the Activity trail.

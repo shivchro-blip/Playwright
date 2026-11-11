@@ -17,6 +17,7 @@ from webapp.ui.components import (
 )
 from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
+from webapp.ui.debug_panel import debug_banner
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.plan_dialog import open_plan
 from webapp.ui.theme import icon, svg
@@ -77,8 +78,11 @@ def _chip_slot(kind: str) -> str:
 
 
 class ControlPanel:
-    def __init__(self):
+    def __init__(self, jump=None, has_unsaved=None):
+        """jump(kind, system, name, field=""): open a test case or page in the Generator (the paused-run panel's
+        links); has_unsaved(): are there edits in the Generator that are not on disk yet."""
         self.svc = services()
+        self.jump, self.has_unsaved = jump, has_unsaved
         self.entered: dict[str, str] = {}  # login values typed for the next run; memory only
         cfg = self.svc.env.load()
         systems = sorted(set(self.svc.systems.systems()) | set(self.svc.catalog.systems_with_tests()))
@@ -226,6 +230,12 @@ class ControlPanel:
                             self.wait_until = self._select(
                                 waits, cfg["pageWaitUntil"] if cfg["pageWaitUntil"] in waits else "load", "sel-wait")
                         self.recording = ui.switch("Record video", value=_truthy(cfg["recording"]))
+                        self.debug = ui.switch("Pause on failure", value=False) \
+                            .props('data-testid="sw-debug"') \
+                            .tooltip("When a step fails, keep the browser open and wait: fix the test case or the "
+                                     "page, save, and resume in the same browser. One test at a time, on this "
+                                     "machine. Not saved as a default.")
+                        self.debug.on_value_change(self._on_debug_change)
                         self.tracing = ui.switch("Playwright trace", value=_truthy(cfg["tracing"]))
                         self.snapshots = ui.switch("Snapshots", value=_truthy(cfg["snapshots"]))
                         self.a11y = ui.switch("Accessibility scan", value=_truthy(cfg["a11yScan"])) \
@@ -426,6 +436,7 @@ class ControlPanel:
                         .props('flat unelevated no-caps data-testid="allure-report"').classes("any-btn is-38")
             self.progress_view(None)
             self.message_view("")
+            self.debug_view(None)
             with ui.element("div").classes("any-table-wrap"):
                 self.results_table = ui.table(rows=[], row_key="nodeid", pagination=10,
                                               columns=RESULT_COLUMNS).classes("w-full")
@@ -523,6 +534,11 @@ class ControlPanel:
                         copy_button(path, "Copy raw results path", "is-28")
 
     @ui.refreshable_method
+    def debug_view(self, run: Run | None) -> None:
+        if run and run.paused:
+            debug_banner(run, self.jump, self.has_unsaved)
+
+    @ui.refreshable_method
     def history(self) -> None:
         runs = self.svc.runs.list()[:25]
         rows = [{
@@ -617,6 +633,14 @@ class ControlPanel:
         current = int(self.workers.value or WORKERS_MIN)
         self.workers.value = min(max(current + delta, WORKERS_MIN), WORKERS_MAX)
 
+    def _on_debug_change(self) -> None:
+        if self.debug.value and int(self.workers.value or 1) > 1:
+            self.workers.value = 1  # a paused test holds the run: one at a time
+            ui.notify("Pause on failure runs one test at a time: Parallel workers set to 1.", type="info")
+        if self.debug.value and self.headless.value:
+            ui.notify("Headless is on: the browser will have no window to look at (you get a picture of the page "
+                      "instead). Turn Headless off to see it.", type="info", timeout=6000)
+
     def _on_workers_change(self) -> None:
         value = int(self.workers.value or WORKERS_MIN)
         self.workers_minus.set_enabled(value > WORKERS_MIN)
@@ -676,6 +700,7 @@ class ControlPanel:
             "selfHeal": bool(self.heal.value),
             "retryFailed": int(self.retries.value or 0),
             "LOG_LEVEL": self.log_level.value or "INFO",
+            "debugOnFailure": bool(self.debug.value),
         }
 
     async def start_run(self) -> None:
@@ -779,6 +804,7 @@ class ControlPanel:
         self.log_view.set_active(False)
         self.progress_view.refresh(None)
         self.message_view.refresh("")
+        self.debug_view.refresh(None)
         self.results_table.rows = []
         styled_table(self.results_table, 0, wide=True)
         self.results_table.update()
@@ -795,6 +821,7 @@ class ControlPanel:
             "browsers": self.browsers_select.value or ["chrome"],
             **self._options(),
         }
+        values.pop("debugOnFailure", None)  # never a default: a scheduled run would wait for nobody
         try:
             self.svc.env.save(values)
         except (ValueError, OSError) as e:
@@ -844,13 +871,16 @@ class ControlPanel:
 
         counts = run.counts()
         signature = (run.status, run.report_status, len(run.results), tuple(sorted(counts.items())),
-                     tuple(r.step for r in list(run.results.values())))
+                     tuple(r.step for r in list(run.results.values())),
+                     (run.paused or {}).get("seq"), (run.paused or {}).get("notice"), run.debug_pauses)
         if signature == self.last_signature:
             return
         was_active = bool(self.last_signature) and self.last_signature[0] in ACTIVE
         self.last_signature = signature
 
         tile_tone, tile_icon, headline = RUN_LOOK.get(run.status, IDLE_LOOK)
+        if run.paused:
+            tile_tone, tile_icon, headline = "tone-fail", "triangle-alert", "Paused: waiting for you"
         self.status_tile.classes(replace=f"any-tile {tile_tone}")
         self.status_icon.name = icon(tile_icon)
         self.headline.text = headline
@@ -864,6 +894,7 @@ class ControlPanel:
         # A missing Allure CLI is no longer a problem: the built-in report covers it
         report_problem = run.report_message if run.report_status == "failed" else ""
         self.message_view.refresh(run.error or report_problem)
+        self.debug_view.refresh(run)
         rows = result_rows(run)
         self.results_table.rows = rows
         styled_table(self.results_table, len(rows), wide=True)

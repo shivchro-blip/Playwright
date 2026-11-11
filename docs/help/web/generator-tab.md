@@ -15,6 +15,8 @@ Every editor has a **Form / JSON** toggle. The form covers the common keys; the 
 4. Reorder with the arrows, duplicate or remove steps.
 5. **Check** lists problems, **Save** writes the file, **Run** runs just this test.
 
+**Debug** (next to **Run**) runs the open test case and, if a step fails, keeps the browser open: fix the test case or a page here, save, and resume in the same browser (see *Pause on failure* in the Control tab help).
+
 **Run** (and **From step...**) run only the open test case, on its environment with your saved browser options, and show the run right here under the toolbar: its status, each result with where it failed, **Details** (screenshot, DOM, trace, log), the last lines of the console, **Cancel** while it runs and **Report** when it is ready. You stay on the test case to fix it and run it again. **Open in Control** shows the same run on the Control tab; the Control tab's own test selection is not used.
 
 ### Form fields on a page step

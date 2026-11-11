@@ -48,6 +48,9 @@ FIELDS: tuple[EnvField, ...] = (
     EnvField("retryFailed", "int", "0", "Debug", "Run a failed test again (up to 2 times)"),
     EnvField("selfHeal", "bool", "false", "Artifacts", "Self-heal locators that find nothing"),
     EnvField("selfHealMinScore", "int", "60", "Debug", "Lowest score a healed locator may have"),
+    # Keep the browser open when a step fails; fix the test, resume (utils/debug_pause.py). A run option only: it is
+    # never saved to .env, and scheduled, remote and command-line runs cannot use it
+    EnvField("debugOnFailure", "bool", "false", "Debug", "Pause on failure: keep the browser open and resume"),
     EnvField("a11yScan", "bool", "false", "Artifacts", "Accessibility scan of each screen"),
     EnvField("stepCapture", "bool", "false", "Artifacts", "Step pictures: the page after each step (time travel)"),
     EnvField("del_allure", "bool", "true", "Artifacts", "Clear old Allure results"),

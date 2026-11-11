@@ -57,6 +57,10 @@ RUNNER_SILENCE_SECONDS = 90  # a remote run whose runner has not called in this 
 WATCH_INTERVAL = 15  # seconds between checks for lost runners
 
 
+def is_truthy(value: object) -> bool:
+    return str(value or "").strip().lower() in ("true", "1", "yes")
+
+
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -123,6 +127,7 @@ class Run:
     trigger: str = ""  # "" = started by a person; "schedule:<id>" = started by a schedule
     claimed_by: str = ""  # remote runs: the runner that took it
     compare_with: str = ""  # a run started together with this one on another environment, to compare with
+    debug_pauses: int = 0  # times the run waited for a person after a failure (debugOnFailure): not a clean result
     results: dict[str, TestResult] = field(default_factory=dict)
     log: list[str] = field(default_factory=list, repr=False)
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
@@ -136,6 +141,8 @@ class Run:
     _step_offsets: dict = field(default_factory=dict, repr=False)  # step event file -> bytes already read
     _steps_read_at: float = field(default=0.0, repr=False)
     _log_published: float = field(default=0.0, repr=False)
+    # While the test waits after a failure (utils/debug_pause.py): what failed and where; None otherwise. Memory only.
+    paused: dict | None = field(default=None, repr=False)
 
     def scrub(self, text: str) -> str:
         for value in self._secrets.values():
@@ -189,6 +196,7 @@ class Run:
             "trigger": self.trigger,
             "claimed_by": self.claimed_by,
             "compare_with": self.compare_with,
+            "debug_pauses": self.debug_pauses,
             "results": [asdict(r) for r in list(self.results.values())],
         }
 
@@ -228,7 +236,7 @@ def run_from_dict(data: dict, folder: Path) -> Run:
         error=data.get("error", ""), collected=data.get("collected"),
         report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
         trigger=data.get("trigger", ""), claimed_by=data.get("claimed_by", ""),
-        compare_with=data.get("compare_with", ""),
+        compare_with=data.get("compare_with", ""), debug_pauses=int(data.get("debug_pauses") or 0),
         results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
     )
 
@@ -269,6 +277,11 @@ def pytest_environment(run: Run, workspace: Path) -> dict[str, str]:
     if level:  # one choice for every framework logger, ahead of any per-module level in .env
         env.update({k: str(level) for k in ("TestSuiteLoggerLevel", "PageLoggerLevel", "FormHandlerLoggerLevel")})
     env["checkpointsDir"] = str(run.dir / "checkpoints")  # used when saveCheckpoints is on
+    if is_truthy(cfg.options.get("debugOnFailure")):  # only a run that asked for it can pause (utils/debug_pause.py)
+        env["debugDir"] = str(run.dir / "debug")
+    else:
+        env.pop("debugDir", None)
+        env["debugOnFailure"] = "false"  # whatever .env says
     for key, value in run._secrets.items():
         env.setdefault(key, value)  # never override what the environment already has
     env.update({
@@ -396,6 +409,14 @@ class RunManager:
         if data_set and not re.fullmatch(r"[\w\-]+", data_set):
             raise ValueError("The data set name may only have letters, digits, '_' and '-'.")
         self._check_step_options(config)
+        if is_truthy(config.options.get("debugOnFailure")):
+            if trigger:
+                raise ValueError("Pause on failure is only for runs you start yourself: a schedule, monitor or "
+                                 "pipeline run would wait for nobody.")
+            if config.runner:
+                raise ValueError("Pause on failure works on this machine only, not on a remote runner.")
+            if config.workers > 1:
+                raise ValueError("Pause on failure runs one test at a time: set Parallel workers to 1.")
 
         with self._lock:
             if len(self._queue) >= MAX_QUEUED:
@@ -477,6 +498,22 @@ class RunManager:
         proc = run._proc
         if proc and proc.poll() is None:
             self._kill_tree(proc)
+        return True
+
+    def debug_command(self, run_id: str, do: str) -> bool:
+        """Tell a run that waits after a failure what to do: retry, restep, skip or abort (utils/debug_pause.py).
+        False when the run is not waiting (it may have gone on, or ended, in the meantime)."""
+        run = self._runs.get(run_id)
+        paused = run.paused if run else None
+        if not run or not run.active or not paused or do not in ("retry", "restep", "skip", "abort"):
+            return False
+        if do == "skip" and not paused.get("can_skip"):
+            return False
+        folder = run.dir / "debug"
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = folder / "command.json.tmp"
+        tmp.write_text(json.dumps({"do": do, "seq": paused.get("seq")}), encoding="utf-8")
+        tmp.replace(folder / "command.json")
         return True
 
     def delete(self, run_id: str) -> bool:
@@ -693,6 +730,7 @@ class RunManager:
                                   "this run: review them in History > Healed locators.")
         except Exception:  # heal bookkeeping must never break finishing a run
             logger.exception("Could not read the heal records of %s", run.id)
+        run.paused = None
         run.status = self._final_status(run)
         run.finished_at = _now()
         # Tests still marked running never reported back (crash/cancel)
@@ -805,6 +843,19 @@ class RunManager:
             run.collected = int(evt.get("count") or 0)
             if run.collected:
                 run.expected = run.collected
+        elif kind == "debug":  # the test waits after a failure, or goes on (utils/debug_pause.py)
+            if evt.get("phase") == "paused":
+                run.paused = {**{k: (run.scrub(str(v)) if isinstance(v, str) else v) for k, v in evt.items()},
+                              "at": _now()}
+                if not evt.get("notice"):  # a pause told again because the edited files could not be read is the same
+                    run.debug_pauses += 1
+                self._append(run, f"[webapp] Paused: step {evt.get('step')} failed"
+                                  + (f" on field '{evt.get('field')}'" if evt.get("field") else "")
+                                  + ". The browser is still open; fix the test, then resume.")
+            else:
+                run.paused = None
+                self._append(run, f"[webapp] Resumed ({evt.get('do')}).")
+            self._publish(run, "paused" if run.paused else "resumed")
         elif kind == "retry":
             nodeid = str(evt.get("nodeid", ""))
             if nodeid in run.results:

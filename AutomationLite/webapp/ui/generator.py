@@ -30,6 +30,7 @@ from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.common_actions_panel import CommonActionEditor
+from webapp.ui.debug_panel import debug_banner
 from webapp.ui.data_sets_panel import DataSetEditor
 from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
@@ -325,6 +326,10 @@ class TestEditor:
                 icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")
                 ui.button("Run", icon=icon("play-solid"), color=None, on_click=self.run_this) \
                     .classes("any-btn is-38").tooltip("Run only this test case")
+                ui.button("Debug", icon=icon("eye"), color=None, on_click=self.debug_this) \
+                    .props('data-testid="debug-run"').classes("any-btn is-38") \
+                    .tooltip("Run this test case and, if a step fails, keep the browser open: fix the test case or "
+                             "the page, save, and resume in the same browser")
                 ui.button("From step...", icon=icon("list-checks"), color=None, on_click=self.run_from_step) \
                     .props('data-testid="run-from-step"').classes("any-btn is-38") \
                     .tooltip("Run some of the steps, starting from a saved state")
@@ -761,7 +766,8 @@ class TestEditor:
         if run is None:
             return
         sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5,
-               tuple((r.step, len(r.steps)) for r in run.results.values()))
+               tuple((r.step, len(r.steps)) for r in run.results.values()),
+               (run.paused or {}).get("seq"), (run.paused or {}).get("notice"))
         if sig != self._run_sig:
             self._run_sig = sig
             self.run_panel.refresh()
@@ -804,6 +810,7 @@ class TestEditor:
                         ui.button("Open in Control", color=None, on_click=lambda: self.gen.on_run(run.id)) \
                             .props('flat dense no-caps data-testid="tc-run-control"').classes("any-btn")
                     icon_button("x", "Hide this run", self._hide_run)
+            debug_banner(run, self.gen.jump, self.gen.has_unsaved)
             for row in result_rows(run):
                 outcome = row["outcome"]
                 tone = "passed" if outcome in ("passed", "xfailed") else \
@@ -831,6 +838,12 @@ class TestEditor:
         ready = await self._ready_to_run()
         if ready:
             self._start_run(*ready)
+
+    async def debug_this(self) -> None:
+        """Run just this test case, and keep the browser open if a step fails (utils/debug_pause.py)."""
+        ready = await self._ready_to_run()
+        if ready:
+            self._start_run(*ready, extra={"debugOnFailure": True})
 
     async def run_from_step(self) -> None:
         """Run some of the steps, from the browser state saved after the step before (or from a URL)."""
@@ -939,6 +952,8 @@ class TestEditor:
             options()
             ui.checkbox("Save the state after each step I run (to resume from later)",
                         on_change=lambda e: state.update(save=bool(e.value))).props('data-testid="rs-save"')
+            ui.checkbox("Pause if a step fails: keep the browser open so I can fix the test and resume",
+                        on_change=lambda e: state.update(debug=bool(e.value))).props('data-testid="rs-debug"')
 
             def run() -> None:
                 extra: dict = {}
@@ -953,6 +968,8 @@ class TestEditor:
                     extra["startUrl"] = state["url"].strip()
                 if state["save"]:
                     extra["saveCheckpoints"] = True
+                if state.get("debug"):
+                    extra["debugOnFailure"] = True
                 if state["set"]:
                     extra["runDataSet"] = state["set"]
                 dialog.close()
@@ -1724,9 +1741,10 @@ class PageEditor:
 # ───────────── tab ─────────────
 
 class GeneratorPanel:
-    def __init__(self, on_run: Callable[[str], None] | None = None):
+    def __init__(self, on_run: Callable[[str], None] | None = None, jump=None):
         self.svc = services()
         self.on_run = on_run  # shell callback: follow a started run on the Control tab
+        self.jump = jump  # shell callback: open a test case or page (the paused-run panel's links)
         systems = self.all_systems()
         default = self.svc.env.load().get("systemConfig")
         self.system: str | None = default if default in systems else (systems[0] if systems else None)
@@ -1823,6 +1841,10 @@ class GeneratorPanel:
 
     def runs_cleared(self) -> None:
         self.tests.runs_cleared()
+
+    def has_unsaved(self) -> bool:
+        """Edits in the test case or page editor that are not on disk yet."""
+        return bool(self.tests.dirty or self.pages.dirty)
 
     def set_ai(self, enabled: bool) -> None:
         self.tests.draft_button.set_visibility(enabled)

@@ -11,6 +11,7 @@ import utils.action_helper as actionHelper
 import utils.executables as executables
 import utils.self_heal as self_heal
 import utils.element_identity as element_identity
+import utils.debug_pause as debug_pause
 import pytest
 import warnings
 import re
@@ -588,10 +589,14 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
             return page
         logger.info(f"Actions to execute: {actions}")
         actionCount = 0
+        resume_after = debug_pause.take_action_resume()  # resuming after a pause: these already ran
 
         for action in actions:
             current_action = action
             actionCount += 1
+            if actionCount <= resume_after:
+                continue
+            debug_pause.note_action(actionCount - 1, action)
             with allure.step(f"{actionCount}) {action['type'].upper()} - {action.get('field', 'UNKNOWN')}"):
                 logger.info(f"Processing action #{actionCount}: {action}")
                 action_type = action["type"]
@@ -680,6 +685,7 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
                         await attach_allure_failure_details(page, action=action, name="Action Failure")
    
         #await asyncio.sleep(2)
+        debug_pause.note_actions_done(actionCount)
         found_errors = await checkForErrorMessages(page, pageErrorLocators, pageErrorContains) or []
 
         if found_errors:
