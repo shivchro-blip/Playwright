@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import re
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -51,6 +52,8 @@ if not LITE:  # the Recorder and the Studio are not part of AutoPlay Lite
     from webapp.ui.recorder_dialog import open_recorder
     from webapp.ui.studio import StudioEditor
 
+logger = logging.getLogger(__name__)
+
 RUN_PILLS = {"queued": ("idle", "Queued"), "running": ("running", "Running"), "passed": ("passed", "Passed"),
              "failed": ("failed", "Failed"), "error": ("failed", "Error"), "cancelled": ("idle", "Cancelled")}
 
@@ -61,20 +64,10 @@ TC_META = ("testCaseID", "system", "env", "module", "tags", "description", "data
 SAVE_ERRORS = (ValueError, ConflictError, PathError, OSError)
 
 
-# ───────────── what the person had open (kept for their browser, so a reload comes back to it) ─────────────
+# ───────────── what the person had open (kept in memory per browser, so a reload comes back to it) ─────────────
 
-def _remember(**values) -> None:
-    try:
-        app.storage.browser.setdefault("generator", {}).update(values)
-    except Exception:  # noqa: BLE001 - remembering is a convenience; the editor works without it
-        pass
-
-
-def _recall() -> dict:
-    try:
-        return dict(app.storage.browser.get("generator") or {})
-    except Exception:  # noqa: BLE001
-        return {}
+_REMEMBERED: dict[str, dict] = {}  # browser id -> section, system, test case and page last open in the Generator
+_REMEMBERED_MAX = 500
 
 
 STEP_REF = re.compile(r"^Step (\d+)\b")
@@ -275,7 +268,7 @@ class TestEditor:
             ui.notify(str(e), type="negative")
             return
         self.file, self.index, self.hash = file, index, sha
-        _remember(test=[file, index], system=self.gen.system)
+        self.gen.remember(test=[file, index], system=self.gen.system)
         self._set_model(tc)
         self.validate(notify=False)
 
@@ -1263,7 +1256,7 @@ class PageEditor:
             ui.notify(str(e), type="negative")
             return
         self.rel, self.hash = rel, sha
-        _remember(page=rel, system=self.gen.system)
+        self.gen.remember(page=rel, system=self.gen.system)
         self._set_model(data)
 
     def _set_model(self, data: dict) -> None:
@@ -1824,6 +1817,10 @@ class GeneratorPanel:
     def __init__(self, on_run: Callable[[str], None] | None = None, jump=None, go_control=None):
         self.svc = services()
         self.go_control = go_control  # shell callback: show the Control tab (where the run settings are)
+        try:  # who this is, for remembering what they had open (read at page build, where it can be read)
+            self._browser = str(app.storage.browser.get("id") or "")
+        except Exception:  # noqa: BLE001
+            self._browser = ""
         self._visited = False  # the Generator has been shown: its section and open items stay as they are
         self._restored = False
         self._unsaved_sent = False
@@ -1882,6 +1879,17 @@ class GeneratorPanel:
         with self.root:
             ui.timer(1.0, self._sync_unsaved)
 
+    def remember(self, **values) -> None:
+        """Note what is open, for this browser (not saved to disk; gone when the app restarts)."""
+        if not self._browser:
+            return
+        _REMEMBERED.setdefault(self._browser, {}).update(values)
+        while len(_REMEMBERED) > _REMEMBERED_MAX:
+            _REMEMBERED.pop(next(iter(_REMEMBERED)))
+
+    def recall(self) -> dict:
+        return dict(_REMEMBERED.get(self._browser, {}))
+
     def _sync_unsaved(self) -> None:
         unsaved = self.has_unsaved()
         if unsaved != self._unsaved_sent:
@@ -1890,7 +1898,7 @@ class GeneratorPanel:
 
     def _section_changed(self, e) -> None:
         value = e.value if isinstance(e.value, str) else getattr(e.value, "_props", {}).get("name", "")
-        _remember(section=value)
+        self.remember(section=value)
 
     async def open_page(self, name: str) -> None:
         """Jump to a page in the Pages tab (from a step)."""
@@ -1934,11 +1942,11 @@ class GeneratorPanel:
         self._visited = True
         names = {"Test cases": self.tests_tab, "Pages": self.pages_tab, "Data sets": self.data_tab,
                  "Common actions": self.common_tab}
-        self.sections.set_value(names.get(_recall().get("section"), self.pages_tab))
+        self.sections.set_value(names.get(self.recall().get("section"), self.pages_tab))
 
     async def _restore(self) -> bool:
         """Open the test case and page this browser had open last, if they are still there."""
-        saved = _recall()
+        saved = self.recall()
         system = saved.get("system")
         if system and system != self.system and not await self.use_system(system):
             return False
