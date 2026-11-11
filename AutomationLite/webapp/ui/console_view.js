@@ -58,7 +58,7 @@ export default {
         <button type="button" class="any-ct-btn" aria-label="Previous match" :disabled="!matches.length" @click="step(-1)">&#8593;</button>
         <button type="button" class="any-ct-btn" aria-label="Next match" :disabled="!matches.length" @click="step(1)">&#8595;</button>
         <button type="button" class="any-ct-btn" :aria-pressed="wrap ? 'true' : 'false'" @click="wrap = !wrap">Wrap lines</button>
-        <button type="button" class="any-ct-btn" @click="copy">{{ copied ? 'Copied' : 'Copy' }}</button>
+        <button type="button" class="any-ct-btn" @click="copy">{{ copied || 'Copy' }}</button>
         <span v-if="hiddenCount" class="any-ct-hidden">{{ hiddenCount }} lines hidden by the filter</span>
       </div>
       <div ref="body" :class="['any-console-body', wrap ? 'is-wrap' : '']" role="log" aria-label="Console output" aria-live="off" tabindex="0" @scroll="onScroll">
@@ -73,7 +73,7 @@ export default {
     maxLines: { type: Number, default: 1500 },
   },
   data() {
-    return { items: [], nextId: 0, pinned: true, isActive: this.active, level: "all", query: "", wrap: false, hit: -1, unseen: 0, copied: false };
+    return { items: [], nextId: 0, pinned: true, isActive: this.active, level: "all", query: "", wrap: false, hit: -1, unseen: 0, copied: "" };
   },
   computed: {
     visible() {
@@ -148,18 +148,21 @@ export default {
     },
     async copy() {
       const text = this.visible.map((i) => i.plain).join("\n");
-      try {
-        await navigator.clipboard.writeText(text);
+      let ok = false;
+      try {  // the clipboard API can wait forever when the page is not focused: give it a second
+        await Promise.race([navigator.clipboard.writeText(text),
+                            new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 1000))]);
+        ok = true;
       } catch (e) {
         const area = document.createElement("textarea");
         area.value = text;
         document.body.appendChild(area);
         area.select();
-        try { document.execCommand("copy"); } catch (e2) { /* nothing more to try */ }
+        try { ok = document.execCommand("copy"); } catch (e2) { ok = false; }
         area.remove();
       }
-      this.copied = true;
-      setTimeout(() => { this.copied = false; }, 1500);
+      this.copied = ok ? "Copied" : "Could not copy";
+      setTimeout(() => { this.copied = ""; }, 1500);
     },
   },
 };
