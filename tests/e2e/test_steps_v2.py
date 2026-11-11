@@ -53,14 +53,20 @@ def test_the_editor_shows_v2_steps_as_rows_and_keeps_them_v2(workspace: Path, tm
         box.fill("TC-V2-1")
         box.press("Enter")
         expect(page.locator("#tc-id")).to_have_value("TC-V2-1")
-        expect(page.get_by_test_id("tc-format")).to_contain_text("explicit")
         editor = page.get_by_role("region", name="Test case editor")
+        page.get_by_test_id("tc-more").click()  # the step format is in the More menu
+        expect(page.get_by_test_id("tc-format")).to_contain_text("Step format: explicit")
+        page.keyboard.press("Escape")
         expect(editor.locator("input[value='second']")).to_have_count(1)  # the repeated field is its own row
-        page.get_by_test_id("tc-format").click()
-        expect(page.get_by_test_id("tc-format")).to_contain_text("classic")
+        page.get_by_test_id("tc-more").click()
+        page.get_by_test_id("tc-format").click()  # to classic
+        page.get_by_test_id("tc-more").click()
+        expect(page.get_by_test_id("tc-format")).to_contain_text("Step format: classic")
         page.get_by_test_id("tc-format").click()  # and back: explicit
         # each switch redraws the editor: Save only once it shows the explicit format again
-        expect(page.get_by_test_id("tc-format")).to_contain_text("explicit")
+        page.get_by_test_id("tc-more").click()
+        expect(page.get_by_test_id("tc-format")).to_contain_text("Step format: explicit")
+        page.keyboard.press("Escape")
         expect(page.get_by_text("unsaved")).to_be_visible()
         page.get_by_role("button", name="Save", exact=True).click()
         expect(page.get_by_text("unsaved")).to_be_hidden()

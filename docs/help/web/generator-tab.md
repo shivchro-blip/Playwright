@@ -13,7 +13,13 @@ Every editor has a **Form / JSON** toggle. The form covers the common keys; the 
    - **+ Common action** - runs shared steps from `Tests/com`. Optional **Override** `screen|field|value`.
    - **+ Reusable test** - runs another test case in its own browser context.
 4. Reorder with the arrows, duplicate or remove steps.
-5. **Check** lists problems, **Save** writes the file, **Run** runs just this test.
+5. **Check** lists problems, **Save** writes the file, **Run** runs just this test, **Debug** runs it and keeps the browser open if a step fails, **From step...** runs part of it. Less frequent actions are under **More**: revert unsaved changes, the file's history, the test case's timeline, copy as a new test case, quarantine, the step format, and delete.
+
+A line under the toolbar says how a run from here will go (*Runs on dev in chromium, headless (no window), using your saved defaults*) with **Change in Control**.
+
+**Problems.** *Errors* (they block saving) are listed first and stay open; *warnings* (saving is allowed) are folded. A problem that names a step has **Go to step N**. A refused save leaves its reasons in the list.
+
+**Your place and your work.** Leaving the Generator for another tab and coming back leaves the section and the open test case or page as they were; after a reload the browser reopens what it had open last. A reload or closing the tab with unsaved changes (in a test case, a page, a data set or a common action) asks first.
 
 **Debug** (next to **Run**) runs the open test case and, if a step fails, keeps the browser open: fix the test case or a page here, save, and resume in the same browser (see *Pause on failure* in the Control tab help).
 

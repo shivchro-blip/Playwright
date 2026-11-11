@@ -58,11 +58,12 @@ curl -X POST <app>/api/v1/plans/run -H "Authorization: Bearer <token>" -H "Conte
 
 ## Current run
 
-- Status badge, progress bar and per-status counts.
+- Status badge, progress bar and per-status counts. **Failed** means a step or check in the test failed; **error** means the test could not run to a result at all (the browser would not start, a setup problem, a crash). Hover a status to see this.
 - Results table: one row per test and browser, with duration and the failure message.
-- Live log of the run's console output (last 1500 lines; the full log is under **Console log**).
+- **What went wrong**, above the results, when a test fails: each failed test with where it stopped and its error, and **Details**, **Open test case** and **Show in log** (the console jumps to that test's lines). When every failure has one cause that belongs to the whole run, it is said once with what to do: the browser could not start (turn on **Headless**, there is a button), the site could not be reached, or signing in failed.
+- Live log of the run's console output: the last 1500 lines, with a note saying how many earlier lines are not shown (the full log is under **Console log**). **Show** filters to *Warnings and errors* or *Errors only*; **Find** (Enter and Shift+Enter, or the arrows) steps through matches; **Wrap lines** and **Copy** do what they say. Scroll up while a run is going and the console stays where you are; **Jump to latest** brings you back. The log is not read out line by line by a screen reader; the status line above it is.
 - **Cancel** stops the whole run, including browsers it started.
-- **Clear** (before **Report**, shown once a run has finished) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
+- **Delete run…** (before **Report**, shown once a run has finished; it was called *Clear*) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
 - **Allure report** opens the HTML report when the Allure CLI is installed (see *History and Reports*).
 
 ## Pause on failure: keep the browser open, fix the test, resume
@@ -95,10 +96,12 @@ Kept: your tests, pages, data sets and input files (`Data/`), `.env` and setting
 
 When it finishes, a message says how much was deleted and lists any file it could not delete (for example one another program has open) with the reason. A run whose folder could not be removed completely stays listed in History; close what uses the file and run Clear all again.
 
-The **Clear** button next to **Report** still deletes just the run on show, or every finished run, without touching the shared files.
+The **Delete run…** button next to **Report** still deletes just the run on show, or every finished run, without touching the shared files.
+
+**Run strip.** While a run is going the top bar shows it on every tab (*Running 2 of 4 · SMOKE/dev*, *Paused: a test needs you*), and when it ends it stays with its result (*Failed: 2 of 4 tests*) until you open it (one click goes to Control) or dismiss it. It is hidden on Control, which shows the run in full. The first Tab stop on any page is **Skip to main content**.
 
 Only one run at a time is allowed by default, because local runs drive real browser windows.
 
 ## Run one test from the Generator
 
-In **Generator → Test cases**, the **Run** button runs only the open test case (using its tags, the selected environment and Chrome) and switches to this tab.
+In **Generator → Test cases**, the **Run** button runs only the open test case (on its environment, with your saved browser options) and shows the run right there, without leaving the test case: **Open in Control** shows the same run here.
