@@ -233,7 +233,7 @@ def test_the_toolbar_leads_with_save_run_and_check_and_problems_are_a_list_with_
         for name in ("Check", "More", "Run", "Debug", "From step...", "Save"):
             expect(bar.get_by_role("button", name=name, exact=True)).to_be_visible()
         assert bar.get_by_role("button").count() <= 8  # not thirteen
-        for name in ("Delete test case...", "Copy as a new test case...", "Revert unsaved changes"):
+        for name in ("Delete test case...", "Copy as a new test case...", "Go back to the saved version"):
             expect(page.get_by_text(name)).to_have_count(0)  # tucked away until More is opened
         page.get_by_test_id("tc-more").click()
         expect(page.get_by_test_id("tc-delete")).to_be_visible()

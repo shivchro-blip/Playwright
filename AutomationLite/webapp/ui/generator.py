@@ -324,7 +324,8 @@ class TestEditor:
                 with ui.button("More", icon=icon("chevron-down"), color=None).classes("any-btn is-38") \
                         .props('data-testid="tc-more" aria-haspopup="menu"'):
                     with ui.menu():
-                        ui.menu_item("Revert unsaved changes", on_click=self.revert).props('data-testid="tc-revert"')
+                        ui.menu_item("Go back to the saved version", on_click=self.revert) \
+                            .props('data-testid="tc-revert"')
                         ui.menu_item("History: earlier versions of this file", on_click=self.open_history) \
                             .props('data-testid="tc-history"')
                         ui.menu_item("Timeline: every result of this test case",
@@ -1897,6 +1898,8 @@ class GeneratorPanel:
             ui.run_javascript(f"window.__anyUnsaved = {'true' if unsaved else 'false'};")
 
     def _section_changed(self, e) -> None:
+        if not self._visited:  # the tabs' own starting value, while the page is built: not a choice anyone made
+            return
         value = e.value if isinstance(e.value, str) else getattr(e.value, "_props", {}).get("name", "")
         self.remember(section=value)
 
