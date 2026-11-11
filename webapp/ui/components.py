@@ -83,8 +83,10 @@ def status_pill_template(value_expr: str = "props.value") -> str:
     """Vue template for a status pill inside a q-table slot (text-only interpolation)."""
     cls = ("{passed:'passed',xpassed:'passed',failed:'failed',error:'failed',running:'running'}"
            f"[{value_expr}] || 'idle'")
-    return (f'<span :class="\'any-pill pill-\' + ({cls})"><span class="dot" aria-hidden="true"></span>'
-            f'{{{{ {value_expr} }}}}</span>')
+    help_text = ("{failed:'A step or check in the test failed',"
+                 "error:'The test could not run to a result: the browser, its setup or a crash stopped it'}")
+    return (f'<span :class="\'any-pill pill-\' + ({cls})" :title="({help_text})[{value_expr}] || null">'
+            f'<span class="dot" aria-hidden="true"></span>{{{{ {value_expr} }}}}</span>')
 
 
 def test_case_template(muted_expr: str = "false") -> str:
@@ -169,8 +171,9 @@ def result_slots(table: ui.table) -> None:
               >{{{{ props.value }}}}</span>
               <span v-else class="any-msg">—</span>
             </div>
-            <span v-if="props.row.has_details" class="any-details-chip"
-                  title="Click the row for failure details">{svg("file-text")}Details</span>
+            <button v-if="props.row.has_details" type="button" class="any-details-chip"
+                    :aria-label="'Details of ' + props.row.test_id" title="Open the failure details"
+                    @click.stop="() => $parent.$emit('details', props.row)">{svg("file-text")}Details</button>
           </div>
         </q-td>''')
     # Last results of the test on this system/env, oldest first (see run_insights.trends)

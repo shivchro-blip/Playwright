@@ -58,15 +58,50 @@ curl -X POST <app>/api/v1/plans/run -H "Authorization: Bearer <token>" -H "Conte
 
 ## Current run
 
-- Status badge, progress bar and per-status counts.
+- Status badge, progress bar and per-status counts. **Failed** means a step or check in the test failed; **error** means the test could not run to a result at all (the browser would not start, a setup problem, a crash). Hover a status to see this.
 - Results table: one row per test and browser, with duration and the failure message.
-- Live log of the run's console output (last 1500 lines; the full log is under **Console log**).
+- **What went wrong**, above the results, when a test fails: each failed test with where it stopped and its error, and **Details**, **Open test case** and **Show in log** (the console jumps to that test's lines). When every failure has one cause that belongs to the whole run, it is said once with what to do: the browser could not start (turn on **Headless**, there is a button), the site could not be reached, or signing in failed.
+- Live log of the run's console output: the last 1500 lines, with a note saying how many earlier lines are not shown (the full log is under **Console log**). **Show** filters to *Warnings and errors* or *Errors only*; **Find** (Enter and Shift+Enter, or the arrows) steps through matches; **Wrap lines** and **Copy** do what they say. Scroll up while a run is going and the console stays where you are; **Jump to latest** brings you back. The log is not read out line by line by a screen reader; the status line above it is.
 - **Cancel** stops the whole run, including browsers it started.
-- **Clear** (before **Report**, shown once a run has finished) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
+- **Delete run…** (before **Report**, shown once a run has finished; it was called *Clear*) deletes that run's console log, results, report, screenshots and traces, or those of every finished run, so the next run starts on a clean page. Runs in progress or queued are never deleted; it cannot be undone and needs the delete permission. The same button is in the History tab.
 - **Allure report** opens the HTML report when the Allure CLI is installed (see *History and Reports*).
+
+## Pause on failure: keep the browser open, fix the test, resume
+
+A step that fails normally ends the test and closes the browser. With **Pause on failure** (Browser & artifacts here; the **Debug** button next to **Run** in the Generator, or a tick in **From step...**) the test **waits** instead, with its browser, the page as it was, and everything it saved earlier (`DICT` values, the login) still alive. The run shows **Paused: waiting for you**, with the step and field that failed, the error, a picture of the page, and:
+
+| Button | What it does |
+|---|---|
+| **Open test case / Open page** | Jump to the Generator to fix the test case or the page (the field is filtered for you). Save the file. |
+| **Run '<field>' again** | Reads the test case, pages, common actions and reusable tests from disk again, runs the failed field again, and carries on, in the same browser. Fields before it do not run again. |
+| **Run the step again** | The same, from the step's first field. Fields that clicked or submitted something run twice. |
+| **Skip this field** | Leaves the failed field out and carries on with the next. |
+| **End the test** | The failure stands: the test fails as usual and the browser closes. |
+
+What a fix can change while paused: page files (locators, fields), the test case's steps and form data, common actions, reusable tests. It cannot change `.env` values, logins, browser settings (headless, size, slow-mo) or the framework's own code: those need a new run. If the edited file cannot be read (half-saved JSON), the panel says so and the run keeps waiting. If you change the steps *before* the failed one, the resume point may not match: use **Run the step again**. If **Headless** is on there is no browser window, only the picture; turn Headless off to look and click in the browser.
+
+Limits: it runs one test at a time (Parallel workers must be 1), on this machine only (not a remote runner), and only for runs you start yourself in the app: schedules, monitors, pipelines, the REST API and `.env` can never turn it on, and it is never saved by **Save as defaults**. A paused run holds the run slot, so other runs queue behind it. It waits up to 30 minutes (`AUTOPLAY_DEBUG_TIMEOUT_MINUTES`), then ends the test as failed; closing the browser window, or **Cancel**, ends it too. A run that paused is not a clean result: it is marked in its log and `run.json` (`debug_pauses`) and a pass after a fix is a pass of the fixed test.
+
+## Clear all
+
+**Clear all** (top bar, on every tab) deletes everything previous runs left behind so the next run starts clean. It first lists what will go and what stays, and you confirm. It needs the delete permission, and it is written to the Activity trail.
+
+Deleted from disk, not only hidden:
+
+- every finished run's folder under the runs folder: console log, results, report, screenshots, traces and saved states for *From step* (so a saved state is gone too), and its entry in History, Control and the Generator (the run shown under a test case's toolbar);
+- leftover run folders no run owns (for example from a crash). Only folders named like a run and holding a run's files are touched;
+- the suite's own files: `<workspace>/logs/automation.log*`, `logs/context_log_*.json`, and `reports/videos`, `reports/downloads`, `reports/screenshots` and `reports/traces` in the app's folder.
+
+Kept: your tests, pages, data sets and input files (`Data/`), `.env` and settings, saved logins and the secret store, users and API tokens, the audit trail, schedules, monitors, release packs, quarantine and heal decisions, edit history, source code and dependencies. A run that is queued or running is kept with its folder, and the shared logs, videos, downloads, screenshots and traces are left alone until it ends, because a running test writes to them.
+
+When it finishes, a message says how much was deleted and lists any file it could not delete (for example one another program has open) with the reason. A run whose folder could not be removed completely stays listed in History; close what uses the file and run Clear all again.
+
+The **Delete run…** button next to **Report** still deletes just the run on show, or every finished run, without touching the shared files.
+
+**Run strip.** While a run is going the top bar shows it on every tab (*Running 2 of 4 · SMOKE/dev*, *Paused: a test needs you*), and when it ends it stays with its result (*Failed: 2 of 4 tests*) until you open it (one click goes to Control) or dismiss it. It is hidden on Control, which shows the run in full. The first Tab stop on any page is **Skip to main content**.
 
 Only one run at a time is allowed by default, because local runs drive real browser windows.
 
 ## Run one test from the Generator
 
-In **Generator → Test cases**, the **Run** button runs only the open test case (using its tags, the selected environment and Chrome) and switches to this tab.
+In **Generator → Test cases**, the **Run** button runs only the open test case (on its environment, with your saved browser options) and shows the run right there, without leaving the test case: **Open in Control** shows the same run here.

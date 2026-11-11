@@ -28,6 +28,7 @@ from urllib.parse import urlsplit
 
 from webapp.pytest_events import PREFIX
 from webapp.services.archives import extract_safely
+from webapp.services.cleanup import looks_like_run_folder, remove_tree, tree_size
 from webapp.services.env_config import LEVELS, RUN_OPTION_KEYS, format_value, is_secret
 from webapp.services.events import EventBus
 from webapp.services.json_files import NAME_RE
@@ -56,6 +57,10 @@ RUNNER_SILENCE_SECONDS = 90  # a remote run whose runner has not called in this 
 WATCH_INTERVAL = 15  # seconds between checks for lost runners
 
 
+def is_truthy(value: object) -> bool:
+    return str(value or "").strip().lower() in ("true", "1", "yes")
+
+
 def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
@@ -78,6 +83,15 @@ class RunConfig:
 
 STEP_POLL_SECONDS = 0.5  # how often a running run's step events are read
 LOG_PUBLISH_SECONDS = 0.5  # at most one "log" event per run this often
+
+
+@dataclass
+class Purged:
+    """What RunManager.purge_finished deleted: run ids, leftover folders, bytes, and what could not be removed."""
+    runs: list[str] = field(default_factory=list)
+    orphans: list[str] = field(default_factory=list)
+    bytes_freed: int = 0
+    failures: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -113,6 +127,7 @@ class Run:
     trigger: str = ""  # "" = started by a person; "schedule:<id>" = started by a schedule
     claimed_by: str = ""  # remote runs: the runner that took it
     compare_with: str = ""  # a run started together with this one on another environment, to compare with
+    debug_pauses: int = 0  # times the run waited for a person after a failure (debugOnFailure): not a clean result
     results: dict[str, TestResult] = field(default_factory=dict)
     log: list[str] = field(default_factory=list, repr=False)
     log_offset: int = 0  # lines dropped from the front of `log` (memory cap)
@@ -126,6 +141,8 @@ class Run:
     _step_offsets: dict = field(default_factory=dict, repr=False)  # step event file -> bytes already read
     _steps_read_at: float = field(default=0.0, repr=False)
     _log_published: float = field(default=0.0, repr=False)
+    # While the test waits after a failure (utils/debug_pause.py): what failed and where; None otherwise. Memory only.
+    paused: dict | None = field(default=None, repr=False)
 
     def scrub(self, text: str) -> str:
         for value in self._secrets.values():
@@ -179,6 +196,7 @@ class Run:
             "trigger": self.trigger,
             "claimed_by": self.claimed_by,
             "compare_with": self.compare_with,
+            "debug_pauses": self.debug_pauses,
             "results": [asdict(r) for r in list(self.results.values())],
         }
 
@@ -218,7 +236,7 @@ def run_from_dict(data: dict, folder: Path) -> Run:
         error=data.get("error", ""), collected=data.get("collected"),
         report_status=data.get("report_status", ""), report_message=data.get("report_message", ""),
         trigger=data.get("trigger", ""), claimed_by=data.get("claimed_by", ""),
-        compare_with=data.get("compare_with", ""),
+        compare_with=data.get("compare_with", ""), debug_pauses=int(data.get("debug_pauses") or 0),
         results={r["nodeid"]: TestResult(**r) for r in data.get("results", [])},
     )
 
@@ -259,6 +277,11 @@ def pytest_environment(run: Run, workspace: Path) -> dict[str, str]:
     if level:  # one choice for every framework logger, ahead of any per-module level in .env
         env.update({k: str(level) for k in ("TestSuiteLoggerLevel", "PageLoggerLevel", "FormHandlerLoggerLevel")})
     env["checkpointsDir"] = str(run.dir / "checkpoints")  # used when saveCheckpoints is on
+    if is_truthy(cfg.options.get("debugOnFailure")):  # only a run that asked for it can pause (utils/debug_pause.py)
+        env["debugDir"] = str(run.dir / "debug")
+    else:
+        env.pop("debugDir", None)
+        env["debugOnFailure"] = "false"  # whatever .env says
     for key, value in run._secrets.items():
         env.setdefault(key, value)  # never override what the environment already has
     env.update({
@@ -386,6 +409,14 @@ class RunManager:
         if data_set and not re.fullmatch(r"[\w\-]+", data_set):
             raise ValueError("The data set name may only have letters, digits, '_' and '-'.")
         self._check_step_options(config)
+        if is_truthy(config.options.get("debugOnFailure")):
+            if trigger:
+                raise ValueError("Pause on failure is only for runs you start yourself: a schedule, monitor or "
+                                 "pipeline run would wait for nobody.")
+            if config.runner:
+                raise ValueError("Pause on failure works on this machine only, not on a remote runner.")
+            if config.workers > 1:
+                raise ValueError("Pause on failure runs one test at a time: set Parallel workers to 1.")
 
         with self._lock:
             if len(self._queue) >= MAX_QUEUED:
@@ -469,6 +500,22 @@ class RunManager:
             self._kill_tree(proc)
         return True
 
+    def debug_command(self, run_id: str, do: str) -> bool:
+        """Tell a run that waits after a failure what to do: retry, restep, skip or abort (utils/debug_pause.py).
+        False when the run is not waiting (it may have gone on, or ended, in the meantime)."""
+        run = self._runs.get(run_id)
+        paused = run.paused if run else None
+        if not run or not run.active or not paused or do not in ("retry", "restep", "skip", "abort"):
+            return False
+        if do == "skip" and not paused.get("can_skip"):
+            return False
+        folder = run.dir / "debug"
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = folder / "command.json.tmp"
+        tmp.write_text(json.dumps({"do": do, "seq": paused.get("seq")}), encoding="utf-8")
+        tmp.replace(folder / "command.json")
+        return True
+
     def delete(self, run_id: str) -> bool:
         """Remove a finished run and its folder."""
         run = self._runs.get(run_id)
@@ -478,12 +525,49 @@ class RunManager:
         if self.runs_dir.resolve() not in folder.parents:
             return False
         shutil.rmtree(folder, ignore_errors=True)
-        with self._lock:
-            self._runs.pop(run_id, None)
-        self._index_call("remove", run_id)
-        self.bus.publish("run", id=run_id, change="deleted", status=run.status, system=run.config.system,
-                         env=run.config.env)
+        self._forget(run)
         return True
+
+    def _forget(self, run: Run) -> None:
+        """Drop a deleted run from memory and the results index, and tell the pages."""
+        with self._lock:
+            self._runs.pop(run.id, None)
+        self._index_call("remove", run.id)
+        self.bus.publish("run", id=run.id, change="deleted", status=run.status, system=run.config.system,
+                         env=run.config.env)
+
+    def purge_finished(self) -> "Purged":
+        """Delete every finished run's folder, and leftover run folders no run owns. Runs in progress or waiting
+        are never touched. A run whose folder could not be removed completely stays listed (and is reported), so
+        the history never claims something is gone that is still on disk."""
+        with self._lock:  # start() creates a run's folder under this lock: no new run can look like a leftover
+            finished = [r for r in self._runs.values() if not r.active]
+            owned = set(self._runs)
+        out = Purged()
+        base = self.runs_dir.resolve()
+        for run in finished:
+            folder = run.dir.resolve()
+            if base not in folder.parents:
+                continue
+            size = tree_size(folder)
+            failures = remove_tree(folder)
+            out.failures += failures
+            if folder.exists():  # not completely gone: keep it listed
+                out.bytes_freed += max(size - tree_size(folder), 0)
+                continue
+            out.bytes_freed += size
+            out.runs.append(run.id)
+            self._forget(run)
+        for folder in sorted(self.runs_dir.iterdir()) if self.runs_dir.is_dir() else []:
+            if folder.name in owned or not looks_like_run_folder(folder):
+                continue
+            size = tree_size(folder)
+            out.failures += remove_tree(folder)
+            if not folder.exists():
+                out.orphans.append(folder.name)
+                out.bytes_freed += size
+        self._index_call("sync", self.runs_dir)  # drop index rows whose folders are gone
+        return out
 
     def rerun(self, run_id: str) -> Run:
         old = self._runs.get(run_id)
@@ -646,6 +730,7 @@ class RunManager:
                                   "this run: review them in History > Healed locators.")
         except Exception:  # heal bookkeeping must never break finishing a run
             logger.exception("Could not read the heal records of %s", run.id)
+        run.paused = None
         run.status = self._final_status(run)
         run.finished_at = _now()
         # Tests still marked running never reported back (crash/cancel)
@@ -758,6 +843,19 @@ class RunManager:
             run.collected = int(evt.get("count") or 0)
             if run.collected:
                 run.expected = run.collected
+        elif kind == "debug":  # the test waits after a failure, or goes on (utils/debug_pause.py)
+            if evt.get("phase") == "paused":
+                run.paused = {**{k: (run.scrub(str(v)) if isinstance(v, str) else v) for k, v in evt.items()},
+                              "at": _now()}
+                if not evt.get("notice"):  # a pause told again because the edited files could not be read is the same
+                    run.debug_pauses += 1
+                self._append(run, f"[webapp] Paused: step {evt.get('step')} failed"
+                                  + (f" on field '{evt.get('field')}'" if evt.get("field") else "")
+                                  + ". The browser is still open; fix the test, then resume.")
+            else:
+                run.paused = None
+                self._append(run, f"[webapp] Resumed ({evt.get('do')}).")
+            self._publish(run, "paused" if run.paused else "resumed")
         elif kind == "retry":
             nodeid = str(evt.get("nodeid", ""))
             if nodeid in run.results:

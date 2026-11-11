@@ -14,6 +14,7 @@ from utils.test_data_loader import load_test_cases_from_folder, load_all_test_ca
 from utils.data_sets import expand as expand_data_sets
 import utils.a11y as a11y
 import utils.checkpoints as checkpoints
+import utils.debug_pause as debug_pause
 import utils.retry_trace as retry_trace
 import utils.self_heal as self_heal
 import utils.step_events as step_events
@@ -338,6 +339,38 @@ def load_common_actions():
 build_screen_cache(systemConfig)
 load_common_actions()
 
+
+def _refresh_definitions():
+    """Pause on failure: read the pages, common actions and reusable tests again, so a fix saved while the test waits
+    is what runs next."""
+    build_screen_cache(RUN_SYSTEM_CONFIG)
+    build_screen_cache(systemConfig)
+    load_common_actions()
+    reusableTestCases.clear()
+    for case in load_all_test_cases(os.path.join(workspaceDir, "Tests"), "all", ["applications"], ["dev"]):
+        reusableTestCases[case["testCaseID"]] = case
+
+
+def _fresh_test_steps(test_id):
+    """The steps of a selected test case as the files have them now (same selection and data sets as at start)."""
+    _refresh_definitions()
+    cases = load_test_cases_from_folder(tests_folder, runTagsConfig, ["applications"], ["dev"])
+    if runTestIdsConfig:
+        cases = [tc for tc in cases if tc.get("testCaseID") in runTestIdsConfig]
+    cases = expand_data_sets(cases, workspaceDir, (os.getenv("runDataSet") or "").strip())
+    for case in cases:
+        if case.get("testCaseID") == test_id:
+            return case["steps"]
+    raise ValueError(f"{test_id} is no longer selected (check its tags, or whether it was renamed or deleted)")
+
+
+def _fresh_reusable_steps(test_id):
+    _refresh_definitions()
+    case = reusableTestCases.get(test_id)
+    if not case:
+        raise ValueError(f"Reusable test case {test_id} was not found")
+    return case.get("steps", [])
+
 current_login_state = {"system": None, "base_url": None}
 
 async def loadFromDictionary(dictionaryContext, key):
@@ -478,7 +511,11 @@ a11y_scanner = None  # set for the length of one test when a11yScan=true
 
 
 async def run_steps(steps, page, browser, dictionaryContext, testSystem, current_login_state, system_needed, parent_override=None,
-                    start_url=None, after_step=None, step_reporter=None):
+                    start_url=None, after_step=None, step_reporter=None, reload_steps=None, test_id="", step_offset=0,
+                    resume=False):
+    """Run the steps. With "pause on failure" (utils/debug_pause.py) a failed step waits for the person, then this
+    runs again on the steps as they are on disk now (reload_steps), from the failed one, in the same browser:
+    `step_offset` steps of the list are behind us, and `resume` skips what only the first call does."""
     global reportDescription
     if current_login_state.get("system") != system_needed:
         logger.info(f"[LOGIN SWITCH] CURRENT = {current_login_state.get('system')} → NEW = {system_needed}")
@@ -499,15 +536,17 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
         logger.info("[resume] Opening %s", start_url)
         await page.goto(start_url, wait_until="domcontentloaded")
 
-    try:
-        await asyncio.sleep(5)
-        await get_token(page, dictionaryContext, "token", "authToken")
-    except Exception:
-        # Normal for systems without a token in storage (e.g. public sites)
-        logger.warning("No auth token found in page storage - continuing without one")
+    if not resume:  # picking the run up again after a pause needs none of this
+        try:
+            await asyncio.sleep(5)
+            await get_token(page, dictionaryContext, "token", "authToken")
+        except Exception:
+            # Normal for systems without a token in storage (e.g. public sites)
+            logger.warning("No auth token found in page storage - continuing without one")
 
 
-    for step_no, step in enumerate(steps, 1):
+    for step_no, step in enumerate(steps, 1 + step_offset):
+        debug_pause.begin_step()
         if step_reporter:
             step_reporter.start(step_no, step)
         try:
@@ -534,8 +573,11 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
                         dict_key = loop.split('.', 1)[1].strip()
                         loop = await loadFromDictionary(dictionaryContext, dict_key)
 
-                    for _ in range(loop):
-                        for comStep in comActSteps:
+                    for loop_no in range(loop):
+                        for sub_no, comStep in enumerate(comActSteps):
+                            if debug_pause.skip_sub(loop_no, sub_no):  # resuming after a pause: already done
+                                continue
+                            debug_pause.note_sub(loop_no, sub_no)
                             if oScreen and comStep.get("screen") == oScreen:
                                 comStep["formData"][oField] = oData
                                 logger.info("Overrode field: %s", comStep)
@@ -597,7 +639,9 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
                             dictionaryContext,
                             testSystem,
                             new_login_state,
-                            nested_system
+                            nested_system,
+                            reload_steps=lambda: _fresh_reusable_steps(tcID),
+                            test_id=tcID,
                         )
                     finally:
                         try:
@@ -632,6 +676,17 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
                     await a11y_scanner.after_screen(page, screen_name)
 
         except BaseException as step_error:  # a failure stops the test here: say which step it was
+            if debug_pause.pausable(step_error):  # pause on failure: wait, then go on from here in the same browser
+                kind, label = step_events.describe(step if isinstance(step, dict) else {})
+                decision = await debug_pause.on_failure(
+                    step_error, page=page, step_no=step_no, step=step, of=step_offset + len(steps), kind=kind,
+                    label=label, reload_steps=reload_steps, test_id=test_id)
+                if decision is not None:
+                    return await run_steps(decision.steps, page, browser, dictionaryContext, testSystem,
+                                           current_login_state, system_needed, parent_override=parent_override,
+                                           after_step=after_step, step_reporter=step_reporter,
+                                           reload_steps=reload_steps, test_id=test_id, step_offset=decision.offset,
+                                           resume=True)
             if step_reporter:
                 record = step_reporter.end(step_no, step, step_error)
                 if step_capture.enabled() and not isinstance(step_error, (KeyboardInterrupt, SystemExit,
@@ -639,6 +694,7 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
                     await step_capture.capture(step_reporter.nodeid, record["n"], record["kind"], record["label"],
                                                page, "failed", record["seconds"], record["error"])
             raise
+        debug_pause.clear_resume()
         if step_reporter:
             record = step_reporter.end(step_no, step)
             if step_capture.enabled():  # what the page looked like after the step (utils/step_capture.py)
@@ -651,6 +707,7 @@ async def run_steps(steps, page, browser, dictionaryContext, testSystem, current
 
 async def run_single_step(step, page, base_url, browser, systemConfig, dictionaryContext):
     screen_name = step["screen"]
+    debug_pause.begin_screen(screen_name)
     logger.info("Executing Screen: %s", screen_name)
     root = dictionaryContext.get_root() or ""
     self_heal.CURRENT.update(system=systemConfig, screen=screen_name, test=root.rsplit("_", 1)[0])
@@ -949,7 +1006,9 @@ if test_cases:
                                    start_url=(resume or {}).get("url") or checkpoints.start_url() or None,
                                    after_step=after_step,
                                    step_reporter=step_events.StepReporter(request.node.nodeid, testCaseId, first,
-                                                                          len(all_steps)))
+                                                                          len(all_steps)),
+                                   reload_steps=lambda: _fresh_test_steps(testCaseId)[first - 1:last],
+                                   test_id=testCaseId)
 
         finally:
             a11y_scanner = None

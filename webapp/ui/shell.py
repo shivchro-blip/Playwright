@@ -8,9 +8,11 @@ from nicegui import background_tasks, ui
 from webapp.auth import guard, role_summary, ui_user
 from webapp.edition import LITE, NAME
 from webapp.ui.ai_panels import open_ai_settings
+from webapp.ui.clear_all import clear_all
 from webapp.ui.control import ControlPanel
 from webapp.ui.generator import GeneratorPanel
 from webapp.ui.history import HistoryPanel
+from webapp.ui.run_strip import RunStrip
 from webapp.ui.palette import HASH_EVENT, SHORTCUT_JS, CommandPalette
 from webapp.ui.trends_dialog import open_trends
 from webapp.state import services
@@ -44,6 +46,10 @@ def register() -> None:
         ui.query(".nicegui-content").classes("any-content")
         ui.add_head_html(SHORTCUT_JS)
         tab_defs = [(name, ico) for name, ico, _ in TABS]
+        control_tab_ref: list = [None]  # the Control tab, once the header has made it (the run strip asks)
+        with ui.element("a").classes("any-skip").props('href="#any-main" data-testid="skip-link"') \
+                .on("click.prevent", lambda: ui.run_javascript("document.getElementById('any-main').focus()")):
+            ui.label("Skip to main content")
         with ui.header().classes(replace="any-nav"):
             with ui.element("div").classes("any-brand"):
                 with ui.element("div").classes("any-brand-mark"):
@@ -52,6 +58,9 @@ def register() -> None:
             with ui.tabs().props('inline-label no-caps indicator-color="transparent" '
                                  'aria-label="Main sections"') as tabs:
                 tab_elems = {name: ui.tab(name, icon=icon(ico)) for name, ico in tab_defs}
+            strip_holder: dict = {}
+            strip_holder["strip"] = RunStrip(lambda run_id: watch(run_id),
+                                             lambda: tabs.value in (control_tab_ref[0], "Control"))
             with ui.button(color=None, on_click=lambda: palette.open()) \
                     .props('flat unelevated no-caps aria-label="Search everything (Ctrl+K)" '
                            'aria-keyshortcuts="Control+K Meta+K" data-testid="palette-open"') \
@@ -70,6 +79,9 @@ def register() -> None:
                     .props('flat unelevated no-caps data-testid="runners"').classes("any-nav-btn")
                 ui.button("Activity", icon=icon("history"), color=None, on_click=open_activity) \
                     .props('flat unelevated no-caps data-testid="activity"').classes("any-nav-btn is-next")
+            ui.button("Clear all", icon=icon("trash-2"), color=None, on_click=lambda: clear_all(after_clear_all)) \
+                .props('flat unelevated no-caps aria-label="Clear all runs, logs and generated files" '
+                       'data-testid="clear-all"').classes("any-nav-btn is-next any-nav-clear")
             if services().settings.login_required and user:
                 with ui.element("div").classes("any-user").props('data-testid="signed-in"'):
                     text("span", user.username, "any-user-name")
@@ -83,6 +95,7 @@ def register() -> None:
                     ui.label("API")
                     ui.icon(icon("external-link")).props('aria-hidden="true"')
         control_tab = tab_elems["Control"]
+        control_tab_ref[0] = control_tab
 
         def mark_current(name: str) -> None:
             for tab_name, tab in tab_elems.items():
@@ -94,6 +107,7 @@ def register() -> None:
         def on_tab(e) -> None:
             # not async: handled in order with the clicks that follow (a Generator section picked right away wins)
             mark_current(e.value)
+            strip_holder["strip"].refresh()  # the strip says nothing on Control, which shows the run in full
             # the address follows the tab (#history), so a link or a reload lands on the same section; not before
             # the section the address asked for has been restored
             if restored[0]:
@@ -171,13 +185,37 @@ def register() -> None:
             panels["control"].view_run(run_id)
             panels["control"].history.refresh()
 
+        def after_clear_all() -> None:
+            """Empty what the pages still show of the runs that were deleted."""
+            panels["control"].runs_cleared()
+            panels["generator"].runs_cleared()
+            panels["history"].runs_cleared()
+
+        async def jump(kind: str, system: str, name: str, field: str = "") -> None:
+            """Open the test case or page a paused run needs fixed, in the Generator."""
+            if kind == "page":
+                await run_command(SimpleNamespace(action="open_page",
+                                                  args={"system": system, "page": name, "field": field}))
+                return
+            refs, _errors = services().tests.list_tests(system)
+            ref = next((r for r in refs if r.test_id == name), None)
+            if ref is None:
+                ui.notify(f"{name} was not found in {system}.", type="warning")
+                return
+            await run_command(SimpleNamespace(action="open_test", args={"system": system, "rel": ref.file,
+                                              "index": ref.index}))
+
+        def has_unsaved() -> bool:
+            return panels["generator"].has_unsaved()
+
         palette = CommandPalette(run_command)
 
-        with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent"):
+        with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent") \
+                .props('id="any-main" tabindex="-1"'):
             with ui.tab_panel(control_tab).classes("any-app"):
-                panels["control"] = ControlPanel()
+                panels["control"] = ControlPanel(jump=jump, has_unsaved=has_unsaved)
             with ui.tab_panel(tab_elems["Generator"]).classes("any-app any-page"):
-                panels["generator"] = GeneratorPanel(on_run=watch)
+                panels["generator"] = GeneratorPanel(on_run=watch, jump=jump, go_control=lambda: go("Control"))
             with ui.tab_panel(tab_elems["History"]).classes("any-app any-page"):
                 panels["history"] = HistoryPanel(on_watch=watch)
             if not LITE:

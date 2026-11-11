@@ -30,6 +30,11 @@ class ConsoleView(Element, component="console_view.js"):
         if self._connected():
             self.run_method("clear")
 
+    def find(self, text: str) -> None:
+        """Show every line and look for this text (the line a failure came from)."""
+        if self._connected():
+            self.run_method("find", text)
+
     def set_active(self, value: bool) -> None:
         if self._props["active"] == value:
             return

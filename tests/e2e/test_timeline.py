@@ -49,6 +49,7 @@ def test_the_timeline_tells_a_tests_story(workspace: Path, tmp_path: Path):
         box.press("Enter")
         expect(page.locator("#tc-id")).to_have_value("TC-SMOKE-004-MissingElement")
         expect(page.get_by_role("tab", name="Test cases")).to_have_attribute("aria-selected", "true")
+        page.get_by_test_id("tc-more").click()  # Timeline is in the More menu
         page.get_by_test_id("tc-timeline").click()
         timeline = page.get_by_test_id("timeline")
         expect(timeline.get_by_test_id("timeline-state")).to_have_text("Failing")

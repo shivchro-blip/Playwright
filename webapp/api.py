@@ -246,6 +246,9 @@ def test_history(test_id: str, system: str | None = None, env: str | None = None
 
 @routes.post("/runs", status_code=201)
 def start_run(req: RunRequest, user=require("run", scoped=True)) -> dict:
+    if str(req.options.get("debugOnFailure", "")).strip().lower() in ("true", "1", "yes"):
+        raise HTTPException(400, "Pause on failure is for a person at the app: a run started from a script or "
+                                 "pipeline would wait for nobody.")
     for env in dict.fromkeys([req.env, *req.also_envs]):
         authorize(user, "run", req.system, env, "/runs")
     svc = services()

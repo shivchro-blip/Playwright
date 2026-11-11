@@ -15,7 +15,7 @@ Every run gets its own folder:
 - Filter by system, status or text.
 - Select a run to see its settings, results and log.
 - **Re-run** starts a new run with the same settings.
-- **Clear** (before **Report**) deletes the run's console log, results, report, screenshots and traces, or, if you choose, those of every finished run. Runs in progress or waiting in the queue are never deleted, and it cannot be undone. It needs the delete permission.
+- **Delete run…** (before **Report**; it was called *Clear*) deletes the run's console log, results, report, screenshots and traces, or, if you choose, those of every finished run. Runs in progress or waiting in the queue are never deleted, and it cannot be undone. It needs the delete permission.
 
 Runs survive app restarts. A run that was in progress when the app stopped is shown as `error`.
 

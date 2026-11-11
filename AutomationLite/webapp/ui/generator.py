@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
+import re
 from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Callable
 
-from nicegui import ui
+from nicegui import app, ui
 
 from utils.steps_v2 import StepError, is_v2, to_v1, to_v2
 from webapp.services.json_files import ConflictError, PathError, safe_path
@@ -30,6 +32,9 @@ from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.common_actions_panel import CommonActionEditor
+from webapp.ui.debug_panel import debug_banner
+from webapp.ui.failure_panel import failure_panel
+from webapp.ui.run_actions import cancel_run
 from webapp.ui.data_sets_panel import DataSetEditor
 from webapp.ui.history_dialog import open_file_history
 from webapp.ui.locator_dialog import open_locator_check
@@ -47,6 +52,8 @@ if not LITE:  # the Recorder and the Studio are not part of AutoPlay Lite
     from webapp.ui.recorder_dialog import open_recorder
     from webapp.ui.studio import StudioEditor
 
+logger = logging.getLogger(__name__)
+
 RUN_PILLS = {"queued": ("idle", "Queued"), "running": ("running", "Running"), "passed": ("passed", "Passed"),
              "failed": ("failed", "Failed"), "error": ("failed", "Error"), "cancelled": ("idle", "Cancelled")}
 
@@ -55,6 +62,15 @@ KIND_LABELS = {"screen": "Page", "commonAction": "Common action", "testCase": "R
 KIND_TONES = {"screen": "kind-page", "commonAction": "kind-common", "testCase": "kind-reuse", "API_REQUEST": "kind-api"}
 TC_META = ("testCaseID", "system", "env", "module", "tags", "description", "dataSet")
 SAVE_ERRORS = (ValueError, ConflictError, PathError, OSError)
+
+
+# ───────────── what the person had open (kept in memory per browser, so a reload comes back to it) ─────────────
+
+_REMEMBERED: dict[str, dict] = {}  # browser id -> section, system, test case and page last open in the Generator
+_REMEMBERED_MAX = 500
+
+
+STEP_REF = re.compile(r"^Step (\d+)\b")
 
 
 # ───────────── value helpers ─────────────
@@ -165,6 +181,7 @@ class TestEditor:
         self.steps: list[StepModel] = []
         self.dirty = False
         self.warnings: list[str] = []
+        self.errors: list[str] = []
         self.json_mode = False
         self._screens: list[str] = []
         self._common: list[str] = []
@@ -251,6 +268,7 @@ class TestEditor:
             ui.notify(str(e), type="negative")
             return
         self.file, self.index, self.hash = file, index, sha
+        self.gen.remember(test=[file, index], system=self.gen.system)
         self._set_model(tc)
         self.validate(notify=False)
 
@@ -294,41 +312,50 @@ class TestEditor:
                 text("span", f"{self.file} #{self.index}", "any-tc-code")
                 self.dirty_badge = text("span", "unsaved", "any-pill pill-warn")
                 self.dirty_badge.set_visibility(self.dirty)
-            with ui.element("div").classes("any-toolbar"):
+            with ui.element("div").classes("any-toolbar").props('role="toolbar" aria-label="Test case actions"'):
                 ui.toggle({False: "Form", True: "JSON"}, value=self.json_mode, on_change=self.toggle_json) \
                     .props("no-caps unelevated").classes("any-segmented")
                 ui.button("Check", icon=icon("list-checks"), color=None, on_click=lambda: self.validate(True)) \
-                    .classes("any-btn is-38")
-                ui.button("Revert", icon=icon("undo-2"), color=None, on_click=self.revert).classes("any-btn is-38")
-                quarantined = self.svc.quarantine.is_quarantined(str(self.meta.get("testCaseID") or ""))
-                ui.button("Release" if quarantined else "Quarantine", icon=icon("shield"), color=None,
-                          on_click=lambda: toggle_quarantine(str(self.meta.get("testCaseID") or ""),
-                                                             self.editor.refresh)) \
-                    .props('data-testid="tc-quarantine"').classes("any-btn is-38") \
-                    .tooltip("Release this test case: its failures fail runs again" if quarantined else
-                             "Quarantine: keep running it, but don't let its failures fail the run")
-                ui.button("History", icon=icon("history"), color=None, on_click=self.open_history) \
-                    .props('data-testid="tc-history"').classes("any-btn is-38").tooltip("Earlier versions of this file")
+                    .props('data-testid="tc-check"').classes("any-btn is-38") \
+                    .tooltip("Look for problems in this test case without saving")
+                test_id = str(self.meta.get("testCaseID") or "")
+                quarantined = self.svc.quarantine.is_quarantined(test_id)
                 explicit = any(s.v2 for s in self.steps if s.kind == "screen")
-                ui.button("Steps: explicit" if explicit else "Steps: classic", icon=icon("list-checks"), color=None,
-                          on_click=lambda: self.set_format(not explicit)) \
-                    .props('data-testid="tc-format"').classes("any-btn is-38") \
-                    .tooltip("Classic: actions in formData, repeats as name|. Explicit: a plain list of actions "
-                             "(\"do\"). Both run the same; switching rewrites this test case when you Save.")
-                ui.button("Timeline", icon=icon("activity"), color=None,
-                          on_click=lambda: open_timeline(str(self.meta.get("testCaseID") or ""), self.gen.system,
-                                                         on_change=self.editor.refresh)) \
-                    .props('data-testid="tc-timeline"').classes("any-btn is-38") \
-                    .tooltip("Every result of this test case, with heals, quarantine and edits")
-                ui.button("Copy", icon=icon("copy"), color=None, on_click=self.copy_dialog) \
-                    .classes("any-btn is-38").tooltip("Save as a new test case")
-                icon_button("trash-2", "Delete test case", self.delete).classes("is-danger")
+                with ui.button("More", icon=icon("chevron-down"), color=None).classes("any-btn is-38") \
+                        .props('data-testid="tc-more" aria-haspopup="menu"'):
+                    with ui.menu():
+                        ui.menu_item("Go back to the saved version", on_click=self.revert) \
+                            .props('data-testid="tc-revert"')
+                        ui.menu_item("History: earlier versions of this file", on_click=self.open_history) \
+                            .props('data-testid="tc-history"')
+                        ui.menu_item("Timeline: every result of this test case",
+                                     on_click=lambda: open_timeline(test_id, self.gen.system,
+                                                                    on_change=self.editor.refresh)) \
+                            .props('data-testid="tc-timeline"')
+                        ui.menu_item("Copy as a new test case...", on_click=self.copy_dialog) \
+                            .props('data-testid="tc-copy"')
+                        ui.menu_item("Release from quarantine" if quarantined else
+                                     "Quarantine: keep running it, but ignore its failures",
+                                     on_click=lambda: toggle_quarantine(test_id, self.editor.refresh)) \
+                            .props('data-testid="tc-quarantine"')
+                        ui.menu_item("Step format: explicit (switch to classic)" if explicit else
+                                     "Step format: classic (switch to explicit)",
+                                     on_click=lambda: self.set_format(not explicit)) \
+                            .props('data-testid="tc-format"')
+                        ui.separator()
+                        ui.menu_item("Delete test case...", on_click=self.delete) \
+                            .props('data-testid="tc-delete"').classes("text-negative")
                 ui.button("Run", icon=icon("play-solid"), color=None, on_click=self.run_this) \
                     .classes("any-btn is-38").tooltip("Run only this test case")
+                ui.button("Debug", icon=icon("eye"), color=None, on_click=self.debug_this) \
+                    .props('data-testid="debug-run"').classes("any-btn is-38") \
+                    .tooltip("Run this test case and, if a step fails, keep the browser open: fix the test case or "
+                             "the page, save, and resume in the same browser")
                 ui.button("From step...", icon=icon("list-checks"), color=None, on_click=self.run_from_step) \
                     .props('data-testid="run-from-step"').classes("any-btn is-38") \
                     .tooltip("Run some of the steps, starting from a saved state")
                 ui.button("Save", icon=icon("save"), color=None, on_click=self.save).classes("any-primary")
+        self.settings_line()
         self.run_panel()
         self.validation_view()
         if self.json_mode:
@@ -339,12 +366,60 @@ class TestEditor:
 
     @ui.refreshable_method
     def validation_view(self) -> None:
-        if self.warnings:
-            with ui.expansion(f"{len(self.warnings)} warning(s)", icon=icon("triangle-alert")) \
-                    .classes("any-disclosure is-warn"):
-                with ui.element("ul").classes("any-warn-list"):
-                    for w in self.warnings:
-                        text("li", w)
+        """Errors (they block saving) first and open; warnings (saving is allowed) folded. A message that names a
+        step has a button that takes you to it."""
+        if not (self.errors or self.warnings):
+            return
+
+        def problems(messages: list[str]) -> None:
+            with ui.element("ul").classes("any-warn-list"):
+                for message in messages:
+                    with ui.element("li").classes("any-problem"):
+                        text("span", message)
+                        found = STEP_REF.match(message)
+                        if found and not self.json_mode:
+                            n = int(found.group(1))
+                            ui.button(f"Go to step {n}", color=None, on_click=lambda n=n: self.go_to_step(n)) \
+                                .props('flat dense no-caps').classes("any-btn")
+
+        with ui.element("section").classes("any-problems").props('aria-label="Problems" data-testid="tc-problems"'):
+            if self.errors:
+                n = len(self.errors)
+                with ui.element("div").classes("any-callout is-inline is-error").props('role="alert"'):
+                    ui.icon(icon("circle-x")).props('aria-hidden="true"')
+                    with ui.element("div").classes("any-callout-body"):
+                        ui.label(f"{n} {'error blocks' if n == 1 else 'errors block'} saving") \
+                            .classes("any-callout-title").props('data-testid="tc-errors"')
+                        problems(self.errors)
+            if self.warnings:
+                n = len(self.warnings)
+                with ui.expansion(f"{n} {'warning' if n == 1 else 'warnings'}: the test can still be saved",
+                                  icon=icon("triangle-alert"), value=not self.errors) \
+                        .classes("any-disclosure is-warn").props('data-testid="tc-warnings"'):
+                    problems(self.warnings)
+
+    def go_to_step(self, n: int) -> None:
+        ui.run_javascript(
+            f"const e = document.getElementById('tc-step-{n}'); if (e) {{ e.scrollIntoView({{block: 'center'}}); "
+            "e.classList.add('is-flash'); e.focus(); setTimeout(() => e.classList.remove('is-flash'), 1800); }")
+
+    @ui.refreshable_method
+    def settings_line(self) -> None:
+        """How a run from here will go, before it starts: where, in which browser, visible or not."""
+        if self.file is None:
+            return
+        system = self.gen.system or ""
+        defaults = self.svc.env.load()
+        env = self.meta.get("env") or next(iter(self.svc.systems.environments(system)), "") if system else ""
+        browsers = [b.strip() for b in str(defaults.get("browsers") or "").split(",") if b.strip()] or ["chromium"]
+        headless = str(defaults.get("headlessMode") or "").strip().lower() in ("true", "1", "yes")
+        with ui.element("div").classes("any-settings-line").props('data-testid="tc-run-settings"'):
+            text("span", f"Runs on {env or 'the default environment'} in {', '.join(browsers)}, "
+                         f"{'headless (no window)' if headless else 'with a visible window'}, using your saved "
+                         "defaults.", "any-muted text-xs")
+            if self.gen.go_control:
+                ui.button("Change in Control", color=None, on_click=self.gen.go_control) \
+                    .props('flat dense no-caps data-testid="tc-change-settings"').classes("any-btn")
 
     def meta_form(self) -> None:
         def bind(key):
@@ -420,7 +495,7 @@ class TestEditor:
             if step.kind == "screen":
                 self.steps_view.refresh()  # field picker depends on the page
 
-        with ui.element("div").classes("any-step"):
+        with ui.element("div").classes("any-step").props(f'id="tc-step-{i + 1}" tabindex="-1"'):
             with ui.element("div").classes("any-step-head"):
                 text("span", str(i + 1), "any-step-no")
                 text("span", KIND_LABELS.get(step.kind, step.kind), f"any-kind {KIND_TONES.get(step.kind, '')}")
@@ -694,7 +769,7 @@ class TestEditor:
         if tc is None:
             return False
         result = self.svc.tests.validate(self.gen.system, tc)
-        self.warnings = result.errors + result.warnings
+        self.errors, self.warnings = list(result.errors), list(result.warnings)
         self.validation_view.refresh()
         if notify:
             if result.errors:
@@ -712,6 +787,7 @@ class TestEditor:
             self.index, self.hash = self.svc.tests.save(self.gen.system, self.file, self.index, tc, self.hash)
         except SAVE_ERRORS as e:
             ui.notify(f"Not saved: {e}", type="negative", multi_line=True, timeout=8000)
+            self.validate(notify=False)  # and the reasons stay on the page, not only in a message that goes away
             return
         audit("testcase.save", f"{self.gen.system}/{self.file}", test_id=tc.get("testCaseID"))
         self._set_model(tc)
@@ -761,7 +837,8 @@ class TestEditor:
         if run is None:
             return
         sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5,
-               tuple((r.step, len(r.steps)) for r in run.results.values()))
+               tuple((r.step, len(r.steps)) for r in run.results.values()),
+               (run.paused or {}).get("seq"), (run.paused or {}).get("notice"))
         if sig != self._run_sig:
             self._run_sig = sig
             self.run_panel.refresh()
@@ -769,6 +846,11 @@ class TestEditor:
     def _hide_run(self) -> None:
         self.run_id = ""
         self.run_panel.refresh()
+
+    def runs_cleared(self) -> None:
+        """After Clear all: the run shown under the toolbar (and its console) is gone with its folder."""
+        if self.run_id and self.svc.runs.get(self.run_id) is None:
+            self._hide_run()
 
     @ui.refreshable_method
     def run_panel(self) -> None:
@@ -789,7 +871,7 @@ class TestEditor:
                 with ui.element("div").classes("any-head-right"):
                     if run.active:
                         ui.button("Cancel", icon=icon("square-solid"), color=None,
-                                  on_click=lambda: (self.svc.runs.cancel(run.id), self.run_panel.refresh())) \
+                                  on_click=lambda: (cancel_run(run.id), self.run_panel.refresh())) \
                             .props('flat dense no-caps data-testid="tc-run-cancel"').classes("any-btn")
                     if run.report_status == "ready":
                         with ui.element("a").classes("any-btn any-tc-run-link").props(
@@ -799,7 +881,10 @@ class TestEditor:
                         ui.button("Open in Control", color=None, on_click=lambda: self.gen.on_run(run.id)) \
                             .props('flat dense no-caps data-testid="tc-run-control"').classes("any-btn")
                     icon_button("x", "Hide this run", self._hide_run)
-            for row in result_rows(run):
+            debug_banner(run, self.gen.jump, self.gen.has_unsaved)
+            rows = result_rows(run)
+            failure_panel(run, rows, only_shared=True)  # the browser did not start, the site is down: said once
+            for row in rows:
                 outcome = row["outcome"]
                 tone = "passed" if outcome in ("passed", "xfailed") else \
                     "failed" if outcome in ("failed", "error") else "running" if outcome == "running" else "idle"
@@ -826,6 +911,12 @@ class TestEditor:
         ready = await self._ready_to_run()
         if ready:
             self._start_run(*ready)
+
+    async def debug_this(self) -> None:
+        """Run just this test case, and keep the browser open if a step fails (utils/debug_pause.py)."""
+        ready = await self._ready_to_run()
+        if ready:
+            self._start_run(*ready, extra={"debugOnFailure": True})
 
     async def run_from_step(self) -> None:
         """Run some of the steps, from the browser state saved after the step before (or from a URL)."""
@@ -934,6 +1025,8 @@ class TestEditor:
             options()
             ui.checkbox("Save the state after each step I run (to resume from later)",
                         on_change=lambda e: state.update(save=bool(e.value))).props('data-testid="rs-save"')
+            ui.checkbox("Pause if a step fails: keep the browser open so I can fix the test and resume",
+                        on_change=lambda e: state.update(debug=bool(e.value))).props('data-testid="rs-debug"')
 
             def run() -> None:
                 extra: dict = {}
@@ -948,6 +1041,8 @@ class TestEditor:
                     extra["startUrl"] = state["url"].strip()
                 if state["save"]:
                     extra["saveCheckpoints"] = True
+                if state.get("debug"):
+                    extra["debugOnFailure"] = True
                 if state["set"]:
                     extra["runDataSet"] = state["set"]
                 dialog.close()
@@ -1162,6 +1257,7 @@ class PageEditor:
             ui.notify(str(e), type="negative")
             return
         self.rel, self.hash = rel, sha
+        self.gen.remember(page=rel, system=self.gen.system)
         self._set_model(data)
 
     def _set_model(self, data: dict) -> None:
@@ -1719,9 +1815,18 @@ class PageEditor:
 # ───────────── tab ─────────────
 
 class GeneratorPanel:
-    def __init__(self, on_run: Callable[[str], None] | None = None):
+    def __init__(self, on_run: Callable[[str], None] | None = None, jump=None, go_control=None):
         self.svc = services()
+        self.go_control = go_control  # shell callback: show the Control tab (where the run settings are)
+        try:  # who this is, for remembering what they had open (read at page build, where it can be read)
+            self._browser = str(app.storage.browser.get("id") or "")
+        except Exception:  # noqa: BLE001
+            self._browser = ""
+        self._visited = False  # the Generator has been shown: its section and open items stay as they are
+        self._restored = False
+        self._unsaved_sent = False
         self.on_run = on_run  # shell callback: follow a started run on the Control tab
+        self.jump = jump  # shell callback: open a test case or page (the paused-run panel's links)
         systems = self.all_systems()
         default = self.svc.env.load().get("systemConfig")
         self.system: str | None = default if default in systems else (systems[0] if systems else None)
@@ -1753,6 +1858,8 @@ class GeneratorPanel:
                         if not LITE:
                             studio_tab = ui.tab("Studio", icon=icon("play")).props('data-testid="tab-studio"')
                 self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
+                self.common_tab = common_tab
+                tabs.on_value_change(self._section_changed)
             with ui.tab_panels(tabs, value=tests_tab).classes("w-full bg-transparent"):
                 with ui.tab_panel(tests_tab).classes("p-0"):
                     self.tests = TestEditor(self)
@@ -1766,6 +1873,35 @@ class GeneratorPanel:
                     with ui.tab_panel(studio_tab).classes("p-0"):
                         self.studio = StudioEditor(self)
         self.tests.load_refs()
+        # A reload or a closed tab with unsaved edits asks first (the browser's own prompt)
+        ui.run_javascript("window.__anyUnsaved = false; if (!window.__anyUnloadHook) { window.__anyUnloadHook = true;"
+                          " window.addEventListener('beforeunload', (e) => { if (window.__anyUnsaved) "
+                          "{ e.preventDefault(); e.returnValue = ''; } }); }")
+        with self.root:
+            ui.timer(1.0, self._sync_unsaved)
+
+    def remember(self, **values) -> None:
+        """Note what is open, for this browser (not saved to disk; gone when the app restarts)."""
+        if not self._browser:
+            return
+        _REMEMBERED.setdefault(self._browser, {}).update(values)
+        while len(_REMEMBERED) > _REMEMBERED_MAX:
+            _REMEMBERED.pop(next(iter(_REMEMBERED)))
+
+    def recall(self) -> dict:
+        return dict(_REMEMBERED.get(self._browser, {}))
+
+    def _sync_unsaved(self) -> None:
+        unsaved = self.has_unsaved()
+        if unsaved != self._unsaved_sent:
+            self._unsaved_sent = unsaved
+            ui.run_javascript(f"window.__anyUnsaved = {'true' if unsaved else 'false'};")
+
+    def _section_changed(self, e) -> None:
+        if not self._visited:  # the tabs' own starting value, while the page is built: not a choice anyone made
+            return
+        value = e.value if isinstance(e.value, str) else getattr(e.value, "_props", {}).get("name", "")
+        self.remember(section=value)
 
     async def open_page(self, name: str) -> None:
         """Jump to a page in the Pages tab (from a step)."""
@@ -1801,13 +1937,53 @@ class GeneratorPanel:
         await self.open_default_page()
 
     def choose_default_section(self) -> None:
-        """The Pages section, chosen at once (not in a background task), so a section the user clicks right after
-        opening the Generator is applied after it and wins."""
-        self.sections.set_value(self.pages_tab)
+        """The first time the Generator is shown: the section this browser had open last (Pages the first time ever),
+        chosen at once (not in a background task), so a section the user clicks right after opening the Generator is
+        applied after it and wins. Later visits leave the section, and what is open in it, exactly as it was."""
+        if self._visited:
+            return
+        self._visited = True
+        names = {"Test cases": self.tests_tab, "Pages": self.pages_tab, "Data sets": self.data_tab,
+                 "Common actions": self.common_tab}
+        self.sections.set_value(names.get(self.recall().get("section"), self.pages_tab))
+
+    async def _restore(self) -> bool:
+        """Open the test case and page this browser had open last, if they are still there."""
+        saved = self.recall()
+        system = saved.get("system")
+        if system and system != self.system and not await self.use_system(system):
+            return False
+        opened = False
+        with self.root:
+            test = saved.get("test")
+            if isinstance(test, list) and len(test) == 2 and self.system:
+                try:
+                    self.svc.tests.get(self.system, test[0], int(test[1]))
+                except (ValueError, IndexError, OSError, KeyError, *SAVE_ERRORS):
+                    pass
+                else:
+                    await self.tests.open(test[0], int(test[1]))
+                    opened = True
+            page = saved.get("page")
+            if isinstance(page, str) and self.system:
+                try:
+                    self.svc.pom.load(self.system, page)
+                except (ValueError, OSError, KeyError, *SAVE_ERRORS):
+                    pass
+                else:
+                    self.pages.json_mode = False
+                    await self.pages.open(page)
+                    opened = True
+        return opened
 
     async def open_default_page(self) -> None:
-        """The first page in Form view, unless a page is already open. Safe to run as a background task: it works
-        inside the Generator's own element."""
+        """What this browser had open last; failing that, the first page in Form view (unless a page is already
+        open). Safe to run as a background task: it works inside the Generator's own element."""
+        if not self._restored and self.system and self.pages.rel is None and self.tests.file is None:
+            self._restored = True
+            if await self._restore():
+                return
+        self._restored = True
         if self.pages.rel is not None or not self.system:
             return
         refs = sorted(self.svc.pom.list_pages(self.system), key=lambda r: r.rel.casefold())
@@ -1815,6 +1991,14 @@ class GeneratorPanel:
             self.pages.json_mode = False
             with self.root:
                 await self.pages.open(refs[0].rel)
+
+    def runs_cleared(self) -> None:
+        self.tests.runs_cleared()
+
+    def has_unsaved(self) -> bool:
+        """Edits in the test case or page editor that are not on disk yet."""
+        return bool(self.tests.dirty or self.pages.dirty or getattr(self.data, "dirty", False)
+                    or getattr(self.common, "dirty", False))
 
     def set_ai(self, enabled: bool) -> None:
         self.tests.draft_button.set_visibility(enabled)
@@ -1846,7 +2030,7 @@ class GeneratorPanel:
         self.tests.file = self.tests.index = self.tests.hash = None
         self.pages.rel = self.pages.hash = None
         self.tests.dirty = self.pages.dirty = False
-        self.tests.warnings = []
+        self.tests.warnings, self.tests.errors = [], []
         self.tests.load_refs()
         for editor in (self.tests, self.pages):
             editor.list_view.refresh()

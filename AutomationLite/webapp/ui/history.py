@@ -293,7 +293,7 @@ class HistoryPanel:
                             .props("flat unelevated no-caps").classes("any-btn is-38")
                     ui.button("Re-run", icon=icon("rotate-cw"), color=None, on_click=lambda: self.rerun(run.id)) \
                         .props("unelevated no-caps").classes("any-primary")
-                    ui.button("Clear", icon=icon("trash-2"), color=None, on_click=lambda: self.clear(run.id)) \
+                    ui.button("Delete run…", icon=icon("trash-2"), color=None, on_click=lambda: self.clear(run.id)) \
                         .props('flat unelevated no-caps data-testid="clear-runs"').classes("any-btn is-38 is-danger") \
                         .tooltip("Delete the logs and reports of this run, or of all finished runs") \
                         .set_enabled(not run.active)
@@ -343,6 +343,7 @@ class HistoryPanel:
                 styled_table(table, len(rows), wide=True)
                 result_slots(table)
                 table.on("rowClick", lambda e, run=run: open_test_details(run, e.args[1]))
+                table.on("details", lambda e, run=run: open_test_details(run, e.args))
             with ui.expansion("Console output (last 300 lines)", icon=icon("terminal")) \
                     .props(f'expand-icon="{icon("chevron-down")}"').classes("any-disclosure is-console"):
                 with ui.element("div").classes("any-console is-inline"):
@@ -418,6 +419,12 @@ class HistoryPanel:
         ui.notify(f"Run {run.id} queued (#{position})" if position else f"Run {run.id} started",
                   type="info" if position else "positive")
         self.on_watch(run.id)
+
+    def runs_cleared(self) -> None:
+        """After Clear all: forget a selection that is gone and redraw the runs."""
+        if self.selected and not self.svc.runs.get(self.selected):
+            self.selected = None
+        self.refresh()
 
     async def clear(self, run_id: str) -> None:
         deleted = await clear_runs(self.svc.runs.get(run_id))

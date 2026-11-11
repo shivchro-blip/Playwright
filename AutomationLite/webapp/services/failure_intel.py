@@ -28,6 +28,8 @@ RECENT = 10
 
 # (kind, label, pattern): the first that matches the message names the error
 KINDS = [
+    ("browser-start", "browser could not start", r"BrowserType\.launch|Executable doesn't exist|Missing X server|"
+                                                 r"launched a headed browser|no display"),
     ("unreachable", "site unreachable", r"net::ERR_|ECONNREFUSED|Connection refused|ERR_NAME_NOT_RESOLVED|"
                                          r"getaddrinfo|Name or service not known|ERR_CONNECTION"),
     ("login", "sign-in failed", r"Missing credentials|login failed|could not log in|Invalid (user|password)"),
