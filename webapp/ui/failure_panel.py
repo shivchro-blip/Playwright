@@ -49,7 +49,8 @@ def failure_panel(run, rows: list[dict], *, open_details: Callable[[dict], None]
                                 .props('flat unelevated no-caps dense data-testid="fail-details"').classes("any-btn")
                         if jump:
                             ui.button("Open test case", icon=icon("pencil"), color=None,
-                                      on_click=lambda t=item.test_id: jump("test", run.config.system, t.split("[")[0])) \
+                                      on_click=lambda t=item.test_id: jump("test", run.config.system,
+                                                                           t.split("[")[0])) \
                                 .props('flat unelevated no-caps dense data-testid="fail-open-test"').classes("any-btn")
                         if show_in_log:
                             ui.button("Show in log", icon=icon("terminal"), color=None,

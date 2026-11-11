@@ -46,9 +46,9 @@ async def clear_all(on_done: Callable[[], None] | None = None) -> None:
         return
     found = await nrun.io_bound(cleanup.preview, svc.runs, svc.settings.repo_root, svc.settings.workspace)
     if found.empty:
-        ui.notify("Nothing to clear: no finished runs or leftover files." + (
-            f" {found.active} {plural(found.active, 'run')} in progress or waiting {'is' if found.active == 1 else 'are'}"
-            " kept." if found.active else ""), type="info")
+        kept = (f" {found.active} {plural(found.active, 'run')} in progress or waiting "
+                f"{'is' if found.active == 1 else 'are'} kept.") if found.active else ""
+        ui.notify("Nothing to clear: no finished runs or leftover files." + kept, type="info")
         return
     with ui.dialog() as dialog, ui.card().classes("any-app any-dialog w-[40rem]").props(
             'role="alertdialog" aria-label="Clear all"'):
