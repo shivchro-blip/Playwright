@@ -138,3 +138,19 @@ def test_a_run_that_paused_is_left_out_of_trends_and_comparisons(tmp_path):
     assert [r.id for r in finished(m.list())] == ["r1"]
     assert {r.id for r in finished(m.list(), include_debugged=True)} == {"r1", "r2"}
     assert trends(m.list())[("TC-1", "chrome")].outcomes == ["passed"]  # the failed-then-fixed run is not in it
+
+
+def test_a_field_the_page_lacks_is_named_so_it_can_be_added_from_the_pause(tmp_path):
+    m = manager(tmp_path)
+    run = running(m, debugOnFailure=True)
+    m._handle_event(run, json.dumps({
+        "event": "debug", "phase": "paused", "seq": 1, "reason": "failure", "step": 15, "step_abs": 15,
+        "kind": "page", "label": "Directors", "screen": "Directors", "field": "", "can_skip": False,
+        "error": "Failed to generate Actions - No Field Config for: addDirectorship"}))
+    assert run.paused["field"] == "addDirectorship" and run.paused["missing_field"] is True
+    assert run.paused["can_skip"] is False and not m.debug_command("r1", "skip")  # nothing to leave out
+    assert m.debug_command("r1", "retry")  # run again once the page has the field
+    other = running(m, "r2", debugOnFailure=True)
+    m._handle_event(other, json.dumps({"event": "debug", "phase": "paused", "seq": 1, "field": "zip",
+                                       "error": "element not found", "can_skip": True}))
+    assert other.paused["field"] == "zip" and "missing_field" not in other.paused

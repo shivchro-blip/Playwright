@@ -538,6 +538,12 @@ async def clickInElementFromList(action, page):
         logger.error(f"Failed to click in Element - Action: {action}")
         await attach_allure_failure_details(page, action=action, name="Click In Element From List Action Failure")
 
+async def saveCountAction(dictionaryContext, action, element):
+    """Save how many elements the field's locator matches now (0 is fine) under the variable name."""
+    count = await element.count()
+    dictionaryContext.set(action.get("value"), str(count))
+    logger.info(f"Saved count {count} to '{action.get('value')}'")
+
 async def saveListAction(page, dictionaryContext, action, element): 
     logger.info(f"saveListAction: - action: {action} \n- element: {element}")
     try:

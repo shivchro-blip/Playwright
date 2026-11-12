@@ -853,6 +853,10 @@ class RunManager:
                 run.expected = run.collected
         elif kind == "debug":  # the test waits after a failure, or goes on (utils/debug_pause.py)
             if evt.get("phase") == "paused":
+                # "No Field Config for: x" comes before any field runs, so the pause has no field; the page just lacks x
+                missing = re.search(r"No Field Config for:\s*(\S+)", str(evt.get("error") or ""))
+                if missing and not evt.get("field"):
+                    evt = {**evt, "field": missing.group(1).split("|")[0], "can_skip": False, "missing_field": True}
                 run.paused = {**{k: (run.scrub(str(v)) if isinstance(v, str) else v) for k, v in evt.items()},
                               "at": _now(), "since": time.time(),
                               "deadline_at": time.time() + float(evt.get("deadline_in") or 0)}

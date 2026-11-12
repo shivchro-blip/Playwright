@@ -108,6 +108,9 @@ async def action_handler(page, dictionaryContext, action_type, locator=None, ele
             logger.info("clickInElementFromList")
             await Executables.clickInElementFromList(action, page)
 
+        elif action_type == 'saveCount':
+            await Executables.saveCountAction(dictionaryContext, action, element)
+
         elif action_type == 'saveList': 
             logger.info("saveList")
             await Executables.saveListAction(page, dictionaryContext, action, element)
