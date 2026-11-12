@@ -187,20 +187,20 @@ def test_add_a_field_from_the_live_page_before_the_failed_one(workspace: Path, t
         port = int(banner.get_attribute("data-cdp"))
         banner.get_by_test_id("debug-fix").click()
         dialog = page.get_by_role("dialog", name="Fix on the live page")
-        click_on_picture(page, p, port, "#phone")
+        click_on_picture(page, p, port, "#notes")  # well inside the picture
         expect(dialog.get_by_test_id("fix-picked")).to_be_visible(timeout=60_000)
-        dialog.get_by_test_id("fix-new-name").fill("extraPhone")
-        dialog.get_by_test_id("fix-new-value").fill("555-0100")
+        dialog.get_by_test_id("fix-new-name").fill("extraNotes")
+        dialog.get_by_test_id("fix-new-value").fill("a second note")
         dialog.get_by_test_id("fix-add").click()
         # the run went on with the new field, and met the wrong locator again: a new pause, and the file shows it
         expect(page.get_by_test_id("debug-banner")).to_be_visible()
         saved = json.loads(test_file.read_text(encoding="utf-8"))["testCases"][0]["steps"][0]["formData"]
-        assert list(saved) == ["searchBox", "notes", "extraPhone", "missing"] and saved["extraPhone"] == "555-0100"
+        assert list(saved) == ["searchBox", "notes", "extraNotes", "missing"] and saved["extraNotes"] == "a second note"
         page.get_by_test_id("debug-abort").click()
         expect(page.get_by_test_id("tc-run-status")).to_have_text("Failed", timeout=120_000)
         browser.close()
     log = console(tmp_path).split("= FAILURES =")[0]  # a failed test's report repeats its log: count the first
-    assert log.count("Performing FILL on 'searchBox'") == 1 and log.count("Performing FILL on 'extraPhone'") == 1
+    assert log.count("Performing FILL on 'searchBox'") == 1 and log.count("Performing FILL on 'extraNotes'") == 1
     assert log.count("Performing FILL on 'notes'") == 1  # the two fields before the new one were not run again
 
 
