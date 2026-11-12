@@ -92,6 +92,11 @@ def debug_banner(run: Run, jump: Jump | None = None, has_unsaved: Callable[[], b
                                 "then go on.").props('data-testid="debug-error"')
                 else:
                     text("div", str(paused.get("error") or ""), "is-fail").props('data-testid="debug-error"')
+            if paused.get("missing_field"):
+                text("div", f"The page {screen or 'for this step'} has no field named '{field}'. Add it to the page: "
+                            "pick the element in Fix on the live page and use it for this field, or open the page "
+                            "and add the field there. Then run again.", "any-callout-text") \
+                    .props('data-testid="debug-missing-field"')
             if paused.get("notice"):
                 text("div", str(paused["notice"]), "any-callout-text any-err-line").props('data-testid="debug-notice"')
             if paused.get("info"):
@@ -137,14 +142,15 @@ def debug_banner(run: Run, jump: Jump | None = None, has_unsaved: Callable[[], b
                         f"Run '{field}' again" if field else "Run again"
                     ui.button(label, icon=icon("rotate-cw"), color=None, on_click=lambda: act("retry")) \
                         .props('unelevated no-caps data-testid="debug-retry"').classes("any-primary")
-                    if field:
+                    if field and not paused.get("missing_field"):
                         ui.button("Run the step again", color=None, on_click=lambda: act("restep")) \
                             .props('flat unelevated no-caps data-testid="debug-restep"').classes("any-btn is-38") \
                             .tooltip("From the step's first field. Fields that clicked or submitted something "
                                      "run twice.")
-                        ui.button("Skip this field", color=None, on_click=lambda: act("skip")) \
-                            .props('flat unelevated no-caps data-testid="debug-skip"').classes("any-btn is-38") \
-                            .tooltip("Leave this field out and carry on with the next")
+                        if paused.get("can_skip"):
+                            ui.button("Skip this field", color=None, on_click=lambda: act("skip")) \
+                                .props('flat unelevated no-caps data-testid="debug-skip"').classes("any-btn is-38") \
+                                .tooltip("Leave this field out and carry on with the next")
                 ui.button("End the test", icon=icon("square-solid"), color=None, on_click=lambda: act("abort")) \
                     .props('flat unelevated no-caps data-testid="debug-abort"').classes("any-btn is-38 is-danger") \
                     .tooltip("The test fails here and the browser closes")
