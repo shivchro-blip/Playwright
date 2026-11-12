@@ -646,7 +646,7 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
                 logger.info(f"Performing {action_type.upper()} on '{target}' (locator: {locator})")
                 await page.wait_for_load_state()
                 try:
-                    if action_type not in ['wait', 'keyboard', 'waitwhileloading', 'pause','filldate','Payment'] and loop is None:
+                    if action_type not in ['wait', 'keyboard', 'waitwhileloading', 'pause','filldate','Payment','saveCount'] and loop is None:
                         element_ready = await actionHelper.check_element_ready(
                             page, element, target, locator, action_type,
                             formData=formData,

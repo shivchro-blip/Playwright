@@ -295,6 +295,28 @@ ResultsTableRows|Application ID|DICT.APP_ID|click
 
 ---
 
+## `CUSTOMFIELD_SAVECOUNT`
+
+**Purpose:** Save how many elements a field's locator matches right now (zero is allowed), so a later step can loop that many times without editing the test per case, for example `LLoop(DICT.categoryCount)`.
+
+### `field_value` format
+```
+<variableName>|<pomFieldName>
+```
+
+### Returns
+```json
+{ "type": "saveCount", "field": "<pomFieldName>", "value": "<variableName>", "locator": "<from POM>", "role": "<from POM>", "contains": "<from POM>" }
+```
+
+### Example
+```json
+{ "field": "CUSTOMFIELD_SAVECOUNT", "value": "catCount|selectedCategory" }
+```
+The count is saved as text under `catCount`; use it as `"directorCategory|LLoop(DICT.catCount)": "click"`.
+
+---
+
 ## `CUSTOMFIELD_SAVELISTFIELD`
 
 **Purpose:** Extract a field value, split on spaces, and save each token to indexed dictionary keys.

@@ -19,7 +19,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 CURRENT = {"system": "", "screen": ""}  # set by the suite before each screen step
-SKIP_TYPES = {"wait", "keyboard", "waitwhileloading", "pause", "filldate", "Payment", "save", "saveList"}
+SKIP_TYPES = {"wait", "keyboard", "waitwhileloading", "pause", "filldate", "Payment", "save", "saveList", "saveCount"}
 _profiled: set[tuple[str, str, str]] = set()
 _cache: dict[str, tuple[float, dict]] = {}
 

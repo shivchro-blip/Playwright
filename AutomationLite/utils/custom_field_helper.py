@@ -56,6 +56,8 @@ async def customFieldHandler(dictionaryContext, pomFields, field_name, field_val
         return await customField_ClickInElementFromList_CreateAction(dictionaryContext, pomFields, field_value)
     elif field_name == 'CUSTOMFIELD_SAVELISTFIELD':
         return await customField_SaveListField_CreateAction(pomFields, field_value)
+    elif field_name == 'CUSTOMFIELD_SAVECOUNT':
+        return await customField_SaveCount_CreateAction(pomFields, field_value)
     elif field_name == 'CUSTOMFIELD_PAUSE':
         return await customField_Pause_CreateAction(pomFields, field_value)
     elif field_name == 'CUSTOMFIELD_CONFIRMICON':
@@ -124,6 +126,13 @@ async def customField_SaveField_CreateAction(pomFields, field_value):
         "regex": regex
     }
     return action
+
+async def customField_SaveCount_CreateAction(pomFields, field_value):
+    variableName, screenFieldName = field_value.split('|')[:2]
+    fieldConfig = await actionHelper.getFieldConfig(pomFields, screenFieldName)
+    return {"type": "saveCount", "field": screenFieldName, "value": variableName,
+            "locator": fieldConfig.get("locator"), "role": fieldConfig.get("role"),
+            "contains": fieldConfig.get("contains")}
 
 async def customField_FillField_CreateAction(pomFields, field_value):
     variableName, screenFieldName = field_value.split('|')
