@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Callable
 
-from nicegui import app, ui
+from nicegui import app, background_tasks, ui
 
 from utils.steps_v2 import StepError, is_v2, to_v1, to_v2
 from webapp.services.json_files import ConflictError, PathError, safe_path
@@ -32,7 +32,7 @@ from webapp.ui.live import live
 from webapp.ui.components import field as labelled, icon_button, split_test_id, styled_table, text
 from webapp.ui.ai_panels import LOCATOR_KEYS, open_draft_dialog
 from webapp.ui.common_actions_panel import CommonActionEditor
-from webapp.ui.debug_panel import debug_banner
+from webapp.ui.debug_panel import debug_banner, debug_note
 from webapp.ui.failure_panel import failure_panel
 from webapp.ui.run_actions import cancel_run
 from webapp.ui.data_sets_panel import DataSetEditor
@@ -332,6 +332,8 @@ class TestEditor:
                                      on_click=lambda: open_timeline(test_id, self.gen.system,
                                                                     on_change=self.editor.refresh)) \
                             .props('data-testid="tc-timeline"')
+                        ui.menu_item("Step through: pause before every step", on_click=lambda: self.debug_this(True)) \
+                            .props('data-testid="tc-step-through"')
                         ui.menu_item("Copy as a new test case...", on_click=self.copy_dialog) \
                             .props('data-testid="tc-copy"')
                         ui.menu_item("Release from quarantine" if quarantined else
@@ -838,7 +840,7 @@ class TestEditor:
             return
         sig = (run.status, run.report_status, tuple(r.outcome for r in run.results.values()), len(run.log) // 5,
                tuple((r.step, len(r.steps)) for r in run.results.values()),
-               (run.paused or {}).get("seq"), (run.paused or {}).get("notice"))
+               (run.paused or {}).get("seq"), (run.paused or {}).get("notice"), (run.paused or {}).get("info"))
         if sig != self._run_sig:
             self._run_sig = sig
             self.run_panel.refresh()
@@ -881,7 +883,8 @@ class TestEditor:
                         ui.button("Open in Control", color=None, on_click=lambda: self.gen.on_run(run.id)) \
                             .props('flat dense no-caps data-testid="tc-run-control"').classes("any-btn")
                     icon_button("x", "Hide this run", self._hide_run)
-            debug_banner(run, self.gen.jump, self.gen.has_unsaved)
+            debug_banner(run, self.gen.jump, self.gen.has_unsaved, self.gen.refresh_after_fix)
+            debug_note(run)
             rows = result_rows(run)
             failure_panel(run, rows, only_shared=True)  # the browser did not start, the site is down: said once
             for row in rows:
@@ -912,11 +915,13 @@ class TestEditor:
         if ready:
             self._start_run(*ready)
 
-    async def debug_this(self) -> None:
-        """Run just this test case, and keep the browser open if a step fails (utils/debug_pause.py)."""
+    async def debug_this(self, step_through: bool = False) -> None:
+        """Run just this test case, and keep the browser open if a step fails (utils/debug_pause.py). With
+        step_through, wait before every step as well, to walk the test one step at a time."""
         ready = await self._ready_to_run()
         if ready:
-            self._start_run(*ready, extra={"debugOnFailure": True})
+            self._start_run(*ready, extra={"debugOnFailure": True, **({"debugPauseBefore": "all"}
+                                                                        if step_through else {})})
 
     async def run_from_step(self) -> None:
         """Run some of the steps, from the browser state saved after the step before (or from a URL)."""
@@ -1027,6 +1032,8 @@ class TestEditor:
                         on_change=lambda e: state.update(save=bool(e.value))).props('data-testid="rs-save"')
             ui.checkbox("Pause if a step fails: keep the browser open so I can fix the test and resume",
                         on_change=lambda e: state.update(debug=bool(e.value))).props('data-testid="rs-debug"')
+            ui.checkbox("Pause before every step: walk the test one step at a time",
+                        on_change=lambda e: state.update(step=bool(e.value))).props('data-testid="rs-step"')
 
             def run() -> None:
                 extra: dict = {}
@@ -1041,8 +1048,10 @@ class TestEditor:
                     extra["startUrl"] = state["url"].strip()
                 if state["save"]:
                     extra["saveCheckpoints"] = True
-                if state.get("debug"):
+                if state.get("debug") or state.get("step"):
                     extra["debugOnFailure"] = True
+                if state.get("step"):
+                    extra["debugPauseBefore"] = "all"
                 if state["set"]:
                     extra["runDataSet"] = state["set"]
                 dialog.close()
@@ -1994,6 +2003,22 @@ class GeneratorPanel:
 
     def runs_cleared(self) -> None:
         self.tests.runs_cleared()
+
+    def refresh_after_fix(self, system: str, page_name: str, test_id: str) -> None:
+        """A page or a test case was changed from a paused run: reload what the editors show of it (unless it has
+        unsaved edits, which stay)."""
+        if system == self.system:
+            background_tasks.create(self._reload_after_fix(page_name, test_id), name="generator-reload-after-fix")
+
+    async def _reload_after_fix(self, page_name: str, test_id: str) -> None:
+        with self.root:
+            self.tests.load_refs()
+            self.tests.list_view.refresh()
+            self.pages.list_view.refresh()
+            if self.pages.rel and self.pages._page_name() == page_name and not self.pages.dirty:
+                await self.pages.open(self.pages.rel)
+            if self.tests.file is not None and self.tests.meta.get("testCaseID") == test_id and not self.tests.dirty:
+                await self.tests.open(self.tests.file, self.tests.index or 0)
 
     def has_unsaved(self) -> bool:
         """Edits in the test case or page editor that are not on disk yet."""

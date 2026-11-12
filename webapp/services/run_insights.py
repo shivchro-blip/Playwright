@@ -76,9 +76,13 @@ class TestTrend:
 
 
 def finished(runs: Iterable[Run], system: str | None = None, env: str | None = None,
-             until: str | None = None) -> list[Run]:
-    """Finished runs, oldest first, optionally for one system/env and created no later than `until`."""
+             until: str | None = None, include_debugged: bool = False) -> list[Run]:
+    """Finished runs, oldest first, optionally for one system/env and created no later than `until`.
+
+    A run that waited for a person after a failure (pause on failure) is not a clean result, whatever it ended as: it is
+    left out of trends, flaky detection and "what changed since the last run", unless `include_debugged`."""
     out = [r for r in runs if r.status in FINISHED_RUNS
+           and (include_debugged or not getattr(r, "debug_pauses", 0))
            and (system is None or r.config.system == system) and (env is None or r.config.env == env)
            and (until is None or r.created_at <= until)]
     return sorted(out, key=lambda r: r.created_at)

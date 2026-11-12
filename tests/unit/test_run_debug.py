@@ -96,3 +96,45 @@ def test_the_number_of_pauses_is_kept_with_the_run(tmp_path):
     again = run_from_dict(run.to_dict(), run.dir)
     assert again.debug_pauses == 3 and again.paused is None
     assert PREFIX  # the events travel on the same prefix as the other run events
+
+
+def test_a_pause_before_a_step_and_its_notes_are_kept_on_the_run(tmp_path):
+    import time
+    m = manager(tmp_path)
+    run = running(m, debugOnFailure=True, debugPauseBefore="all")
+    m._handle_event(run, json.dumps({"event": "debug", "phase": "paused", "seq": 2, "reason": "step", "step": 2,
+                                     "step_abs": 2, "label": "Address", "can_skip": True, "deadline_in": 600,
+                                     "cdp_port": 9333}))
+    assert run.paused["reason"] == "step" and run.paused["cdp_port"] == 9333
+    assert 590 < run.paused["deadline_at"] - time.time() <= 600 and run.paused["since"] <= time.time()
+    assert any("Paused before step 2 (Address)" in line for line in run.log)
+    m._handle_event(run, json.dumps({"event": "debug", "phase": "note", "seq": 2, "info": "State saved.",
+                                     "deadline_in": 1800}))
+    assert run.paused["info"] == "State saved." and run.paused["deadline_at"] - time.time() > 1700
+    assert m.debug_command("r1", "go") and m.debug_command("r1", "savestate") and m.debug_command("r1", "extend")
+    assert m.debug_command("r1", "skip")  # a step can be skipped
+    run.paused["reason"] = "failure"
+    assert not m.debug_command("r1", "go")  # "run to the end" is for stopping before steps
+
+
+def test_pausing_before_steps_needs_pause_on_failure(tmp_path):
+    m = manager(tmp_path)
+    with pytest.raises(ValueError, match="needs Pause on failure"):
+        m.start(RunConfig(system="S", env="qa", tags=["t"], options={"debugPauseBefore": "all"}))
+    from webapp.services.env_config import RUN_OPTION_KEYS
+    assert "debugPauseBefore" in RUN_OPTION_KEYS
+
+
+def test_a_run_that_paused_is_left_out_of_trends_and_comparisons(tmp_path):
+    from webapp.services.run_insights import finished, trends
+    from webapp.services.run_manager import TestResult
+    m = manager(tmp_path)
+    clean = running(m, "r1")
+    debugged = running(m, "r2")
+    for run, outcome in ((clean, "passed"), (debugged, "failed")):
+        run.status = "passed" if outcome == "passed" else "failed"
+        run.results["n"] = TestResult("n", "TC-1", "chrome", outcome)
+    debugged.debug_pauses = 2
+    assert [r.id for r in finished(m.list())] == ["r1"]
+    assert {r.id for r in finished(m.list(), include_debugged=True)} == {"r1", "r2"}
+    assert trends(m.list())[("TC-1", "chrome")].outcomes == ["passed"]  # the failed-then-fixed run is not in it

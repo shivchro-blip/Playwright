@@ -9,6 +9,7 @@ from utils.auth_helper import login_if_needed
 from playwright.async_api import expect
 from utils.errors import addFail, attach_allure_failure_details, addWarn
 import utils.executables as Executables
+import utils.debug_pause as debug_pause
 from utils.workspace import resolve_workspace_dir
 
 workspaceDir = resolve_workspace_dir()
@@ -290,7 +291,7 @@ async def check_element_ready(page, element, target, locator, action_type, formD
 
     with allure.step(f"Checking visibility of element: '{target}'"):
         try:
-            timeout = 30000 if formData or actionCount == 1 else 100    # Might update this to come dynmically from config?
+            timeout = debug_pause.fast_ms(30000) if formData or actionCount == 1 else 100    # Might update this to come dynmically from config?
 
             await check_for_toaster(page)#Checks if toaster notification is present before an action
 

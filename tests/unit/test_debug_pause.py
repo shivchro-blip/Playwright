@@ -201,3 +201,136 @@ def test_a_pause_ends_when_nobody_answers_or_the_page_is_closed(pause_env, monke
     page.closed = True
     decision, _, _ = asyncio.run(pause_once(folder, events, page=page))
     assert decision is None
+
+
+# ───────────── stepping through, signing in, saving state, waiting longer, fast fail ─────────────
+
+async def breakpoint_once(folder, events, *answers, reload=None, step_no=2, **kwargs):
+    fresh = [{"screen": f"S{i}"} for i in range(1, 5)]
+    decision, _ = await asyncio.gather(
+        dp.on_breakpoint(page=FakePage(), step_no=step_no, step={"screen": "S2"}, of=4, kind="page", label="S2",
+                         reload_steps=reload or (lambda: fresh), test_id="TC-1"),
+        operator(folder, events, *answers))
+    return decision, fresh
+
+
+def test_stop_before_follows_the_option_and_one_run_this_step_does_not_ask_twice(pause_env, monkeypatch):
+    monkeypatch.delenv("debugPauseBefore", raising=False)
+    assert dp.stop_before(1) is False  # not asked for: never
+    monkeypatch.setenv("debugPauseBefore", "2, 4")
+    dp.set_window(1)
+    assert [dp.stop_before(n) for n in (1, 2, 3, 4)] == [False, True, False, True]
+    monkeypatch.setenv("debugPauseBefore", "all")
+    assert dp.stop_before(1) and dp.stop_before(7)
+    dp._flags["skip_once"] = dp.step_abs(3)  # "run this step": the next ask for it is waved through, once
+    assert dp.stop_before(3) is False and dp.stop_before(3) is True
+    dp.set_window(5)  # a run from step 5: its first step is number 5 in the test case
+    monkeypatch.setenv("debugPauseBefore", "5")
+    assert dp.stop_before(1) is True and dp.step_abs(2) == 6
+    dp.set_window(1)
+
+
+def test_a_run_that_never_asked_never_stops_before_a_step(monkeypatch, tmp_path):
+    monkeypatch.setenv("debugPauseBefore", "all")
+    monkeypatch.delenv("debugOnFailure", raising=False)
+    monkeypatch.setenv("debugDir", str(tmp_path))
+    assert dp.stop_before(1) is False  # pause on failure is off
+
+
+def test_before_a_step_run_it_go_on_or_skip_it(pause_env, monkeypatch):
+    monkeypatch.setenv("debugPauseBefore", "all")
+    folder, events = pause_env
+    dp._flags.update(go=False, skip_once=None)
+    decision, _ = asyncio.run(breakpoint_once(folder, events, "retry"))
+    assert [s["screen"] for s in decision.steps] == ["S2", "S3", "S4"] and decision.offset == 1
+    paused = events[0]
+    assert paused["reason"] == "step" and paused["can_skip"] is True and paused["field"] == ""
+    assert paused["error"] == "About to run step 2: S2" and paused["step_abs"] == 2
+    assert dp.stop_before(2) is False  # it is the step they just chose to run
+    assert dp.stop_before(3) is True  # and the next one asks again
+
+    decision, _ = asyncio.run(breakpoint_once(folder, events, "skip", step_no=3))
+    assert [s["screen"] for s in decision.steps] == ["S4"] and decision.offset == 3 and dp.summary["skips"] == 1
+
+    decision, _ = asyncio.run(breakpoint_once(folder, events, "go"))
+    assert decision.steps and dp.stop_before(3) is False and dp.stop_before(4) is False  # no more stops
+    dp._flags.update(go=False, skip_once=None)
+
+    decision, _ = asyncio.run(breakpoint_once(folder, events, "abort"))
+    assert decision is None
+
+
+def test_signing_in_can_pause_and_be_tried_again(pause_env):
+    folder, events = pause_env
+
+    async def run():
+        decision, _ = await asyncio.gather(
+            dp.on_failure(failure(), page=FakePage(), step_no=1, step={}, of=3, kind="login", label="Sign-in",
+                          reload_steps=lambda: [{"screen": "A"}, {"screen": "B"}, {"screen": "C"}], test_id="TC-1"),
+            operator(folder, events, "retry"))
+        return decision
+
+    decision = asyncio.run(run())
+    assert len(decision.steps) == 3 and decision.offset == 0  # the whole test again, signing in first
+    assert events[0]["kind"] == "login" and events[0]["label"] == "Sign-in" and events[0]["can_skip"] is False
+    assert dp.take_action_resume() == 0
+
+
+def test_save_state_and_keep_waiting_do_not_end_the_pause(pause_env, monkeypatch):
+    folder, events = pause_env
+    saved = []
+
+    async def fake_save(base, test_id, step, page):
+        saved.append((base, test_id, step))
+        return Path(base) / "x.json"
+
+    monkeypatch.setenv("checkpointsDir", str(folder.parent / "checkpoints"))
+    monkeypatch.setattr("utils.checkpoints.save_checkpoint", fake_save)
+
+    async def run():
+        task = asyncio.create_task(dp.on_failure(failure(), page=FakePage(), step_no=3, step={}, of=4, kind="page",
+                                                 label="S3", reload_steps=lambda: [{}, {}, {}, {}], test_id="TC-1"))
+        while not events:
+            await asyncio.sleep(0.01)
+        seq = events[0]["seq"]
+        for do in ("savestate", "extend"):
+            (folder / "command.json").write_text(json.dumps({"do": do, "seq": seq}))
+            before = len(events)
+            while len(events) == before:
+                await asyncio.sleep(0.01)
+            assert not task.done()  # still waiting after each
+        (folder / "command.json").write_text(json.dumps({"do": "retry", "seq": seq}))
+        return await task
+
+    assert asyncio.run(run()) is not None
+    notes = [e for e in events if e["phase"] == "note"]
+    # the state after step 2: step 3 can start from it
+    assert saved == [(str(folder.parent / "checkpoints"), "TC-1", 2)]
+    assert "Run from step 3" in notes[0]["info"] and "another" in notes[1]["info"] and notes[1]["deadline_in"] > 0
+    assert events[0]["deadline_in"] > 0 and events[0]["timeout_minutes"] > 0
+
+
+def test_nothing_is_saved_before_the_first_step(pause_env, monkeypatch):
+    folder, events = pause_env
+    monkeypatch.setenv("checkpointsDir", str(folder.parent / "checkpoints"))
+    assert "first step" in asyncio.run(dp._save_state(FakePage(), "TC-1", 1))
+
+
+def test_a_debug_run_gives_up_on_a_missing_element_sooner_and_other_runs_do_not(monkeypatch, tmp_path):
+    monkeypatch.delenv("debugOnFailure", raising=False)
+    monkeypatch.delenv("debugDir", raising=False)
+    assert dp.fast_ms(30000) == 30000
+    monkeypatch.setenv("debugOnFailure", "true")
+    monkeypatch.setenv("debugDir", str(tmp_path))
+    assert dp.fast_ms(30000) == dp.DEFAULT_FAST_FAIL_MS and dp.fast_ms(100) == 100  # never longer than asked
+    monkeypatch.setenv("AUTOPLAY_DEBUG_FAST_FAIL_MS", "1200")
+    assert dp.fast_ms(30000) == 1200
+    monkeypatch.setenv("AUTOPLAY_DEBUG_FAST_FAIL_MS", "5")
+    assert dp.fast_ms(30000) == 500  # and not so short that a page that is still loading fails
+    monkeypatch.setenv("AUTOPLAY_DEBUG_FAST_FAIL_MS", "soon")
+    assert dp.fast_ms(30000) == dp.DEFAULT_FAST_FAIL_MS
+
+
+def test_a_free_local_port_is_reserved_for_the_browser():
+    port = dp.reserve_cdp_port()
+    assert 1024 < port < 65536 and dp._cdp["port"] == port

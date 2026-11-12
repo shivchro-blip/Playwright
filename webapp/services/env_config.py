@@ -51,6 +51,8 @@ FIELDS: tuple[EnvField, ...] = (
     # Keep the browser open when a step fails; fix the test, resume (utils/debug_pause.py). A run option only: it is
     # never saved to .env, and scheduled, remote and command-line runs cannot use it
     EnvField("debugOnFailure", "bool", "false", "Debug", "Pause on failure: keep the browser open and resume"),
+    # With debugOnFailure: also wait before these steps ("all", or numbers such as "3,5") to walk a test step by step
+    EnvField("debugPauseBefore", "str", "", "Debug", "Pause before these steps: all, or numbers like 3,5"),
     EnvField("a11yScan", "bool", "false", "Artifacts", "Accessibility scan of each screen"),
     EnvField("stepCapture", "bool", "false", "Artifacts", "Step pictures: the page after each step (time travel)"),
     EnvField("del_allure", "bool", "true", "Artifacts", "Clear old Allure results"),

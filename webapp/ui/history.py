@@ -221,7 +221,8 @@ class HistoryPanel:
             "id": r.id, "started": (r.started_at or r.created_at).replace("T", " "), "duration": duration(r),
             "status": r.status, "target": f"{r.config.system}/{r.config.env}", "tags": ", ".join(r.config.tags),
             "tests": ", ".join(r.config.test_ids), "browsers": ", ".join(r.config.browsers),
-            "result": " ".join(f"{k}:{v}" for k, v in sorted(r.counts().items())),
+            "result": " ".join(f"{k}:{v}" for k, v in sorted(r.counts().items()))
+            + (f" · debugged ({r.debug_pauses}x paused)" if r.debug_pauses else ""),
             "scheduled": r.trigger.startswith(TRIGGER),
         } for r in self._runs()]
         self.count_pill.text = f"{len(rows)} {'run' if len(rows) == 1 else 'runs'}"

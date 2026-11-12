@@ -213,7 +213,9 @@ def register() -> None:
         with ui.tab_panels(tabs, value=control_tab).classes("w-full bg-transparent") \
                 .props('id="any-main" tabindex="-1"'):
             with ui.tab_panel(control_tab).classes("any-app"):
-                panels["control"] = ControlPanel(jump=jump, has_unsaved=has_unsaved)
+                panels["control"] = ControlPanel(
+                    jump=jump, has_unsaved=has_unsaved,
+                    on_fixed=lambda system, page, test: panels["generator"].refresh_after_fix(system, page, test))
             with ui.tab_panel(tab_elems["Generator"]).classes("any-app any-page"):
                 panels["generator"] = GeneratorPanel(on_run=watch, jump=jump, go_control=lambda: go("Control"))
             with ui.tab_panel(tab_elems["History"]).classes("any-app any-page"):

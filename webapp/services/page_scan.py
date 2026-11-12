@@ -151,6 +151,72 @@ def candidates_for(d: dict, attr: str, peers: int) -> list[dict]:
     return out
 
 
+def _scan(page, result: PageScan, id_attribute: str, id_prefix: str, visible_only: bool) -> None:
+    """Scan a page that is already open into `result` (sync Playwright)."""
+    from playwright.sync_api import Error as PlaywrightError
+    result.title, result.final_url = page.title(), page.url
+    if not id_attribute:  # how this site marks its elements, when nobody said
+        from webapp.services.site_ids import detect_expression
+        detected = page.evaluate(detect_expression())
+        id_attribute = detected[0] if detected else ""
+    found = page.evaluate(ENUMERATE, id_attribute or "")
+    if id_attribute and not id_prefix:
+        from webapp.services.site_ids import common_prefix
+        id_prefix = common_prefix({d["container"] for d in found if d["container"]})
+    result.id_attribute, result.id_prefix = id_attribute, id_prefix
+    result.total = len(found)
+    shown = [d for d in found if d["visible"] or not visible_only][:MAX_ELEMENTS]
+    groups: dict[tuple, int] = {}
+    for d in shown:
+        groups[(d["container"], _kind_selector(d))] = groups.get((d["container"], _kind_selector(d)), 0) + 1
+    taken: set[str] = set()
+    seen: set[str] = set()
+    for d in shown:
+        peers = groups[(d["container"], _kind_selector(d))]
+        chosen = None
+        unique: list[dict] = []  # every candidate that finds this element and nothing else
+        for cfg in candidates_for(d, id_attribute, peers):
+            try:
+                locator, _ = build_locator(page, cfg)
+                markers = locator.evaluate_all("els => els.map(e => e.getAttribute('data-any-scan'))")
+            except (ValueError, PlaywrightError):
+                continue
+            if str(d["i"]) in markers:
+                if chosen is None:
+                    chosen = (cfg, len(markers), markers.index(str(d["i"])))
+                if markers == [str(d["i"])]:
+                    unique.append(cfg)
+        if chosen is None:
+            result.skipped += 1
+            continue
+        cfg, count, position = chosen
+        if count > 1:
+            cfg = {**cfg, "index": position}
+        kind = field_type(d)
+        key = repr(sorted(cfg.items()))
+        if key in seen:
+            continue
+        seen.add(key)
+        if id_attribute and d["container"] and peers > 1 and d["text"] and not d["self"]:
+            # several choices share one id (Yes / No): the id plus what each one says
+            ident = d["container"]
+            ident = ident[len(id_prefix):] if id_prefix and ident.startswith(id_prefix) else ident
+            base = (_pascal(ident) + _pascal(d["text"])) or kind
+            name, n = base, 2
+            while name in taken:
+                name, n = f"{base}{n}", n + 1
+        else:
+            by_class = re.fullmatch(r"[a-z0-9]+\.([\w-]+)", str(cfg.get("locator") or ""))
+            named = {"label": re.sub(r"[-_]+", " ", by_class.group(1))} if by_class else cfg
+            name = field_name(named, kind, taken, id_attribute, id_prefix)
+        taken.add(name)
+        label = d["text"] or d["placeholder"] or d["aria"] or d["label"] or d["name"] or d["id"]
+        from utils.element_identity import make_identity
+        result.candidates.append(Candidate(name, kind, cfg, label, d["tag"], count, d["visible"],
+                                           d["disabled"], make_identity(d, cfg, unique)))
+    result.ok = True
+
+
 def scan_page(url: str, *, id_attribute: str = "", id_prefix: str = "", storage_state: Path | None = None,
               timeout_ms: int = 15000, wait_until: str = "load", visible_only: bool = True) -> PageScan:
     started = time.monotonic()
@@ -173,70 +239,27 @@ def scan_page(url: str, *, id_attribute: str = "", id_prefix: str = "", storage_
                 state = str(storage_state) if storage_state and Path(storage_state).is_file() else None
                 page = browser.new_context(viewport={"width": 1280, "height": 900}, storage_state=state).new_page()
                 page.goto(url, wait_until=wait_until, timeout=timeout_ms)
-                result.title, result.final_url = page.title(), page.url
-                if not id_attribute:  # how this site marks its elements, when nobody said
-                    from webapp.services.site_ids import detect_expression
-                    detected = page.evaluate(detect_expression())
-                    id_attribute = detected[0] if detected else ""
-                found = page.evaluate(ENUMERATE, id_attribute or "")
-                if id_attribute and not id_prefix:
-                    from webapp.services.site_ids import common_prefix
-                    id_prefix = common_prefix({d["container"] for d in found if d["container"]})
-                result.id_attribute, result.id_prefix = id_attribute, id_prefix
-                result.total = len(found)
-                shown = [d for d in found if d["visible"] or not visible_only][:MAX_ELEMENTS]
-                groups: dict[tuple, int] = {}
-                for d in shown:
-                    groups[(d["container"], _kind_selector(d))] = groups.get((d["container"], _kind_selector(d)), 0) + 1
-                taken: set[str] = set()
-                seen: set[str] = set()
-                for d in shown:
-                    peers = groups[(d["container"], _kind_selector(d))]
-                    chosen = None
-                    unique: list[dict] = []  # every candidate that finds this element and nothing else
-                    for cfg in candidates_for(d, id_attribute, peers):
-                        try:
-                            locator, _ = build_locator(page, cfg)
-                            markers = locator.evaluate_all("els => els.map(e => e.getAttribute('data-any-scan'))")
-                        except (ValueError, PlaywrightError):
-                            continue
-                        if str(d["i"]) in markers:
-                            if chosen is None:
-                                chosen = (cfg, len(markers), markers.index(str(d["i"])))
-                            if markers == [str(d["i"])]:
-                                unique.append(cfg)
-                    if chosen is None:
-                        result.skipped += 1
-                        continue
-                    cfg, count, position = chosen
-                    if count > 1:
-                        cfg = {**cfg, "index": position}
-                    kind = field_type(d)
-                    key = repr(sorted(cfg.items()))
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    if id_attribute and d["container"] and peers > 1 and d["text"] and not d["self"]:
-                        # several choices share one id (Yes / No): the id plus what each one says
-                        ident = d["container"]
-                        ident = ident[len(id_prefix):] if id_prefix and ident.startswith(id_prefix) else ident
-                        base = (_pascal(ident) + _pascal(d["text"])) or kind
-                        name, n = base, 2
-                        while name in taken:
-                            name, n = f"{base}{n}", n + 1
-                    else:
-                        by_class = re.fullmatch(r"[a-z0-9]+\.([\w-]+)", str(cfg.get("locator") or ""))
-                        named = {"label": re.sub(r"[-_]+", " ", by_class.group(1))} if by_class else cfg
-                        name = field_name(named, kind, taken, id_attribute, id_prefix)
-                    taken.add(name)
-                    label = d["text"] or d["placeholder"] or d["aria"] or d["label"] or d["name"] or d["id"]
-                    from utils.element_identity import make_identity
-                    result.candidates.append(Candidate(name, kind, cfg, label, d["tag"], count, d["visible"],
-                                                       d["disabled"], make_identity(d, cfg, unique)))
-                result.ok = True
+                _scan(page, result, id_attribute, id_prefix, visible_only)
             finally:
                 browser.close()
     except PlaywrightError as e:
         result.error = str(e).splitlines()[0]
+    result.seconds = time.monotonic() - started
+    return result
+
+
+def scan_open_page(page, *, visible_only: bool = False) -> PageScan:
+    """Scan a page that is already open (a paused test's page): what can be found on it and how to locate each."""
+    started = time.monotonic()
+    result = PageScan(url=page.url)
+    from playwright.sync_api import Error as PlaywrightError
+    try:
+        _scan(page, result, "", "", visible_only)
+    except PlaywrightError as e:
+        result.error = str(e).splitlines()[0]
+    try:  # the scan marks elements it looks at; a page someone is working in is not left marked
+        page.evaluate("document.querySelectorAll('[data-any-scan]').forEach(e => e.removeAttribute('data-any-scan'))")
+    except PlaywrightError:
+        pass
     result.seconds = time.monotonic() - started
     return result

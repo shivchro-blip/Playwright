@@ -57,6 +57,9 @@ RUNNER_SILENCE_SECONDS = 90  # a remote run whose runner has not called in this 
 WATCH_INTERVAL = 15  # seconds between checks for lost runners
 
 
+DEBUG_COMMANDS = ("retry", "restep", "skip", "go", "abort", "savestate", "extend")  # utils/debug_pause.py
+
+
 def is_truthy(value: object) -> bool:
     return str(value or "").strip().lower() in ("true", "1", "yes")
 
@@ -409,6 +412,9 @@ class RunManager:
         if data_set and not re.fullmatch(r"[\w\-]+", data_set):
             raise ValueError("The data set name may only have letters, digits, '_' and '-'.")
         self._check_step_options(config)
+        if str(config.options.get("debugPauseBefore") or "").strip() and \
+                not is_truthy(config.options.get("debugOnFailure")):
+            raise ValueError("Pausing before steps needs Pause on failure to be on.")
         if is_truthy(config.options.get("debugOnFailure")):
             if trigger:
                 raise ValueError("Pause on failure is only for runs you start yourself: a schedule, monitor or "
@@ -505,9 +511,11 @@ class RunManager:
         False when the run is not waiting (it may have gone on, or ended, in the meantime)."""
         run = self._runs.get(run_id)
         paused = run.paused if run else None
-        if not run or not run.active or not paused or do not in ("retry", "restep", "skip", "abort"):
+        if not run or not run.active or not paused or do not in DEBUG_COMMANDS:
             return False
         if do == "skip" and not paused.get("can_skip"):
+            return False
+        if do == "go" and paused.get("reason") != "step":  # "run to the end" is for stopping before steps
             return False
         folder = run.dir / "debug"
         folder.mkdir(parents=True, exist_ok=True)
@@ -846,12 +854,23 @@ class RunManager:
         elif kind == "debug":  # the test waits after a failure, or goes on (utils/debug_pause.py)
             if evt.get("phase") == "paused":
                 run.paused = {**{k: (run.scrub(str(v)) if isinstance(v, str) else v) for k, v in evt.items()},
-                              "at": _now()}
+                              "at": _now(), "since": time.time(),
+                              "deadline_at": time.time() + float(evt.get("deadline_in") or 0)}
                 if not evt.get("notice"):  # a pause told again because the edited files could not be read is the same
                     run.debug_pauses += 1
-                self._append(run, f"[webapp] Paused: step {evt.get('step')} failed"
-                                  + (f" on field '{evt.get('field')}'" if evt.get("field") else "")
-                                  + ". The browser is still open; fix the test, then resume.")
+                if evt.get("reason") == "step":
+                    self._append(run, f"[webapp] Paused before step {evt.get('step_abs') or evt.get('step')} "
+                                      f"({evt.get('label')}). The browser is open; look, change things, then go on.")
+                else:
+                    self._append(run, f"[webapp] Paused: step {evt.get('step')} failed"
+                                      + (f" on field '{evt.get('field')}'" if evt.get("field") else "")
+                                      + ". The browser is still open; fix the test, then resume.")
+            elif evt.get("phase") == "note":  # something done while paused (state saved, waiting longer)
+                if run.paused:
+                    run.paused["info"] = run.scrub(str(evt.get("info") or ""))
+                    if evt.get("deadline_in") is not None:
+                        run.paused["deadline_at"] = time.time() + float(evt.get("deadline_in") or 0)
+                self._append(run, f"[webapp] {evt.get('info')}")
             else:
                 run.paused = None
                 self._append(run, f"[webapp] Resumed ({evt.get('do')}).")

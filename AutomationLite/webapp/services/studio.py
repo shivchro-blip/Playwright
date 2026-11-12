@@ -136,12 +136,31 @@ class StudioSession:
             await self.close()
             raise
 
+    async def attach(self, endpoint: str, url_hint: str = "") -> None:
+        """Look at a page in a browser that is already running (a paused test's: Chromium with a remote debugging
+        port) instead of opening one. close() lets go of it without closing the browser."""
+        from playwright.async_api import async_playwright
+        await self.close()
+        self._pw = await async_playwright().start()
+        try:
+            self._browser = await self._pw.chromium.connect_over_cdp(endpoint, timeout=8000)
+            pages = [pg for ctx in self._browser.contexts for pg in ctx.pages if not pg.is_closed()]
+            if not pages:
+                raise StudioError("The browser has no page open.")
+            self.page = next((pg for pg in pages if pg.url == url_hint), pages[-1])
+            from webapp.services.site_ids import detect_expression
+            found = await self.page.evaluate(detect_expression())
+            self.id_attribute = found[0] if found else ""
+        except Exception:
+            await self.close()
+            raise
+
     async def goto(self, url: str) -> None:
         self._need()
         await self.page.goto(_check_url(url), wait_until="load", timeout=30000)
 
     async def close(self) -> None:
-        for thing in (self._browser, self._pw):
+        for thing in (self._browser, self._pw):  # a browser reached by attach() is let go of, not closed
             try:
                 if thing is self._pw and thing is not None:
                     await thing.stop()
@@ -158,7 +177,7 @@ class StudioSession:
     async def screenshot(self) -> str:
         """The page as a data: URL for an image."""
         self._need()
-        png = await self.page.screenshot(type="jpeg", quality=75)
+        png = await self.page.screenshot(type="jpeg", quality=75, scale="css")  # clicks are in CSS pixels
         return "data:image/jpeg;base64," + base64.b64encode(png).decode()
 
     @property
