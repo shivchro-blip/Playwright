@@ -524,6 +524,22 @@ class RunManager:
         tmp.replace(folder / "command.json")
         return True
 
+    def request_pause(self, run_id: str) -> str:
+        """Ask a running test to wait before its next step (utils/debug_pause.py: stop_before). Returns "" when asked,
+        else why not: the run is not running, already waits, or was started without Pause on failure (only such a
+        run can wait for a person)."""
+        run = self._runs.get(run_id)
+        if not run or run.status != "running":
+            return "The run is not running."
+        if run.paused:
+            return "The run is already paused."
+        if not is_truthy(run.config.options.get("debugOnFailure")):
+            return "This run was started without Pause on failure. Turn it on before you start a run to be able to pause it."
+        folder = run.dir / "debug"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "pause_request").write_text("1", encoding="utf-8")
+        return ""
+
     def delete(self, run_id: str) -> bool:
         """Remove a finished run and its folder."""
         run = self._runs.get(run_id)

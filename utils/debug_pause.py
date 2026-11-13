@@ -108,9 +108,25 @@ def fast_ms(default_ms: int) -> int:
     return min(default_ms, max(wanted, 500))
 
 
+def _take_pause_request() -> bool:
+    """Was Pause pressed (webapp RunManager.request_pause)? The request is used up by the stop it asks for."""
+    try:
+        request = _folder() / "pause_request"
+        if request.exists():
+            request.unlink(missing_ok=True)
+            return True
+    except OSError:
+        pass
+    return False
+
+
 def stop_before(step_no: int) -> bool:
     """Should the test wait before this step (debugPauseBefore: "all" or step numbers)?"""
-    if not enabled() or _flags["go"]:
+    if not enabled():
+        return False
+    if _take_pause_request():  # the person pressed Pause on the Control page: stop before the step that is next
+        return True
+    if _flags["go"]:
         return False
     spec = str(os.getenv("debugPauseBefore") or "").strip().lower()
     if not spec:

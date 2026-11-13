@@ -334,3 +334,23 @@ def test_a_debug_run_gives_up_on_a_missing_element_sooner_and_other_runs_do_not(
 def test_a_free_local_port_is_reserved_for_the_browser():
     port = dp.reserve_cdp_port()
     assert 1024 < port < 65536 and dp._cdp["port"] == port
+
+
+def test_a_pause_request_stops_before_the_next_step_once_even_after_run_to_the_end(pause_env):
+    folder, _events = pause_env
+    dp._flags.update(go=True, skip_once=None)
+    try:
+        assert not dp.stop_before(3)  # nothing asked
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "pause_request").write_text("1")
+        assert dp.stop_before(3)  # Pause was pressed
+        assert not (folder / "pause_request").exists() and not dp.stop_before(4)  # used up
+    finally:
+        dp._flags.update(go=False, skip_once=None)
+
+
+def test_a_pause_request_is_ignored_when_pausing_is_off(tmp_path, monkeypatch):
+    monkeypatch.setenv("debugOnFailure", "false")
+    monkeypatch.setenv("debugDir", str(tmp_path))
+    (tmp_path / "pause_request").write_text("1")
+    assert not dp.stop_before(1)
