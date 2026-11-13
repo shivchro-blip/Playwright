@@ -19,7 +19,7 @@ from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.debug_panel import debug_banner, debug_note
 from webapp.ui.failure_panel import failure_panel
-from webapp.ui.run_actions import cancel_run
+from webapp.ui.run_actions import cancel_run, pause_run
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.plan_dialog import open_plan
 from webapp.ui.theme import icon, svg
@@ -442,6 +442,11 @@ class ControlPanel:
                                 text("span", "Tags")
                                 self.meta_tags = text("span", "", "v")
                 with ui.element("div").classes("any-run-actions"):
+                    self.pause_button = ui.button("Pause", icon=icon("pause"), color=None,
+                                                  on_click=lambda: pause_run(self.run_id or "")) \
+                        .props('flat unelevated no-caps data-testid="pause-run"').classes("any-btn is-38") \
+                        .tooltip("Stop before the next step, look at or change things, then resume. "
+                                 "Needs Pause on failure turned on when the run starts.")
                     self.cancel_button = ui.button("Cancel", icon=icon("square-solid"), color=None,
                                                    on_click=self.cancel_run) \
                         .props('unelevated no-caps data-testid="cancel-run"').classes("any-cancel")
@@ -966,6 +971,7 @@ class ControlPanel:
             self.run_label.text = "Queue" if busy else "Run"
         # Cancel only does something while the viewed run is active
         self.cancel_button.set_visibility(bool(run and run.active))
+        self.pause_button.set_visibility(bool(run and run.status == "running" and not run.paused))
         self.live_badge.set_visibility(bool(run and run.active))
         self.clear_button.set_visibility(not (run and run.active) and any(not r.active for r in self.svc.runs.list()))
         self.summary_button.set_enabled(bool(run and not run.active))

@@ -21,3 +21,20 @@ def cancel_run(run_id: str) -> bool:
         ui.notify("Cancelling run...", type="info")
         return True
     return False
+
+
+def pause_run(run_id: str) -> bool:
+    """Ask a running test to wait before its next step; the paused panel then offers Resume. Refusals are shown."""
+    svc = services()
+    run = svc.runs.get(run_id) if run_id else None
+    if run is None:
+        return False
+    if not guard("run", "pause run", run_id, system=run.config.system, env=run.config.env):
+        return False
+    why = svc.runs.request_pause(run_id)
+    if why:
+        ui.notify(why, type="warning")
+        return False
+    audit("run.pause", run_id)
+    ui.notify("Pausing before the next step...", type="info")
+    return True

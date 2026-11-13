@@ -154,3 +154,20 @@ def test_a_field_the_page_lacks_is_named_so_it_can_be_added_from_the_pause(tmp_p
     m._handle_event(other, json.dumps({"event": "debug", "phase": "paused", "seq": 1, "field": "zip",
                                        "error": "element not found", "can_skip": True}))
     assert other.paused["field"] == "zip" and "missing_field" not in other.paused
+
+
+def test_pause_request_needs_a_running_run_started_with_pause_on_failure(tmp_path):
+    m = manager(tmp_path)
+    plain = running(m, "plain")
+    assert "without Pause on failure" in m.request_pause("plain")
+    assert not (plain.dir / "debug" / "pause_request").exists()
+
+    run = running(m, "r2", debugOnFailure=True)
+    assert m.request_pause("r2") == ""
+    assert (run.dir / "debug" / "pause_request").exists()
+
+    run.paused = {"seq": 1}
+    assert "already paused" in m.request_pause("r2")
+    run.paused = None
+    run.status = "passed"
+    assert "not running" in m.request_pause("r2") and "not running" in m.request_pause("nope")
