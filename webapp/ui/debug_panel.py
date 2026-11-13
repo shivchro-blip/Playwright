@@ -10,6 +10,7 @@ from typing import Awaitable, Callable
 from nicegui import ui
 
 from webapp.auth import audit, guard
+from webapp.edition import LITE
 from webapp.services.debug_fix import changed_since
 from webapp.services.run_manager import Run, is_truthy
 from webapp.state import services
@@ -17,7 +18,7 @@ from webapp.ui.components import text
 from webapp.ui.paused_fix_dialog import open_fix_dialog
 from webapp.ui.theme import icon
 
-Jump = Callable[..., Awaitable[None]]  # jump(kind: "test" | "page", system, name, field="")
+Jump = Callable[..., Awaitable[None]]  # jump(kind: "test" | "page" | "studio", system, name, field="")
 WARN_SECONDS = 300  # the last minutes before the pause gives up: say so, and offer to wait longer
 
 
@@ -119,6 +120,11 @@ def debug_banner(run: Run, jump: Jump | None = None, has_unsaved: Callable[[], b
                         ui.button(f"Open page {screen}", icon=icon("app-window"), color=None,
                                   on_click=lambda: jump("page", system, screen, field)) \
                             .props('flat unelevated no-caps data-testid="debug-open-page"').classes("any-btn is-32")
+                if port and kind != "login" and jump and not LITE:
+                    ui.button("Continue in Studio", icon=icon("play"), color=None,
+                              on_click=lambda: jump("studio", system, run.id)) \
+                        .props('flat unelevated no-caps data-testid="debug-studio"').classes("any-btn is-32") \
+                        .tooltip("Capture the next pages in this browser, from here, and add them to this test case")
                 if port and kind != "login":
                     ui.button("Fix on the live page", icon=icon("scan-search"), color=None,
                               on_click=lambda: open_fix_dialog(run, paused, on_fixed)) \

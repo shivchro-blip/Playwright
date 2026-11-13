@@ -156,6 +156,11 @@ def register() -> None:
                     if args.get("field"):
                         gen.pages.field_filter = args["field"]
                         gen.pages.fields_view.refresh()
+            elif action == "open_studio" and not LITE:
+                gen = panels["generator"]
+                go_generator()
+                if await gen.use_system(args["system"]):
+                    await gen.open_studio(args["run_id"])
             elif action == "open_journey" and not LITE:
                 go("Journeys")
                 panels["journeys"].show_system(args["system"])
@@ -193,6 +198,9 @@ def register() -> None:
 
         async def jump(kind: str, system: str, name: str, field: str = "") -> None:
             """Open the test case or page a paused run needs fixed, in the Generator."""
+            if kind == "studio":
+                await run_command(SimpleNamespace(action="open_studio", args={"system": system, "run_id": name}))
+                return
             if kind == "page":
                 await run_command(SimpleNamespace(action="open_page",
                                                   args={"system": system, "page": name, "field": field}))

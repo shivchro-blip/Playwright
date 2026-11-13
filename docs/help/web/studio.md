@@ -13,3 +13,9 @@ Notes:
 - The picture is a still image: after scrolling or anything the page does on its own, use **Refresh the picture**.
 - A step that types a password is saved like any other value; replace it with `ENV.<NAME>` in the test case (or use the recorder, which does that for you).
 - Each person's Studio has its own browser, closed when they leave the page.
+
+## Add to a test case, and continue from a paused test
+
+**Save** has two modes. *New test case* is the one above. *Add to a test case* writes the page the same way and **inserts the steps into a test case you already have**, after the step number you give (0 puts them at the start). The Studio stays open and the position moves past what was added, so the next page can be captured and added straight after.
+
+To build the later pages of a long test without running it from step 1 each time, run the test with **Pause on failure** and **Pause before steps** set to the step you want to start at (or press **Pause** in Control), then press **Continue in Studio** in the paused panel. The Studio works on that test's own browser (Chromium browsers: chrome, msedge, chromium), already on the right page with everything the test did before it, and the test case and the position are filled in for you. Steps you run in the Studio happen in that browser, so when you finish press **End the test** instead of resuming; run the test from the start (or from the step) later to check the whole flow.

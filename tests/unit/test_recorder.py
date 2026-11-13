@@ -288,3 +288,34 @@ def test_recorder_passes_the_id_attribute_to_codegen():
     while recorder.active and time.monotonic() < deadline:
         time.sleep(0.05)
     assert "--test-id-attribute data-attribute-id" in seen.read_text()
+
+
+def test_append_recording_inserts_the_steps_into_an_existing_test_case(tmp_path):
+    from webapp.services.recorder import append_recording
+    (tmp_path / "Pages" / "SYS").mkdir(parents=True)
+    pom = PomService(tmp_path, tmp_path)
+    tests = CaseService(tmp_path, pom)
+    first = parse_codegen(codegen('page.locator("#a").fill("1")', url="https://site.test/"))
+    save_recording(pom, tests, "SYS", first, page_name="One", base_url="https://site.test", test_id="TC-1",
+                   test_file="Rec.json")
+    data, _ = tests.load_file("SYS", "Rec.json")
+    case = data["testCases"][0]
+    case["steps"].append({"commonAction": "Save and continue"})
+    case["steps"].append({"screen": "Last", "formData": {}})
+    tests.save("SYS", "Rec.json", 0, case, None)
+
+    more = parse_codegen(codegen('page.locator("#b").fill("2")', url="https://site.test/two"))
+    saved = append_recording(pom, tests, "SYS", more, page_name="Two", base_url="https://site.test",
+                             test_file="Rec.json", test_index=0, after_step=2)
+    assert saved.page_created and saved.test_index == 0
+    steps = tests.get("SYS", "Rec.json", 0)[0]["steps"]
+    assert [s.get("screen") or s.get("commonAction") for s in steps] == ["One", "Save and continue", "Two", "Last"]
+    assert steps[2]["formData"] == {"b": "2"} or list(steps[2]["formData"].values()) == ["2"]
+    assert "Two.json" in saved.page_rel
+
+    with pytest.raises(RecorderError):  # a position that is not in the test case
+        append_recording(pom, tests, "SYS", more, page_name="Two", base_url="", test_file="Rec.json", test_index=0,
+                         after_step=9)
+    with pytest.raises(RecorderError):
+        append_recording(pom, tests, "SYS", more, page_name=" ", base_url="", test_file="Rec.json", test_index=0,
+                         after_step=0)

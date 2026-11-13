@@ -198,3 +198,53 @@ def test_pause_on_failure_from_the_control_tab(workspace: Path, tmp_path: Path):
         page.get_by_role("button", name="Save as defaults").click()  # never saved as a default
         browser.close()
     assert "debugOnFailure" not in (tmp_path / "ui.env").read_text(encoding="utf-8")
+
+
+def test_continue_in_studio_adds_the_next_page_to_the_paused_test_case(workspace: Path, tmp_path: Path):
+    """From a paused test: the Studio takes over its browser, a page is captured there, and its steps are inserted
+    into the test case that paused, without running the test from its first step again."""
+    import re
+
+    add_debug_test(workspace)
+    test_file = workspace / "Tests" / "SMOKE" / "MasterRegressionSuite" / "DebugTests.json"
+    with running_app(tmp_path) as url, sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1440, "height": 1100})
+        open_debug_test(page, url)
+        page.get_by_role("region", name="Test case editor").get_by_role("button", name="Debug").click()
+        banner = page.get_by_test_id("debug-banner")
+        expect(banner).to_be_visible(timeout=180_000)
+        port = banner.get_attribute("data-cdp")
+        peek = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+        live = next(pg for ctx in peek.contexts for pg in ctx.pages if not pg.is_closed())
+        width = live.evaluate("innerWidth")
+        box = live.locator("#notes").bounding_box()
+        peek.close()
+
+        page.get_by_test_id("debug-studio").click()
+        expect(page.get_by_role("tab", name="Studio")).to_have_attribute("aria-selected", "true")
+        picture = page.get_by_test_id("studio-picture").locator("img")
+        expect(picture).to_have_attribute("src", re.compile("^data:image/jpeg"), timeout=30_000)
+        shown = picture.bounding_box()
+        scale = shown["width"] / width
+        picture.click(position={"x": (box["x"] + box["width"] / 2) * scale, "y": (box["y"] + box["height"] / 2) * scale})
+        expect(page.get_by_test_id("studio-picked")).to_contain_text("#notes")
+        page.get_by_test_id("studio-value").fill("typed while paused")
+        page.get_by_test_id("studio-run").click()
+        expect(page.get_by_test_id("studio-steps").locator("li")).to_have_count(1)
+
+        page.get_by_test_id("studio-page").fill("NextPage")
+        page.keyboard.press("Enter")
+        expect(page.get_by_test_id("studio-after")).to_have_value("1")  # after the step that paused
+        page.get_by_test_id("studio-save").click()
+        expect(page.get_by_text("added its steps to the test case after step 1")).to_be_visible(timeout=15_000)
+
+        page.get_by_role("tab", name="Test cases").click()
+        page.get_by_test_id("debug-abort").click()
+        expect(page.get_by_test_id("tc-run-status")).to_have_text("Failed", timeout=120_000)
+        browser.close()
+
+    steps = json.loads(test_file.read_text(encoding="utf-8"))["testCases"][0]["steps"]
+    assert [s["screen"] for s in steps] == ["SmokeHome", "NextPage"]
+    assert list(steps[1]["formData"].values()) == ["typed while paused"]
+    assert (workspace / "Pages" / "SMOKE" / "NextPage.json").is_file()
