@@ -575,6 +575,7 @@ async def createActionsFromPOM(dictionaryContext, pomFields):
 
 
 async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators, pageErrorContains, dictionaryContext): 
+    found_errors = []  # the failure handler below reports it, also when an action failed before the page was checked
     try:
         current_page = page
         current_actions = actions
