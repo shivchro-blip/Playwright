@@ -185,6 +185,14 @@ def _split_dirty_selector(selector: str):
 
     return parent_css.strip(), parent_text, (child_css.strip() if child_css else None), child_text
 
+def _set_locator_problem(message):
+    global _locator_problem
+    _locator_problem = message
+
+
+_locator_problem = None  # why get_element gave no element on its last call (a missing DICT key or ENV variable)
+
+
 async def get_element(
         dictionaryContext,
         target: str,
@@ -225,6 +233,8 @@ async def get_element(
             v = await loadFromDictionary(dictionaryContext, m)
             if v is None:
                 logger.error(f"[EA] ERROR: Dictionary key '{m}' not found.")
+                _set_locator_problem(f"Dictionary key '{m}' not found: save it in an earlier step "
+                                     f"(for example with CUSTOMFIELD_SAVEFIELD) before this one uses DICT.{m}")
                 return None
             locator = locator.replace(f"DICT.{m}", str(v))
 
@@ -234,6 +244,7 @@ async def get_element(
             v = os.getenv(m)
             if v is None:
                 logger.error(f"[EA] ERROR: ENV var '{m}' not set.")
+                _set_locator_problem(f"Environment variable '{m}' is not set")
                 return None
             locator = locator.replace(f"ENV.{m}", str(v))
 
@@ -630,8 +641,11 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
                     # a shared component's field is looked for inside its container (utils/page_components.py)
                     within = pomFields.get(target, {}).get("within")
                     scope = page.locator(within).first if within else page
+                    _set_locator_problem(None)
                     element = await get_element(dictionaryContext, target, scope, locator, role, index, placeholder, contains, name, text,
                                                 label, nested, hasTextDirty)
+                    if element is None and _locator_problem:
+                        raise ValueError(f"Field '{target}': {_locator_problem}")
                     async def locate(cfg, target=target, scope=scope):
                         return await get_element(dictionaryContext, target, scope, cfg.get("locator"), cfg.get("role"),
                                                  cfg.get("index"), cfg.get("placeholder"), cfg.get("contains"),
