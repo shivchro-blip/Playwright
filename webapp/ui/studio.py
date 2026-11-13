@@ -6,6 +6,7 @@ case, then opens it in the editor.
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,8 @@ from webapp.ui.theme import icon
 
 if TYPE_CHECKING:
     from webapp.ui.generator import GeneratorPanel
+
+logger = logging.getLogger(__name__)
 
 NEW_FILE = "New file..."
 ACTION_FOR = {"text": "fill", "textarea": "fill", "number": "fill", "select": "select", "checkbox": "check",
@@ -259,8 +262,13 @@ class StudioEditor:
         suggested = self.gen.pages.page and getattr(self.gen.pages, "rel", None) and self.gen.pages._page_name() \
             or "StudioPage"
         with labelled("Page (new, or an existing one to add fields to)", "st-page"):
-            self.page_input = ui.select(pages, value=suggested, with_input=True, new_value_mode="add-unique") \
-                .props('for="st-page" data-testid="studio-page"').classes("w-full")
+            try:
+                self.page_input = ui.select(pages, value=suggested, with_input=True, new_value_mode="add-unique") \
+                    .props('for="st-page" data-testid="studio-page"').classes("w-full")
+            except Exception:  # noqa: BLE001 - a list that cannot be built must not hide the rest of Save
+                logger.exception("Studio: the page list could not be built; using a plain name box")
+                self.page_input = ui.input(value=str(suggested or "StudioPage")) \
+                    .props('for="st-page" data-testid="studio-page"').classes("w-full")
         ui.toggle({"new": "New test case", "add": "Add to a test case"}, value=self.save_mode,
                   on_change=self._mode_changed).props('data-testid="studio-mode" no-caps unelevated')
         if self.save_mode == "add":
