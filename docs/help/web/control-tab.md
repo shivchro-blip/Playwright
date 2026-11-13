@@ -74,6 +74,7 @@ A step that fails normally ends the test and closes the browser. With **Pause on
 | Button | What it does |
 |---|---|
 | **Open test case / Open page** | Jump to the Generator to fix the test case or the page (the field is filtered for you). Save the file. |
+| **Continue in Studio** | Opens the Generator's Studio on this paused browser (Chromium browsers, not in Lite). Capture the next pages from where the test stopped, so you do not run steps 1 to N again for every page: pick elements, run each step on the live page, save the page, and its steps are **inserted into this test case** after the paused step. Stay in the Studio to capture the next page. The steps you captured have already run in this browser, so when you are done press **End the test** instead of resuming. |
 | **Run '<field>' again** | Reads the test case, pages, common actions and reusable tests from disk again, runs the failed field again, and carries on, in the same browser. Fields before it do not run again. |
 | **Run the step again** | The same, from the step's first field. Fields that clicked or submitted something run twice. |
 | **Skip this field** | Leaves the failed field out and carries on with the next. |

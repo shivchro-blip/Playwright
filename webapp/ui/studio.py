@@ -13,7 +13,8 @@ from nicegui import ui
 
 from webapp.auth import audit, guard
 from webapp.services.locator_check import page_url
-from webapp.services.recorder import RecorderError, save_recording
+from webapp.services import paused_page
+from webapp.services.recorder import RecorderError, append_recording, save_recording
 from webapp.services.studio import ACTIONS, VIEWPORT, Draft, Picked, Step, StudioError, StudioSession
 from webapp.state import services
 from webapp.ui.components import field as labelled
@@ -37,6 +38,8 @@ class StudioEditor:
         self.draft = Draft()
         self.picked: Picked | None = None
         self.busy = False
+        self.target: dict | None = None  # the paused test this session was opened from: where new steps would go
+        self.save_mode = "new"  # "new": a new test case; "add": steps into an existing one
         ui.context.client.on_disconnect(self._closed)
         with ui.element("div").classes("any-studio"):
             with ui.element("section").classes("any-card any-studio-live").props('aria-label="Live page"'):
@@ -89,6 +92,46 @@ class StudioEditor:
         finally:
             self.busy = False
             self.open_button.props(remove="loading")
+
+    async def continue_from_run(self, run) -> bool:
+        """Work on the page a paused test is on, in its own browser, so the next pages are captured from here without
+        running the test from its first step again. New steps are saved into that test case after the paused step."""
+        if self.busy or not guard("record", "open the Studio", system=self.gen.system or None):
+            return False
+        paused = run.paused or {}
+        port = int(paused.get("cdp_port") or 0)
+        if not port:
+            ui.notify("This browser cannot be used from here (only Chromium browsers can: chrome, msedge, "
+                      "chromium).", type="warning")
+            return False
+        self.busy = True
+        try:
+            await self.session.attach(paused_page.endpoint(port), str(paused.get("url") or ""))
+            system = run.config.system
+            step_abs = int(paused.get("step_abs") or paused.get("step") or 0)
+            before_step = paused.get("reason") == "step"
+            test_id = str(paused.get("test") or "")
+            refs, _errors = self.svc.tests.list_tests(system)
+            ref = next((r for r in refs if r.test_id == test_id), None)
+            self.target = {"run_id": run.id, "test_id": test_id, "rel": ref.file, "index": ref.index,
+                           "after": max(step_abs - 1, 0) if before_step else step_abs} if ref else None
+            self.save_mode = "add" if self.target else "new"
+            self.draft = Draft(start_url=self.session.url)
+            self.picked = None
+            await self.refresh_picture()
+            self.hint.text = ("You are on the page the test is paused on. Click what the next page needs, run each "
+                              "step here, and save: the steps are added to " + (test_id or "a test case") +
+                              ". Those steps have run in this browser already: when you are done, press End the test "
+                              "on the Control page.")
+            self.picked_view.refresh()
+            self.steps_view.refresh()
+            self.save_view.refresh()
+            return True
+        except Exception as e:  # noqa: BLE001 - the browser ended, or is not Chromium: say so
+            ui.notify(f"Could not use the paused browser: {str(e).splitlines()[0]}", type="negative")
+            return False
+        finally:
+            self.busy = False
 
     async def refresh_picture(self) -> None:
         if not self.session.open:
@@ -218,6 +261,21 @@ class StudioEditor:
         with labelled("Page (new, or an existing one to add fields to)", "st-page"):
             self.page_input = ui.select(pages, value=suggested, with_input=True, new_value_mode="add-unique") \
                 .props('for="st-page" data-testid="studio-page"').classes("w-full")
+        ui.toggle({"new": "New test case", "add": "Add to a test case"}, value=self.save_mode,
+                  on_change=self._mode_changed).props('data-testid="studio-mode" no-caps unelevated')
+        if self.save_mode == "add":
+            refs, _errors = self.svc.tests.list_tests(system)
+            options = {f"{r.file}|{r.index}": f"{r.test_id}  ({r.file})" for r in refs}
+            chosen = f"{self.target['rel']}|{self.target['index']}" if self.target else (next(iter(options), None))
+            with labelled("Add the steps to this test case", "st-add"):
+                self.add_input = ui.select(options, value=chosen, with_input=True) \
+                    .props('for="st-add" data-testid="studio-add-to"').classes("w-full")
+            with labelled("Insert after step (0 = at the start)", "st-after"):
+                self.after_input = ui.number(value=int(self.target["after"]) if self.target else 0, min=0, precision=0) \
+                    .props('for="st-after" data-testid="studio-after"').classes("w-full")
+            ui.button("Save page and add steps", icon=icon("save"), color=None, on_click=self.save) \
+                .props('data-testid="studio-save"').classes("any-primary")
+            return
         with labelled("Test case ID", "st-tc"):
             self.tc_input = ui.input(value=f"TC-{system}-STUDIO-{stamp}") \
                 .props('for="st-tc" data-testid="studio-tc"').classes("w-full")
@@ -231,11 +289,18 @@ class StudioEditor:
         ui.button("Save page and test case", icon=icon("save"), color=None, on_click=self.save) \
             .props('data-testid="studio-save"').classes("any-primary")
 
+    def _mode_changed(self, e) -> None:
+        self.save_mode = e.value
+        self.save_view.refresh()
+
     async def save(self) -> None:
         if not guard("record", "save from the Studio", system=self.gen.system or None):
             return
         svc, system = self.svc, self.gen.system
         login = svc.systems.login(system, self.env.value) if self.env.value else None
+        if self.save_mode == "add":
+            await self._save_into_test(login)
+            return
         try:
             rel = svc.tests.normalize_file_name(self.new_file.value or "") if self.file_input.value == NEW_FILE \
                 else self.file_input.value
@@ -256,6 +321,33 @@ class StudioEditor:
         self.save_view.refresh()
         self.gen.tests.reload_list()
         await self.gen.open_test(saved.test_file, saved.test_index)
+
+    async def _save_into_test(self, login) -> None:
+        """Save the page and put the steps into the chosen test case after the chosen step; stay here, so the next
+        page can be captured (the position moves past what was just added)."""
+        svc, system = self.svc, self.gen.system
+        try:
+            rel, _, index = str(self.add_input.value or "").rpartition("|")
+            if not rel:
+                raise RecorderError("Choose the test case to add the steps to.")
+            after = int(self.after_input.value or 0)
+            saved = append_recording(svc.pom, svc.tests, system, self.draft.recording(),
+                                     page_name=self._page_name(), base_url=login.base_url if login else "",
+                                     test_file=rel, test_index=int(index), after_step=after)
+        except (RecorderError, ValueError, OSError, KeyError) as e:
+            ui.notify(str(e), type="negative")
+            return
+        audit("studio.append", f"{system}/{rel}", index=int(index), after=after, page=saved.page_rel)
+        ui.notify(f"Saved page {self._page_name()} and added its steps to the test case after step {after}. "
+                  "You can capture the next page now.", type="positive", timeout=8000)
+        if self.target and f"{self.target['rel']}|{self.target['index']}" == f"{rel}|{index}":
+            self.target["after"] = after + 1
+        self.draft = Draft(start_url=self.session.url)
+        self.picked = None
+        self.picked_view.refresh()
+        self.steps_view.refresh()
+        self.save_view.refresh()
+        self.gen.tests.reload_list()
 
 
 __all__ = ["StudioEditor", "VIEWPORT"]

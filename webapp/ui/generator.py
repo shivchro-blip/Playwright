@@ -1866,6 +1866,7 @@ class GeneratorPanel:
                         common_tab = ui.tab("Common actions", icon=icon("copy")).props('data-testid="tab-common"')
                         if not LITE:
                             studio_tab = ui.tab("Studio", icon=icon("play")).props('data-testid="tab-studio"')
+                            self.studio_tab = studio_tab
                 self.sections, self.pages_tab, self.tests_tab, self.data_tab = tabs, pages_tab, tests_tab, data_tab
                 self.common_tab = common_tab
                 tabs.on_value_change(self._section_changed)
@@ -1938,6 +1939,15 @@ class GeneratorPanel:
         """Jump to a test case in the Test cases tab (from a page's used-by list)."""
         self.sections.set_value(self.tests_tab)
         await self.tests.open(rel, index)
+
+    async def open_studio(self, run_id: str) -> None:
+        """Open the Studio on the browser of a paused run (from the paused panel's Continue in Studio)."""
+        run = self.svc.runs.get(run_id)
+        if LITE or run is None or not run.paused:
+            ui.notify("That run is not waiting any more, or the Studio is not in this edition.", type="warning")
+            return
+        self.sections.set_value(self.studio_tab)
+        await self.studio.continue_from_run(run)
 
     async def show_default(self) -> None:
         """Default view when the Generator tab is opened: Pages, with the first page open in Form view.

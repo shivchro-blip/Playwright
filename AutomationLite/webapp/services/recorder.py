@@ -715,6 +715,32 @@ def save_recording(pom, tests, system: str, recording: Recording, *, page_name: 
     return SavedRecording(rel, created, test_file, index, renames)
 
 
+def append_recording(pom, tests, system: str, recording: Recording, *, page_name: str, base_url: str,
+                     test_file: str, test_index: int, after_step: int) -> SavedRecording:
+    """Write the recorded fields to a page (new, or merged into the existing page of that name) and insert the
+    recorded steps into an EXISTING test case after its step `after_step` (0 = before the first). This is how a test
+    case grows page by page without being recorded again from the start."""
+    if not recording.fields:
+        raise RecorderError("Nothing to save: the recording has no fields.")
+    page_name = page_name.strip().removesuffix(".json")
+    if not page_name:
+        raise RecorderError("Enter a page name.")
+    case, sha = tests.get(system, test_file, test_index)
+    steps = case.get("steps")
+    steps = steps if isinstance(steps, list) else []
+    if not 0 <= after_step <= len(steps):
+        raise RecorderError(f"The test case has {len(steps)} steps: choose a step from 0 to {len(steps)}.")
+    page = recording.page(base_url)
+    rel, created, renames = _write_page(pom, system, page_name, recording.fields,
+                                        {k: v for k, v in page.items() if k != "fields"})
+    steps[after_step:after_step] = build_steps(page_name, recording.steps, renames)
+    case["steps"] = steps
+    index, _ = tests.save(system, test_file, test_index, case, sha)
+    if recording.profiles:
+        save_profiles(pom.workspace, system, page_name, recording.profiles[0], renames)
+    return SavedRecording(rel, created, test_file, index, renames)
+
+
 @dataclass
 class SavedWizard:
     pages: list[tuple[str, str, bool]]  # (page name, relative path, created)
