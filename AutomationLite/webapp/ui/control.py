@@ -325,7 +325,7 @@ class ControlPanel:
             with ui.element("div").classes("any-card-head"):
                 with ui.element("div").classes("any-head-left"):
                     text("h2", "Tests", "any-title")
-                    with ui.element("span").classes("any-count-pill"):
+                    with ui.element("span").classes("any-count-pill").props('data-testid="tests-pill"') as self.count_pill:
                         self.pill_selected = text("b", "")
                         text("span", " of ")
                         self.pill_total = text("b", "")
@@ -641,11 +641,14 @@ class ControlPanel:
     def _update_counts(self) -> None:
         if not hasattr(self, "f_tests"):
             return
-        selected = len(self._selection()[1])
+        matched, chosen = self._selection()
+        selected = len(chosen)
         browser_count = max(len(self.browsers_select.value or []), 1)
         self.planned_runs = selected * browser_count
         self.pill_selected.text = str(selected)
-        self.pill_total.text = str(len(self.catalog.tests))
+        self.pill_total.text = str(len(matched))  # the tests the selected tags match, not every test of the system
+        self.count_pill.props(f'title="{len(matched)} of the {len(self.catalog.tests)} test cases in '
+                              f'{self.catalog.system or "this system"} match the selected tags"')
         self.f_tests.text = str(selected)
         self.f_tests_word.text = " " + plural(selected, "test")
         self.f_browsers.text = str(browser_count)

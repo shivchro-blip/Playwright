@@ -88,6 +88,10 @@ def test_every_tab_loads_and_a_run_passes(app_url: str):
         expect(page.get_by_role("tabpanel").get_by_text("Login credentials")).to_be_visible()
 
         expect(page.get_by_test_id("run-formula")).to_contain_text("2 tests")
+        # the pill counts what the selected tags match (2 of the system's 4 test cases), not every test case
+        pill = page.get_by_test_id("tests-pill")
+        expect(pill).to_have_text("2 of 2 selected")
+        expect(pill).to_have_attribute("title", "2 of the 4 test cases in SMOKE match the selected tags")
         page.get_by_test_id("run-button").click()
         expect(page.locator(".any-headline")).to_have_text("Passed", timeout=180_000)
         run_card = page.locator("[aria-labelledby='current-run-title']")
