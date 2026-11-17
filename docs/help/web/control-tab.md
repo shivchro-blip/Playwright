@@ -26,7 +26,7 @@ A variable that is **not** set in `.env` or the environment gets a box: type the
 
 ## Tests panel
 
-Preview of what will run: test case, tags, file and step count. **Selected only** hides tests that do not match the tags. Duplicate test IDs are flagged.
+Preview of what will run: test case, tags, file and step count. **Selected only** hides tests that do not match the tags. Duplicate test IDs are flagged. The count at the top reads "N of M selected": M is the number of test cases the selected tags match (hover it to see how many test cases the whole system has), and N is how many of those are still ticked. Untick a test to leave it out of the run; it stays unticked when you change tags.
 
 ## Run what matters (Plan)
 
