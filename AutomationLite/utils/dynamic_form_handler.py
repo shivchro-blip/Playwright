@@ -455,6 +455,7 @@ async def generate_action(dictionaryContext, field_name, raw_value, field_config
         field_type  = field_config.get("type")
         auto_gen    = field_config.get("autoGen")
         picker      = field_config.get("picker")
+        type_keys   = field_config.get("typeKeys")
         required    = field_config.get("required") or True
     else:
         await attach_allure_failure_details(name=f"Generate Action Failure - No Field Config for: {field_name}")
@@ -531,6 +532,7 @@ async def generate_action(dictionaryContext, field_name, raw_value, field_config
         "tableId":          tableId,
         "required":         required,
         **({"picker": picker} if picker else {}),
+        **({"typeKeys": True} if type_keys else {}),
         **({"value": value} if value is not None else {}),
     }
 

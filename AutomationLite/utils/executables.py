@@ -57,7 +57,12 @@ async def fillAction(page, dictionaryContext, element, action, target):
                 if value == "":
                     await attach_allure_failure_details(page, action=action, name="Fill Action Failure - Dictionary Var is Blank")
 
-        await element.fill(value)
+        if action.get("typeKeys") and value:
+            # a box whose page reacts to key presses (a split SSN, a masked phone): fill() sets the value without them
+            await element.fill("")
+            await element.press_sequentially(str(value), delay=40)
+        else:
+            await element.fill(value)
 
         if "ENV." not in oldValue:
             logger.info(f"Filled '{target}' with '{value}'")
