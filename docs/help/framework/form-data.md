@@ -110,6 +110,7 @@ Keys must be unique in JSON, so add pipe suffixes to use a field more than once 
 | `fields.<name>.index` | Use the Nth match of the locator. |
 | `fields.<name>.role` / `name` | Locate by ARIA role and name instead of a CSS locator. |
 | `fields.<name>.waitForNewTab` | The action opens a new tab; continue there. |
+| `fields.<name>.typeKeys` | `true`: type the value key by key instead of filling it at once. For boxes whose page only reacts to key presses, such as an SSN split over three boxes that is combined on `keyup` (with `fill`, Save says the field is required). |
 | `fields.<name>.indexed` | `true`: a step `index` replaces this field's `index` (repeated sections). |
 | `fields.<name>.picker` | Locator of the button that opens the calendar, for `datepicker` fields. |
 
