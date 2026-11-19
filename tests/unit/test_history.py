@@ -102,3 +102,11 @@ def test_saves_in_the_same_millisecond_keep_separate_versions(ws, monkeypatch):
     for n in range(4):
         save(page, {"n": n})
     assert [json.loads(history.read_version(page, v.id))["n"] for v in history.versions(page)] == [2, 1, 0]
+
+
+def test_read_json_error_names_the_file(tmp_path):
+    bad = tmp_path / "TC_BROKEN.json"
+    bad.write_text('{"steps": [ {"a": 1}, ]}', encoding="utf-8")
+    with pytest.raises(ValueError) as e:
+        read_json(bad)
+    assert "TC_BROKEN.json" in str(e.value) and "line 1" in str(e.value)
