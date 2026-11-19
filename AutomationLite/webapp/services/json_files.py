@@ -58,7 +58,11 @@ def detect_indent(text: str) -> str:
 def read_json(path: Path) -> tuple[Any, str, str]:
     """(data, hash, indent). Raises OSError / ValueError on unreadable files."""
     text = Path(path).read_text(encoding="utf-8-sig")
-    return json.loads(text), content_hash(text), detect_indent(text)
+    try:
+        return json.loads(text), content_hash(text), detect_indent(text)
+    except json.JSONDecodeError as e:  # say WHICH file, so a hand-edited one is easy to find and fix
+        raise ValueError(f"{Path(path).name} is not valid JSON ({e.msg}: line {e.lineno} column {e.colno}). "
+                         "Fix that file, then save again.") from None
 
 
 def current_hash(path: Path) -> str | None:
