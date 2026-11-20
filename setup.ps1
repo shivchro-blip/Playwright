@@ -11,6 +11,27 @@ Write-Host "========================================="
 Write-Host " AutoPlay Setup "
 Write-Host "========================================="
 
+# 0. Folder path length. Windows stops at 260 characters per file path unless "long paths" are switched on, and a few
+# packages (anthropic) have files about 130 characters deep inside .venv\Lib\site-packages. A deep folder (for
+# example inside OneDrive) makes pip fail with "OSError: [Errno 2] No such file or directory".
+$longPaths = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -ErrorAction SilentlyContinue).LongPathsEnabled
+if ($PSScriptRoot.Length -gt 100 -and $longPaths -ne 1) {
+    Write-Host @"
+
+This folder path is too long for Windows ($($PSScriptRoot.Length) characters; the install needs it under about 100):
+
+  $PSScriptRoot
+
+Fix it one of two ways, then run setup.cmd again:
+  1. Move the whole AutomationLite folder to a short path such as C:\AutoPlay (not inside OneDrive) and run
+     setup.cmd from there. Delete the half-made .venv folder first.
+  2. Or ask IT to switch on Windows long paths (registry value LongPathsEnabled = 1 under
+     HKLM\SYSTEM\CurrentControlSet\Control\FileSystem, then restart).
+"@
+    Write-Error "Folder path too long for the package install."
+    exit 1
+}
+
 # 1. Python 3.12+
 $python = Get-Command python -ErrorAction SilentlyContinue
 if (-not $python) {
