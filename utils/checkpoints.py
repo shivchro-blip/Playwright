@@ -58,6 +58,12 @@ def is_windowed(total: int) -> bool:
     return steps_window(total) != (1, total)
 
 
+def reload_end(last: int):
+    """Where to cut the test's steps when they are read again after a pause: at `last` only when the run was told to
+    stop at a step (runToStep). Otherwise None, so steps added to the end of the test during the pause still run."""
+    return last if _int("runToStep") else None
+
+
 def start_url() -> str:
     return (os.getenv("startUrl") or "").strip()
 
