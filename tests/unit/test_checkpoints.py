@@ -29,6 +29,14 @@ def test_step_window_defaults_to_the_whole_test_and_is_clamped(monkeypatch):
     assert checkpoints.steps_window(5)[0] == 1
 
 
+def test_steps_added_during_a_pause_are_not_cut_off(monkeypatch):
+    monkeypatch.delenv("runToStep", raising=False)
+    steps = list(range(1, 43))  # the test had 39 steps when the run began; 3 were added while it was paused
+    assert steps[0:checkpoints.reload_end(39)] == steps
+    monkeypatch.setenv("runToStep", "39")  # but a run told to stop at step 39 still stops there
+    assert steps[0:checkpoints.reload_end(39)] == steps[:39]
+
+
 def test_resume_only_applies_to_its_own_test_case(tmp_path, monkeypatch):
     file = tmp_path / "TC-1" / "2.json"
     file.parent.mkdir()

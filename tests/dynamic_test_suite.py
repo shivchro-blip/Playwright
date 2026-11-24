@@ -1040,7 +1040,7 @@ if test_cases:
                                    after_step=after_step,
                                    step_reporter=step_events.StepReporter(request.node.nodeid, testCaseId, first,
                                                                           len(all_steps)),
-                                   reload_steps=lambda: _fresh_test_steps(testCaseId)[first - 1:last],
+                                   reload_steps=lambda: _fresh_test_steps(testCaseId)[first - 1:checkpoints.reload_end(last)],
                                    test_id=testCaseId)
 
         finally:
