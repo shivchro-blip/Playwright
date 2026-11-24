@@ -31,5 +31,6 @@
   {"id": "explicit-steps", "category": "Test framework", "title": "Explicit steps and common action parameters", "path": "framework/explicit-steps.md", "tags": ["do", "steps", "v2", "explicit", "params", "with", "commonAction", "formData"]},
   {"id": "custom-fields", "category": "Test framework", "title": "Custom fields (CUSTOMFIELD_*)", "path": "framework/custom-fields.md", "tags": ["customfield", "random data"]},
   {"id": "executables", "category": "Test framework", "title": "Action types (executables)", "path": "framework/executables.md", "tags": ["action", "click", "fill", "confirmtext"]},
+  {"id": "helper-scripts", "category": "Test framework", "title": "Helper scripts (tools folder)", "path": "framework/helper-scripts.md", "tags": ["compact", "html", "clipboard", "powershell", "legal name", "rand gen", "tools", "build lite", "pom"]},
   {"id": "common-problems", "category": "Troubleshooting", "title": "Common problems", "path": "troubleshooting/common-problems.md", "tags": ["error", "login", "captcha", "conflict"]}
 ]
