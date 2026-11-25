@@ -602,6 +602,21 @@ class RunManager:
                            workers=cfg.workers, options=dict(cfg.options), test_ids=list(cfg.test_ids))
         return self.start(config, expected=old.collected or old.expected, credentials=old._secrets)
 
+    def rerun_test(self, run_id: str, test_id: str, browser: str = "") -> Run:
+        """A new run of just one test case from a finished run (the same system, environment, tags, options and typed
+        logins), on `browser` if given, else on the run's browsers. The id may carry a data-set suffix ("TC-1[set]")."""
+        old = self._runs.get(run_id)
+        if not old:
+            raise ValueError("Run not found.")
+        base_id = str(test_id or "").split("[")[0].strip()
+        if not base_id:
+            raise ValueError("Which test case?")
+        cfg = old.config
+        browsers = [browser.strip().lower()] if (browser or "").strip() else list(cfg.browsers)
+        config = RunConfig(system=cfg.system, env=cfg.env, tags=list(cfg.tags), browsers=browsers, workers=1,
+                           options=dict(cfg.options), test_ids=[base_id], runner=cfg.runner)
+        return self.start(config, expected=len(browsers), credentials=old._secrets)
+
     # ───────────── internals ─────────────
 
     def _command(self, run: Run) -> list[str]:
