@@ -38,3 +38,25 @@ def pause_run(run_id: str) -> bool:
     audit("run.pause", run_id)
     ui.notify("Pausing before the next step...", type="info")
     return True
+
+
+def rerun_test(run_id: str, test_id: str, browser: str = ""):
+    """Run just one test case of a finished run again, as a new run. Refusals and errors are shown; the new run is
+    returned (or None). Used by the failed tests in What went wrong."""
+    svc = services()
+    run = svc.runs.get(run_id) if run_id else None
+    if run is None:
+        return None
+    if not guard("run", "re-run test", run_id, system=run.config.system, env=run.config.env):
+        return None
+    try:
+        again = svc.runs.rerun_test(run_id, test_id, browser)
+    except (ValueError, RuntimeError) as e:
+        ui.notify(str(e), type="negative")
+        return None
+    audit("run.rerun_test", again.id, of=run_id, test=test_id.split("[")[0])
+    position = svc.runs.queue_position(again.id)
+    ui.notify(f"Re-running {test_id.split('[')[0]}: run {again.id} " + (f"queued (#{position})" if position
+                                                                         else "started"),
+              type="info" if position else "positive")
+    return again

@@ -19,7 +19,7 @@ from webapp.ui.clear_runs import clear_runs
 from webapp.ui.console_view import ConsoleView
 from webapp.ui.debug_panel import debug_banner, debug_note
 from webapp.ui.failure_panel import failure_panel
-from webapp.ui.run_actions import cancel_run, pause_run
+from webapp.ui.run_actions import cancel_run, pause_run, rerun_test
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.plan_dialog import open_plan
 from webapp.ui.theme import icon, svg
@@ -572,7 +572,15 @@ class ControlPanel:
     def failure_view(self, run: Run | None, rows: list[dict]) -> None:
         if run:
             failure_panel(run, rows, open_details=self._open_details, jump=self.jump,
-                          show_in_log=self.log_view.find, turn_on_headless=self._turn_on_headless)
+                          show_in_log=self.log_view.find, turn_on_headless=self._turn_on_headless,
+                          rerun=self._rerun_test)
+
+    def _rerun_test(self, test_id: str, browser: str) -> None:
+        """Re-run: just this test case again as a new run, shown here as soon as it starts."""
+        again = rerun_test(self.run_id or "", test_id, browser)
+        if again is not None:
+            self.view_run(again.id)
+            self.history.refresh()
 
     def _turn_on_headless(self) -> None:
         self.headless.value = True

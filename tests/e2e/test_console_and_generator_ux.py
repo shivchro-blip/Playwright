@@ -107,10 +107,24 @@ def test_what_went_wrong_lists_the_failures_and_leads_to_details_test_case_and_l
         missing = failed.filter(has_text="MissingElement")
         expect(missing).to_contain_text("SmokeHome")  # where it stopped
 
+        expect(missing.get_by_test_id("fail-rerun")).to_be_visible()  # Re-run: just this test case again
         missing.get_by_test_id("fail-show-log").click()  # the console jumps to the test's lines
         expect(page.locator(".any-ct-count")).to_contain_text("1 of")
         missing.get_by_test_id("fail-open-test").click()  # and the Generator opens the test case
         expect(page.locator("#tc-id")).to_have_value("TC-SMOKE-004-MissingElement")
+        browser.close()
+
+
+def test_rerun_button_runs_only_that_failed_test(workspace: Path, tmp_path: Path):
+    run_and_wait(workspace, tmp_path, tags=["E2E"])
+    with running_app(tmp_path) as url, sync_playwright() as p:
+        browser, page = open_app(p, url)
+        failed = page.get_by_test_id("what-went-wrong").get_by_test_id("failed-test")
+        failed.filter(has_text="MissingElement").get_by_test_id("fail-rerun").click()
+        expect(page.get_by_text("Re-running TC-SMOKE-004-MissingElement")).to_be_visible()  # a new run, one test
+        page.wait_for_function("document.body.innerText.includes('1 done') || "
+                               "document.body.innerText.includes('1/1')", timeout=120_000)
+        expect(page.get_by_test_id("failed-test")).to_have_count(1)  # only that test ran again (and failed again)
         browser.close()
 
 

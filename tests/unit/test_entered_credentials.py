@@ -52,3 +52,20 @@ def test_invalid_names_rejected(manager):
     with pytest.raises(ValueError):
         manager.start(_config(), credentials={"BAD KEY": "x"})
     assert manager.list() == []
+
+
+def test_rerun_of_one_test_runs_only_that_test_on_its_browser(manager):
+    config = RunConfig(system="GOOGLE", env="dev", tags=["smoke"], browsers=["chrome", "firefox"], workers=3,
+                       test_ids=["TC-1", "TC-2"])
+    run = manager.start(config, credentials={"APP_PASS": "s3cret-value"})
+    run.status = "failed"
+    again = manager.rerun_test(run.id, "TC-2[set a]", "firefox")  # a data-set suffix is dropped
+    assert again.id != run.id and again.config.test_ids == ["TC-2"]
+    assert again.config.browsers == ["firefox"] and again.config.workers == 1
+    assert again.config.system == "GOOGLE" and again.config.env == "dev" and again.config.tags == ["smoke"]
+    assert again._secrets == {"APP_PASS": "s3cret-value"}
+    assert manager.rerun_test(run.id, "TC-3").config.browsers == ["chrome", "firefox"]  # no browser: the run's own
+    with pytest.raises(ValueError):
+        manager.rerun_test(run.id, "  ")
+    with pytest.raises(ValueError):
+        manager.rerun_test("nope", "TC-1")

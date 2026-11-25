@@ -13,8 +13,10 @@ from webapp.ui.theme import icon
 
 def failure_panel(run, rows: list[dict], *, open_details: Callable[[dict], None] | None = None,
                   jump: Callable[..., Awaitable[None]] | None = None, show_in_log: Callable[[str], None] | None = None,
-                  turn_on_headless: Callable[[], None] | None = None, only_shared: bool = False) -> None:
-    """only_shared: just the run-level cause, when the screen already lists the failed tests itself."""
+                  turn_on_headless: Callable[[], None] | None = None, only_shared: bool = False,
+                  rerun: Callable[[str, str], None] | None = None) -> None:
+    """only_shared: just the run-level cause, when the screen already lists the failed tests itself.
+    rerun(test_id, browser): runs just that test case again as a new run (the Re-run button)."""
     summary = summarize(rows)
     if summary is None or (only_shared and summary.shared is None):
         return
@@ -52,6 +54,11 @@ def failure_panel(run, rows: list[dict], *, open_details: Callable[[dict], None]
                                       on_click=lambda t=item.test_id: jump("test", run.config.system,
                                                                            t.split("[")[0])) \
                                 .props('flat unelevated no-caps dense data-testid="fail-open-test"').classes("any-btn")
+                        if rerun:
+                            ui.button("Re-run", icon=icon("rotate-cw"), color=None,
+                                      on_click=lambda t=item.test_id, b=item.browser: rerun(t, b)) \
+                                .props('flat unelevated no-caps dense data-testid="fail-rerun" '
+                                       f'aria-label="Re-run {item.test_id}"').classes("any-btn")
                         if show_in_log:
                             ui.button("Show in log", icon=icon("terminal"), color=None,
                                       on_click=lambda t=item.test_id: show_in_log(t)) \
