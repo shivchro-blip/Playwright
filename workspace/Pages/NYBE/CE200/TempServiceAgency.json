@@ -1,0 +1,6 @@
+{
+  "fields": {
+    "TempServiceName": { "locator": "[data-attributeid='LSI_CE200_TempName'] input", "type": "text", "autoGen": "legalName" },
+    "TempServicePhone": { "locator": "[data-attributeid='LSI_CE200_TempNumber'] input", "type": "text", "autoGen": "phone" }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "fields": {
+    "HealthExamDate": { "locator": "[data-attributeid='LSI_AEB_HealthExaminationDate'] input", "type": "text", "typeKeys": true, "autoGen": "getDateBetween(-7, -7, '%m/%d/%Y')" },
+    "PhysicianFullName": { "locator": "[data-attributeid='LSI_AEB_HealthPhysicianFullName'] input", "type": "text", "autoGen": "fullname" },
+    "PhysicianAddress": { "locator": "[data-attributeid='LSI_AEB_HealthPhysicianAddress'] textarea", "type": "text" }
+  }
+}

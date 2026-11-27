@@ -1,0 +1,14 @@
+{
+  "fields": {
+    "FirstName": { "locator": "[data-attributeid='CDI_IndiviFirstName'] input", "type": "text", "autoGen": "name" },
+    "MiddleInitial": { "locator": "[data-attributeid='CDI_IndiviMiddleInitial'] input", "type": "text" },
+    "LastName": { "locator": "[data-attributeid='CDI_IndiviLastName'] input", "type": "text", "autoGen": "name" },
+    "Suffix": { "locator": "[data-attributeid='CDI_IndiviSuffix'] select", "type": "select" },
+    "SsnArea": { "locator": "[data-attributeid='CDI_IndiviSSN'] input[name$='-ssn1']", "type": "text", "typeKeys": true, "autoGen": "getIntBetween(101, 666)" },
+    "SsnGroup": { "locator": "[data-attributeid='CDI_IndiviSSN'] input[name$='-ssn2']", "type": "text", "typeKeys": true, "autoGen": "getIntBetween(11, 99)" },
+    "SsnSerial": { "locator": "[data-attributeid='CDI_IndiviSSN'] input[name$='-ssn3']", "type": "text", "typeKeys": true, "autoGen": "getIntBetween(1001, 9999)" },
+    "DobYear": { "locator": "[data-attributeid='CDI_IndiviDOB'] select.dmyyear", "type": "select", "autoGen": "getIntBetween(1960, 2006)" },
+    "DobMonth": { "locator": "[data-attributeid='CDI_IndiviDOB'] select.dmymonth", "type": "select", "autoGen": "getIntBetween(1, 13)" },
+    "DobDay": { "locator": "[data-attributeid='CDI_IndiviDOB'] select.dmyday", "type": "select", "autoGen": "getIntBetween(1, 29)" }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "addAssistantDirector": { "locator": "table.nybe-table-data tfoot button.crc2_addbutton", "type": "button" },
+    "firstName": { "locator": "input[id*='LSI_CLPAssistantDirectorFirstName_']", "type": "text" },
+    "middleInitial": { "locator": "input[id*='LSI_CLPAssistantDirectorMiddleInitial_']", "type": "text" },
+    "lastName": { "locator": "input[id*='LSI_CLPAssistantDirectorLastName_']", "type": "text" },
+    "cqCode": { "locator": "input[id*='LSI_CLPAssistantDirectorCQcode_']", "type": "text" },
+    "verifyButton": { "locator": "button[id^='cqLookupLookup_Button_']", "type": "button" },
+    "cqResult": { "locator": "tbody.cqLookupLookupResultsTable tr:first-child label.radio_label", "type": "radio" },
+    "directorEmail": { "locator": "input[id*='LSI_CLPAssistantDirectorEmailAddress_']", "type": "text", "autoGen": "email" },
+    "last4SSN": { "locator": "input[id*='LSI_CLPAssistantDirectorLast4SSN_']", "type": "text" },
+    "noSsnCheckbox": { "locator": "label.checkbox_label[for*='LSI_CLPAssistantDirectorHasNoSSN_']", "type": "checkbox" },
+    "noSsnReason": { "locator": "textarea[id*='LSI_CLPAssistantDirectorHasNoSSNReason_']", "type": "text" },
+    "hours": { "locator": "textarea[id*='LSI_CLPAssistantDirectorHoursOnsite_']", "type": "text" },
+    "weeklyCheckbox": { "locator": "label.checkbox_label[for*='LSI_CLPAssistantDirectorHoursFeqIsWeekly_']", "type": "checkbox" },
+    "everyOtherWeekCheckbox": { "locator": "label.checkbox_label[for*='LSI_CLPAssistantDirectorHoursFeqIsBiWeekly_']", "type": "checkbox" },
+    "otherFrequencyCheckbox": { "locator": "label.checkbox_label[for*='LSI_CLPAssistantDirectorHoursFeqIsOther_']", "type": "checkbox" },
+    "hoursNote": { "locator": "input[id*='LSI_CLPAssistantDirectorHoursNote_']", "type": "text" },
+    "saveRecord": { "locator": ".modal-footer button.save-close", "type": "button" }
+  }
+}

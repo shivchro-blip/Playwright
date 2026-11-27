@@ -1,0 +1,10 @@
+{
+ "fields": {
+   "PlanToPurchaseYes": { "locator": "[data-attributeid='LSI_LSA19_LotterySaleAgentPlan'] label[for^='boolRadioY_']", "type": "radio" },
+   "PlanToPurchaseNo": { "locator": "[data-attributeid='LSI_LSA19_LotterySaleAgentPlan'] label[for^='boolRadioN_']", "type": "radio" },
+   "InContractYes": { "locator": "[data-attributeid='LSI_LSA19_LotterySaleAgentContract'] label[for^='boolRadioY_']", "type": "radio" },
+   "InContractNo": { "locator": "[data-attributeid='LSI_LSA19_LotterySaleAgentContract'] label[for^='boolRadioN_']", "type": "radio" },
+   "SalesAgentNumber": { "locator": "[data-attributeid='LSI_LSA19_SalAgentNum'] input", "type": "text", "autoGen": "getIntBetween(1000000, 9999999)" },
+   "ExpectedClosingDate": { "locator": "[data-attributeid='LSI_LSA19_LotterySaleAgentExpected'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(30, 30, '%m/%d/%Y')", "typeKeys": true }
+ }
+}

@@ -1,0 +1,5 @@
+{
+  "fields": {
+    "pageHeading": { "locator": "#main-content .page-header h2", "type": "text" }
+  }
+}

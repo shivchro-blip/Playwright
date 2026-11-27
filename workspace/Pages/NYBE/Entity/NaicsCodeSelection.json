@@ -1,0 +1,29 @@
+{
+  "fields": {
+    "Heading": { "locator": "label.Heading2:text-is('NAICS Code Selection')", "type": "text" },
+    "NaicsSuggestion": { "locator": "ul.ui-autocomplete li.ui-menu-item:visible >> nth=0", "type": "button" },
+
+    "PrimarySearch": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] input[name='Naics_Search']", "type": "text" },
+    "PrimaryFilterByCategory": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] .naics-categoryFilter a", "type": "button" },
+    "PrimarySector": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] select[id^='Industry_Sector']", "type": "select" },
+    "PrimarySubSector": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] select[id^='Industry_subSector']", "type": "select" },
+    "PrimaryIndustry": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] select[id^='Industry_Description']", "type": "select" },
+    "PrimaryClassification": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] select[id^='Industry_Classification']", "type": "select" },
+    "PrimaryReset": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] button[id^='naicsReset_']", "type": "button" },
+    "PrimaryClose": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] .modal-footer button:text-is('Close')", "type": "button" },
+    "PrimarySelect": { "locator": "[data-opaid='global_global_a_CDI_PrimaryNaicsCode'] button[id^='Naics_select']", "type": "button" },
+
+    "HasSecondaryYes": { "locator": "[data-opaid='global_global_a_CDI_HasSecNaicsCode'] label[for^='boolRadioY_']", "type": "radio" },
+    "HasSecondaryNo": { "locator": "[data-opaid='global_global_a_CDI_HasSecNaicsCode'] label[for^='boolRadioN_']", "type": "radio" },
+
+    "SecondarySearch": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] input[name='Naics_Search']", "type": "text" },
+    "SecondaryFilterByCategory": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] .naics-categoryFilter a", "type": "button" },
+    "SecondarySector": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] select[id^='Industry_Sector']", "type": "select" },
+    "SecondarySubSector": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] select[id^='Industry_subSector']", "type": "select" },
+    "SecondaryIndustry": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] select[id^='Industry_Description']", "type": "select" },
+    "SecondaryClassification": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] select[id^='Industry_Classification']", "type": "select" },
+    "SecondaryReset": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] button[id^='naicsReset_']", "type": "button" },
+    "SecondaryClose": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] .modal-footer button:text-is('Close')", "type": "button" },
+    "SecondarySelect": { "locator": "[data-opaid='global_global_a_CDI_SecNaicsCode'] button[id^='Naics_select']", "type": "button" }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "fields": {
+    "ResponsiblePerson": { "locator": "tr.prefill-multi-select-row:has(label:has-text('{value}')) [data-attributeid='LSI_DTF17_PrincResponsible_SELECTED'] label.checkbox_label", "type": "click" },
+    "AddResponsiblePerson": { "locator": "[data-opaid^='global_global_e_311c9f07'] a.add-new-instance", "type": "click" },
+
+    "EffectiveDate": { "locator": "[data-attributeid='LSI_DTF17_PrincEffDte'] input", "type": "text", "typeKeys": true, "autoGen": "getDateBetween(-30, 0, '%m/%d/%Y')" },
+
+    "ActiveInOperations_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpOperateBus'] label[for^='boolRadioY_']", "type": "click" },
+    "ActiveInOperations_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpOperateBus'] label[for^='boolRadioN_']", "type": "click" },
+    "DecidesFinancialObligations_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFinancialOblig'] label[for^='boolRadioY_']", "type": "click" },
+    "DecidesFinancialObligations_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFinancialOblig'] label[for^='boolRadioN_']", "type": "click" },
+    "PersonnelActivity_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpPersonnel'] label[for^='boolRadioY_']", "type": "click" },
+    "PersonnelActivity_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpPersonnel'] label[for^='boolRadioN_']", "type": "click" },
+
+    "CheckSigning_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincSignAuthority'] label[for^='boolRadioY_']", "type": "click" },
+    "CheckSigning_No": { "locator": "[data-attributeid='LSI_DTF17_PrincSignAuthority'] label[for^='boolRadioN_']", "type": "click" },
+    "PreparesTaxReturns_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincPrepareTaxReturn'] label[for^='boolRadioY_']", "type": "click" },
+    "PreparesTaxReturns_No": { "locator": "[data-attributeid='LSI_DTF17_PrincPrepareTaxReturn'] label[for^='boolRadioN_']", "type": "click" },
+    "BusinessDecisions_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincBusDecision'] label[for^='boolRadioY_']", "type": "click" },
+    "BusinessDecisions_No": { "locator": "[data-attributeid='LSI_DTF17_PrincBusDecision'] label[for^='boolRadioN_']", "type": "click" },
+    "TaxOrGeneralManager_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincTaxManager'] label[for^='boolRadioY_']", "type": "click" },
+    "TaxOrGeneralManager_No": { "locator": "[data-attributeid='LSI_DTF17_PrincTaxManager'] label[for^='boolRadioN_']", "type": "click" },
+
+    "OpenJudgments_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpUnsatisfiedJudge'] label[for^='boolRadioY_']", "type": "click" },
+    "OpenJudgments_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpUnsatisfiedJudge'] label[for^='boolRadioN_']", "type": "click" },
+    "PendingCharges_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFelony'] label[for^='boolRadioY_']", "type": "click" },
+    "PendingCharges_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFelony'] label[for^='boolRadioN_']", "type": "click" },
+    "PastJudgments5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpInjuctions'] label[for^='boolRadioY_']", "type": "click" },
+    "PastJudgments5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpInjuctions'] label[for^='boolRadioN_']", "type": "click" },
+    "RevokedLicense5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpRevoked'] label[for^='boolRadioY_']", "type": "click" },
+    "RevokedLicense5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpRevoked'] label[for^='boolRadioN_']", "type": "click" },
+    "Investigated5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpInvestigation'] label[for^='boolRadioY_']", "type": "click" },
+    "Investigated5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpInvestigation'] label[for^='boolRadioN_']", "type": "click" },
+    "Misdemeanor5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpMisdemeanor'] label[for^='boolRadioY_']", "type": "click" },
+    "Misdemeanor5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpMisdemeanor'] label[for^='boolRadioN_']", "type": "click" },
+    "Sanction5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFranchise'] label[for^='boolRadioY_']", "type": "click" },
+    "Sanction5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFranchise'] label[for^='boolRadioN_']", "type": "click" },
+    "FailedToFileReturn5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFailPayReturn'] label[for^='boolRadioY_']", "type": "click" },
+    "FailedToFileReturn5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpFailPayReturn'] label[for^='boolRadioN_']", "type": "click" },
+    "FailedToPayTaxes5y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpGovCharges'] label[for^='boolRadioY_']", "type": "click" },
+    "FailedToPayTaxes5y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpGovCharges'] label[for^='boolRadioN_']", "type": "click" },
+    "Bankruptcy7y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpBankrupt'] label[for^='boolRadioY_']", "type": "click" },
+    "Bankruptcy7y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpBankrupt'] label[for^='boolRadioN_']", "type": "click" },
+    "FelonyConviction10y_Yes": { "locator": "[data-attributeid='LSI_DTF17_PrincRpConvicted'] label[for^='boolRadioY_']", "type": "click" },
+    "FelonyConviction10y_No": { "locator": "[data-attributeid='LSI_DTF17_PrincRpConvicted'] label[for^='boolRadioN_']", "type": "click" }
+  }
+}

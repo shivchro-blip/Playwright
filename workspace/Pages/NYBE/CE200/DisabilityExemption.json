@@ -1,0 +1,7 @@
+{
+  "fields": {
+    "Question": { "locator": "[data-attributeid='LSI_CE200_WCB_DBCExemption'] .rn_FieldLabelControl label", "type": "text" },
+    "DbExemptTempAgencyStaff": { "locator": "[data-attributeid='LSI_CE200_WCB_DBCExemption'] input[value='FA_D10_16'] + label", "type": "radio" },
+    "DbExemptNoneApply": { "locator": "[data-attributeid='LSI_CE200_WCB_DBCExemption'] input[value='FA_D10_19'] + label", "type": "radio" }
+  }
+}

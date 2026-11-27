@@ -1,0 +1,12 @@
+{
+  "fields": {
+    "AcceptCardsYes": { "locator": "[data-attributeid='LSI_DTF17_AcceptCredit'] label[for^='boolRadioY_']", "type": "radio" },
+    "AcceptCardsNo": { "locator": "[data-attributeid='LSI_DTF17_AcceptCredit'] label[for^='boolRadioN_']", "type": "radio" },
+    "ExpectedAnnualSales": { "locator": "[data-attributeid='LSI_DTF17_AnnSalesExpect'] select", "type": "select" },
+    "ExpectedAnnualTax": { "locator": "[data-attributeid='LSI_DTF17_AnnTaxExpect'] select", "type": "select" },
+    "BankInstructions": { "locator": "[data-opaid='global_global_g_3'] label.Heading5", "type": "text" },
+    "BankName": { "locator": "[data-attributeid='LSI_DTF17_BankNme'] input", "type": "text" },
+    "RoutingNumber": { "locator": "[data-attributeid='LSI_DTF17_RoutingNum'] input", "type": "text" },
+    "AccountNumber": { "locator": "[data-attributeid='LSI_DTF17_AccountNum'] input", "type": "text", "autoGen": "getIntBetween(10000000, 99999999)" }
+  }
+}

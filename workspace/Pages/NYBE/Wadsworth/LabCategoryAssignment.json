@@ -1,0 +1,19 @@
+{
+ "titleContains": "NY",
+ "fields": {
+   "directorCategory": {
+     "locator": "div[id^='container_global_global_g_0_']:has(label.Normal:text-is('DICT.directorFirst DICT.directorLast')) label.checkbox_label:has(span:text-is('{value}'))",
+     "type": "checkbox"
+   },
+   "assistantCategory": {
+     "locator": "div.rn_EntityInstanceControl:has(label.Normal:text-is('DICT.assistantFirst DICT.assistantLast')) label.checkbox_label:has(span:text-is('{value}'))",
+     "type": "checkbox"
+   },
+   "directorCategoryAll": {
+     "locator": "div[id^='container_global_global_g_0_']:has(label.Normal:text-is('DICT.directorFirst DICT.directorLast')) label.checkbox_label"
+   },
+   "assistantCategoryAll": {
+     "locator": "div.rn_EntityInstanceControl:has(label.Normal:text-is('DICT.assistantFirst DICT.assistantLast')) label.checkbox_label"
+   }
+ }
+}

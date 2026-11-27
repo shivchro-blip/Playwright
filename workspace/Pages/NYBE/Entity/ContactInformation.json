@@ -1,0 +1,29 @@
+{
+ "fields": {
+   "cdiNumberTheSpPhone": {
+     "locator": "input[name^='CDI_NUMBER_the__sp__phone__sp__number1_a_CDI_BusPhone1_']",
+     "type": "text",
+     "autoGen": "phone"
+   },
+   "globalGlobalACdiBusmobile1": {
+     "locator": "input[name^='global_global_a_CDI_BusMobile1_']",
+     "type": "text",
+     "autoGen": "phone"
+   },
+   "globalGlobalACdiBusfax1": {
+     "locator": "input[name^='global_global_a_CDI_BusFax1_']",
+     "type": "text",
+     "autoGen": "phone"
+   },
+   "cdiEmailTheSpEmail": {
+     "locator": "input[name^='CDI_EMAIL_the__sp__email__sp__address1_a_CDI_BusEmail1_']",
+     "type": "text",
+     "autoGen": "email"
+   },
+   "globalGlobalACdiBusweb": {
+     "locator": "input[name^='global_global_a_CDI_BusWeb_']",
+     "type": "text"
+     
+   }
+ }
+}

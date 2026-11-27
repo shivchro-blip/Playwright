@@ -1,0 +1,20 @@
+{
+  "fields": {
+    "ChildSupportObligation_Yes": { "locator": "[data-attributeid='LSI_AEB_AttestOwedChildSupport'] label[for^='boolRadioY_']", "type": "click" },
+    "ChildSupportObligation_No": { "locator": "[data-attributeid='LSI_AEB_AttestOwedChildSupport'] label[for^='boolRadioN_']", "type": "click" },
+    "OwesFourMonths_Yes": { "locator": "[data-attributeid='LSI_AEB_AttestOwedChildSupport4orMoreMonths'] label[for^='boolRadioY_']", "type": "click" },
+    "OwesFourMonths_No": { "locator": "[data-attributeid='LSI_AEB_AttestOwedChildSupport4orMoreMonths'] label[for^='boolRadioN_']", "type": "click" },
+    "PaymentPlan_Yes": { "locator": "[data-attributeid='LSI_AEB_AttestChildSupportPaymentPlan'] label[for^='boolRadioY_']", "type": "click" },
+    "PaymentPlan_No": { "locator": "[data-attributeid='LSI_AEB_AttestChildSupportPaymentPlan'] label[for^='boolRadioN_']", "type": "click" },
+    "PendingCourtProceeding_Yes": { "locator": "[data-attributeid='LSI_AEB_AttestChildSupportPendingCourtProceedings'] label[for^='boolRadioY_']", "type": "click" },
+    "PendingCourtProceeding_No": { "locator": "[data-attributeid='LSI_AEB_AttestChildSupportPendingCourtProceedings'] label[for^='boolRadioN_']", "type": "click" },
+    "ReceivesAssistance_Yes": { "locator": "[data-attributeid='LSI_AEB_AttestReceiveSocialSecurityIncome'] label[for^='boolRadioY_']", "type": "click" },
+    "ReceivesAssistance_No": { "locator": "[data-attributeid='LSI_AEB_AttestReceiveSocialSecurityIncome'] label[for^='boolRadioN_']", "type": "click" },
+
+    "DomesticViolenceTraining": { "locator": "[data-attributeid='LSI_AEB_AttestCompletedDomesticViolenceTraining'] label.checkbox_label", "type": "click" },
+    "AEApplicantAffirmation": { "locator": "[data-attributeid='LSI_AEB_AttestAEApplicant'] label.checkbox_label", "type": "click" },
+    "BarberApprenticeAffirmation": { "locator": "[data-attributeid='LSI_AEB_AttestBarberApprentice'] label.checkbox_label", "type": "click" },
+    "BarberAreaRenterAffirmation": { "locator": "[data-attributeid='LSI_AEB_AttestBarberAreaRenter'] label.checkbox_label", "type": "click" },
+    "AEAreaRenterAffirmation": { "locator": "[data-attributeid='LSI_AEB_AttestAEAreaRenter'] label.checkbox_label", "type": "click" }
+  }
+}

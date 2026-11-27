@@ -1,0 +1,9 @@
+{
+ "fields": {
+   "SelectAllDocuments": { "locator": "table.nybe-multi-select caption label.checkbox_label", "type": "checkbox" },
+   "SelectDocument": { "locator": "tr.prefill-multi-select-row:has(td:text-is('{value}')) label.checkbox_label", "type": "checkbox" },
+   "SelectedRows": { "locator": "table.nybe-multi-select td:has-text('rows selected')", "type": "text" },
+   "CopyTypePlain": { "locator": "[data-attributeid='LSI_DOSECOPY_CopyType'] label.radio_label:has-text('Plain Copy')", "type": "radio" },
+   "CopyTypeCertified": { "locator": "[data-attributeid='LSI_DOSECOPY_CopyType'] label.radio_label:has-text('Certified Copy')", "type": "radio" }
+ }
+}

@@ -1,0 +1,36 @@
+{
+  "fields": {
+    "MorePermanentPlace_Yes": {
+      "locator": "[data-attributeid='LSI_DTF17_MorePermPlace'] label[for^='boolRadioY_']",
+      "type": "click"
+    },
+    "MorePermanentPlace_No": {
+      "locator": "[data-attributeid='LSI_DTF17_MorePermPlace'] label[for^='boolRadioN_']",
+      "type": "click"
+    },
+    "SeparateReturn_Yes": {
+      "locator": "[data-attributeid='LSI_DTF17_SepTax'] label[for^='boolRadioY_']",
+      "type": "click"
+    },
+    "SeparateReturn_No": {
+      "locator": "[data-attributeid='LSI_DTF17_SepTax'] label[for^='boolRadioN_']",
+      "type": "click"
+    },
+    "OneReturn_Yes": {
+      "locator": "[data-attributeid='LSI_DTF17_OneSalesTaxFIle'] label[for^='boolRadioY_']",
+      "type": "click"
+    },
+    "OneReturn_No": {
+      "locator": "[data-attributeid='LSI_DTF17_OneSalesTaxFIle'] label[for^='boolRadioN_']",
+      "type": "click"
+    },
+    "AdditionalLocation": {
+      "locator": "[data-opaid='global_global_g_6'] table tbody tr:has(label:has-text('{value}')) label.radio_label",
+      "type": "click"
+    },
+    "AddNewLocation": {
+      "locator": "[data-opaid='global_global_g_6'] a.add-new-instance",
+      "type": "click"
+    }
+  }
+}

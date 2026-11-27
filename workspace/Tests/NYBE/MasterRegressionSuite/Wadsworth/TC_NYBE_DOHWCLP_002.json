@@ -1,0 +1,263 @@
+{
+  "testCases": [
+    {
+      "testCaseID": "TC_NYBE_DOHWCLP_002",
+      "description": "Sign in through NY.gov, open the Test Dashboard and start the DOHWCLP interview, complete Laboratory Identification, Laboratory Director, Assistant Laboratory Directorship, Laboratory Details, Facility Type, Lab Categories, Lab Category Assignment, PT Provider Information, Bacteriology Details, Blood Ph Gases Details, Disclosure Of Ownership, Declaration, Certification, Summary Page and Payment Details.",
+      "system": "NYBE",
+      "env": "dev",
+      "module": "licenses",
+      "tags": [
+        "NYBE",
+        "DOHWCLP",
+        "smoke","TC_NYBE_DOHWCLP_002"],
+      "steps": [
+        { "screen": "NYBEHome", "do": [
+          { "field": "loginRegisterLink", "click": true }
+        ] },
+        { "screen": "NYBELoginRegister", "do": [
+          { "field": "loginHereButton", "click": true }
+        ] },
+        { "screen": "NYGovSignIn", "do": [
+          { "field": "username", "value": "ENV.NYBE_DEV_USERNAME" },
+          { "field": "password", "value": "ENV.NYBE_DEV_PASSWORD" },
+          { "field": "signInButton", "click": true }
+        ] },
+        { "screen": "NYBEDashboard", "do": [
+          { "field": "openDropdownButton", "click": true },
+          { "field": "testDashboardLink", "click": true }
+        ] },
+        { "screen": "NYBETestDashboard", "do": [
+          { "field": "startInterviewLink", "value": "DOHWCLP" }
+        ] },
+		{ "commonAction": "Next" },
+        { "screen": "LaboratoryIdentification", "formData": {
+          "laboratoryName": null,
+          "telephone": null,
+          "email": null,
+          "addressLine1": "100 Broadway",
+          "city": "Menands",
+          "zipCode": "12204",
+          "county": "Albany"
+        } },
+        { "commonAction": "Validate address" },
+        { "screen": "LaboratoryIdentification", "formData": { "sameAsMailingCheckbox": "click" } },
+        { "commonAction": "Save and continue" },
+
+        { "screen": "LaboratoryDirector", "formData": {
+          "firstName": "Michael",
+          "middleInitial": "S",
+          "lastName": "Albert"
+        } },
+        { "screen": "LaboratoryDirector", "do": [
+          { "field": "cqCode", "value": "ALBEM1" },
+          { "field": "cqCode", "press": "Tab" },
+          { "field": "cqCode", "press": "Enter" }
+        ] },
+        { "screen": "LaboratoryDirector", "formData": { "cqResult": "click" } },
+		{ "screen": "LaboratoryDirector", "do": [
+		 { "field": "CUSTOMFIELD_SAVEFIELD", "value": "directorFirst|firstName|" },
+		 { "field": "CUSTOMFIELD_SAVEFIELD", "value": "directorLast|lastName|" }
+		] },
+        { "screen": "LaboratoryDirector", "formData": {
+          "directorEmail": null,
+          "last4SSN": "4827",
+          "hours": "8",
+          "weeklyCheckbox": "click"
+        } },
+		{ "screen": "LaboratoryDirector", "formData": {
+			"addDirectorship": "click",
+			"dirLabName": null,
+			"dirLabCliaNumber": "33D2058475",
+			"dirLabPfi": "1234",
+			"dirLabAddressLine1": "100 Broadway",
+			"dirLabCity": "Menands",
+			"dirLabZip": "12204",
+			"dirLabCounty": "Albany"
+		} },
+		{ "commonAction": "Validate address" },
+		{ "screen": "LaboratoryDirector", "formData": {
+			"dirLabSave": "click"
+		} },
+        { "commonAction": "Save and continue" },				
+		
+        { "screen": "NavButtons", "do": [ { "field": "saveAndContinue", "wait": 5 } ] },
+
+        { "screen": "AssistantLaboratoryDirectorship", "formData": {
+          "addAssistantDirector": "click",
+          "firstName": "Charlene",
+          "middleInitial": "A",
+          "lastName": "Alouf"
+        } },
+        { "screen": "AssistantLaboratoryDirectorship", "do": [
+          { "field": "cqCode", "value": "ALOUC1" },
+          { "field": "cqCode", "press": "Tab" },
+          { "field": "cqCode", "press": "Enter" }
+        ] },
+        { "screen": "AssistantLaboratoryDirectorship", "formData": { "cqResult": "click" } },
+		{ "screen": "AssistantLaboratoryDirectorship", "do": [
+		 { "field": "CUSTOMFIELD_SAVEFIELD", "value": "assistantFirst|firstName|" },
+		 { "field": "CUSTOMFIELD_SAVEFIELD", "value": "assistantLast|lastName|" }
+		] },
+        { "screen": "AssistantLaboratoryDirectorship", "formData": {
+          "directorEmail": null,
+          "last4SSN": "5391",
+          "hours": "8",
+          "weeklyCheckbox": "click",
+          "saveRecord": "click"
+        } },
+        { "commonAction": "Save and continue" },       		
+        
+        { "screen": "LaboratoryDetails", "formData": {
+          "hasCLIA": "No",
+          "hasMedicaidId": "No",
+
+          "mondayOpen": "click",
+          "mondayStart": "9:00",
+          "mondayEnd": "5:00",
+          "mondayEndPm": "click",
+
+          "tuesdayOpen": "click",
+          "tuesdayStart": "9:00",
+          "tuesdayEnd": "5:00",
+          "tuesdayEndPm": "click",
+
+          "wednesdayOpen": "click",
+          "wednesdayStart": "9:00",
+          "wednesdayEnd": "5:00",
+          "wednesdayEndPm": "click",
+
+          "thursdayOpen": "click",
+          "thursdayStart": "9:00",
+          "thursdayEnd": "5:00",
+          "thursdayEndPm": "click",
+
+          "fridayOpen": "click",
+          "fridayStart": "9:00",
+          "fridayEnd": "5:00",
+          "fridayEndPm": "click",
+
+          "contactFirstName": "Anna",
+          "contactLastName": "Taylor",
+          "contactPhone": null,
+          "contactEmail": null
+        } },
+        { "commonAction": "Save and continue" },
+        { "screen": "FacilityType", "formData": {
+          "facilityType": "Blood Bank",
+          "contiguousSpace": "Yes",
+          "sharedSpace": "Yes",
+          "limitedServiceLab": "No",
+          "accreditedByOtherAgencies": "No"
+        } },
+        { "commonAction": "Save and continue" },
+		
+		        { "screen": "LabCategories", "formData": {
+          "bacteriology": "click",
+          "bloodPhAndGases": "click",
+		  "CUSTOMFIELD_SAVECOUNT": "catCount|selectedCategory" 
+        } },
+        { "commonAction": "Save and continue" },
+
+        { "screen": "LabCategoryAssignment", "formData": {
+			   "directorCategoryAll|LLoop(DICT.catCount)": "click"
+		}},			
+		{ "screen": "LabCategoryAssignment", "formData": {
+		   "assistantCategoryAll|LLoop(DICT.catCount)": "click"
+		}},			
+		{ "commonAction": "Save and continue" },
+
+        { "screen": "PTProviderInformation", "formData": {
+          "apiCheckbox": "click",
+          "apiId": "1234"
+        } },
+        { "commonAction": "Save and continue" },
+
+        { "screen": "BacteriologyDetails", "formData": {
+          "testingNysAnalytes": "Yes",
+          "antigenGroupAStrep": "click",
+          "antigenGroupAStrepSpecimenType": null,
+          "antigenGroupAStrepProduct": "index=3",
+          "antigenGroupAStrepLabDeveloped": "Yes",
+          "testingNonNysAnalytes": "No"
+        } },
+        { "commonAction": "Save and continue" },
+
+        { "screen": "BloodPhGasesDetails", "formData": {
+          "testingNysAnalytes": "Yes",
+          "pco2": "click",
+          "pco2SpecimenType": null,
+          "pco2Product": "index=3",
+          "pco2LabDeveloped": "Yes",
+          "testingNonNysAnalytes": "No"
+        } },
+        { "commonAction": "Save and continue" },
+
+        { "commonAction": "Save and continue" },
+		
+        { "screen": "DisclosureOfOwnership", "formData": {
+          "typeOfControl": "Government",
+          "entityType": "State",
+          "directOwnerName": null,
+          "directOwnerFein": null,
+		  "governmentOwnersUpload": null,
+          "addressLine1": "100 Broadway",
+          "city": "Menands",
+          "zipCode": "12204",
+          "county": "Albany"
+        } },
+        { "commonAction": "Validate address" },
+        { "screen": "DisclosureOfOwnership", "formData": {
+          "directOwnerHasOtherClpInterests": "No",
+          "indirectOwnerDocUpload": null,
+          "indirectOwnerHasOtherClpInterests": "No"
+        } },
+		
+        { "commonAction": "Save and continue" },
+
+        { "screen": "Declaration", "formData": {
+          "priorPublicHealthLawViolations": "No",
+          "priorFraudOffense": "No",
+          "ownersAuthorizedToOrderTests": "No",
+          "managedByOtherOrganization": "No"
+        } },
+        { "commonAction": "Save and continue" },
+		{ "screen": "Certification", "formData": {
+          "attestPublicHealthLaw": "Yes",
+          "attestNycrr": "Yes",
+          "attestLaboratoryStandards": "Yes",
+          "signatureUpload": null,
+          "filerFirstName": null,
+          "filerLastName": null,
+          "filerEmail": null
+        } },		
+        { "commonAction": "Save and continue" },
+        { "screen": "SummaryPage", "do": [
+          { "field": "CUSTOMFIELD_CONFIRMTEXT", "value": "pageHeading|Summary" }
+        ] },
+		{ "commonAction": "Next" },
+		{ "commonAction": "Proceed to payment" },
+		{ "screen": "PaymentDetails", "formData": { "checkoutButton": "click" } },
+
+        { "screen": "PaymentDetails", "formData": {
+          "cardNumber": null,
+          "expirationDate": null,
+          "cvv": null,
+          "firstName": null,
+          "lastName": null,
+          "addressLine1": null,
+          "city": null,
+          "state": null,
+          "zipCode": null,
+          "email": null,
+          "phone": null
+        } },
+
+        { "screen": "PaymentDetails", "do": [
+          { "field": "submitPayment", "click": true },
+          { "field": "submitPayment", "wait": 5 }
+        ] }
+		
+      ]
+    }
+  ]
+}

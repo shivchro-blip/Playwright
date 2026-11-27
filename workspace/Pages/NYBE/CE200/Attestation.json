@@ -1,0 +1,6 @@
+{
+  "fields": {
+    "AttestationText": { "locator": "[data-opaid='global_global_g_2'] label.Question", "type": "text" },
+     "IAgree": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_CE200_Attest_']", "type": "click" }
+  }
+}

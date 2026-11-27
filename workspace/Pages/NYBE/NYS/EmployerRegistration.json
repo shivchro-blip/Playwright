@@ -1,0 +1,8 @@
+{
+ "fields": {
+   "Instructions": { "locator": "[data-opaid='global_global_g_0'] label.Normal", "type": "text" },
+   "EmployerRegistrationNumber": { "locator": "[data-attributeid='LSI_NYS100_ACDEmplyrRegNum'] input", "type": "text" },
+   "NewEmployerNote": { "locator": "[data-opaid='global_global_g_2'] label.Normal", "type": "text" },
+   "EmployerType": { "locator": "[data-attributeid='LSI_NYS100_ACDEmplyrType'] input", "type": "text" }
+ }
+}

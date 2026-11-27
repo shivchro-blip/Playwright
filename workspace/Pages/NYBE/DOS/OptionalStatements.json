@@ -1,0 +1,27 @@
+{
+ "fields": {
+   "Title": { "locator": "[data-opaid='global_global_g_1'] label.Normal", "type": "text" },
+   "EffectiveDateCheckbox": { "locator": "[data-attributeid='LSI_DOS1239_EffectiveDateCheck'] label.checkbox_label", "type": "checkbox" },
+   "ExistenceOnFiling": { "locator": "[data-attributeid='LSI_DOS1239_ExistenceOfCorp'] label.radio_label:has-text('upon the filing')", "type": "radio" },
+   "ExistenceOnDate": { "locator": "[data-attributeid='LSI_DOS1239_ExistenceOfCorp'] label.radio_label:has-text('on the following date')", "type": "radio" },
+   "DurationDateCheckbox": { "locator": "[data-attributeid='LSI_DOS1239_DurationDateCheck'] label.checkbox_label", "type": "checkbox" },
+   "DurationPerpetual": { "locator": "[data-attributeid='LSI_DOS1239_DurationOfCorpDate'] label.radio_label:has-text('perpetual')", "type": "radio" },
+   "DurationUntilDate": { "locator": "[data-attributeid='LSI_DOS1239_DurationOfCorpDate'] label.radio_label:has-text('until the following date')", "type": "radio" },
+   "LiabilityStatementCheckbox": { "locator": "[data-attributeid='LSI_DOS1239_LiabilityStatementCheck'] label.checkbox_label", "type": "checkbox" },
+   "PreemptiveRightsCheckbox": { "locator": "[data-attributeid='LSI_DOS1239_PreempRights'] label.checkbox_label", "type": "checkbox" },
+   "ManagementStructureCheckbox": { "locator": "[data-attributeid='LSI_DOS1336_ManagementStuctureCheck'] label.checkbox_label", "type": "checkbox" },
+   "ManagedByMembers": { "locator": "[data-attributeid='LSI_DOS1336_ManagementStucture'] label.radio_label:text-is('One or more members')", "type": "radio" },
+   "ManagedByMemberClasses": { "locator": "[data-attributeid='LSI_DOS1336_ManagementStucture'] label.radio_label:text-is('A class or classes of members')", "type": "radio" },
+   "ManagedByManagers": { "locator": "[data-attributeid='LSI_DOS1336_ManagementStucture'] label.radio_label:text-is('One or more managers')", "type": "radio" },
+   "ManagedByManagerClasses": { "locator": "[data-attributeid='LSI_DOS1336_ManagementStucture'] label.radio_label:text-is('A class or classes of managers')", "type": "radio" },
+   "LlcEffectiveDateCheckbox": { "locator": "[data-attributeid='LSI_DOS1336_EffectiveDateCheck'] label.checkbox_label", "type": "checkbox" },
+   "LlcExistenceOnFiling": { "locator": "[data-attributeid='LSI_DOS1336_Existence'] label.radio_label:has-text('upon filing')", "type": "radio" },
+   "LlcExistenceOnDate": { "locator": "[data-attributeid='LSI_DOS1336_Existence'] label.radio_label:has-text('on the following date')", "type": "radio" },
+   "LlcDissolutionCheckbox": { "locator": "[data-attributeid='LSI_DOS1336_DurationDateCheck'] label.checkbox_label", "type": "checkbox" },
+   "LlcDurationPerpetual": { "locator": "[data-attributeid='LSI_DOS1336_DurationDate'] label.radio_label:has-text('perpetual existence')", "type": "radio" },
+   "LlcDissolveOnDate": { "locator": "[data-attributeid='LSI_DOS1336_DurationDate'] label.radio_label:has-text('latest date')", "type": "radio" },
+   "LlcLiabilityStatementCheckbox": { "locator": "[data-attributeid='LSI_DOS1336_IncludeLiabilityStatement'] label.checkbox_label", "type": "checkbox" },
+   "EffectiveDate": { "locator": "[data-attributeid='LSI_DOS_EffectiveDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(30, 30, '%m/%d/%Y')", "typeKeys": true },
+   "DurationDate": { "locator": "[data-attributeid='LSI_DOS_DurationDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(365, 365, '%m/%d/%Y')", "typeKeys": true }
+ }
+}

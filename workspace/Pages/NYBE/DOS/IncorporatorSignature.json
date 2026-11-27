@@ -1,0 +1,20 @@
+{
+ "fields": {
+   "Title": { "locator": "[data-opaid='global_global_g_1'] label.Normal", "type": "text" },
+   "CorporationName": { "locator": "[data-opaid='global_global_g_2'] label.Normal", "type": "text" },
+   "IncorporatorHeading": { "locator": "[data-opaid='global_global_g_5'] label.Heading4", "type": "text" },
+   "FirstName": { "locator": "[data-attributeid='LSI_DOS1239_IncorpFirstName'] input", "type": "text", "autoGen": "name" },
+   "MiddleInitial": { "locator": "[data-attributeid='LSI_DOS1239_IncorpMiddleName'] input", "type": "text" },
+   "LastName": { "locator": "[data-attributeid='LSI_DOS1239_IncorpLastName'] input", "type": "text", "autoGen": "name" },
+   "UseServiceOfProcessAddress": { "locator": "button:text-is('Use Service of Process Address'):visible", "type": "button" },
+   "AddressLine1": { "locator": "[data-attributeid='LSI_DOS1239_IncorpAdd1'] input", "type": "text", "autoGen": "addressLine1" },
+   "AddressLine2": { "locator": "[data-attributeid='LSI_DOS1239_IncorpAdd2'] input", "type": "text" },
+   "City": { "locator": "[data-attributeid='LSI_DOS1239_IncorpCity'] input", "type": "text", "autoGen": "city" },
+   "State": { "locator": "[data-attributeid='LSI_DOS1239_IncorpState'] select", "type": "select" },
+   "Zip": { "locator": "[data-attributeid='LSI_DOS1239_IncorpZip'] input", "type": "text", "autoGen": "zipcode" },
+   "Zip4": { "locator": "[data-attributeid='LSI_DOS1239_IncorpZip4'] input", "type": "text" },
+   "SignatureHeading": { "locator": "[data-opaid='global_global_g_20'] label.Heading4", "type": "text" },
+   "Signature": { "locator": "[data-attributeid='LSI_DOS_Signature'] input", "type": "text" },
+   "TitleOfSigner": { "locator": "[data-attributeid='LSI_DOS_TitleOfSigner'] input", "type": "text" }
+ }
+}

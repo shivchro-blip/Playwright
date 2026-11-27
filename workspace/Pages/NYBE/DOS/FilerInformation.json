@@ -1,0 +1,18 @@
+{
+ "fields": {
+   "Title": { "locator": "[data-opaid='global_global_g_1'] label.Normal", "type": "text" },
+   "CorporationName": { "locator": "[data-opaid='global_global_g_2'] label.Normal", "type": "text" },
+   "FilerHeading": { "locator": "[data-opaid='global_global_g_5'] label.Heading4", "type": "text" },
+   "FilerName": { "locator": "[data-attributeid='LSI_DOS_FilerName'] input", "type": "text", "autoGen": "fullname" },
+   "AddressLine1": { "locator": "[data-attributeid='LSI_DOS_FilerAdd1'] input", "type": "text", "autoGen": "addressLine1" },
+   "AddressLine2": { "locator": "[data-attributeid='LSI_DOS_FilerAdd2'] input", "type": "text" },
+   "City": { "locator": "[data-attributeid='LSI_DOS_FilerCity'] input", "type": "text", "autoGen": "city" },
+   "State": { "locator": "[data-attributeid='LSI_DOS_FilerState'] select", "type": "select" },
+   "Zip": { "locator": "[data-attributeid='LSI_DOS_FilerZip'] input", "type": "text", "autoGen": "zipcode" },
+   "Zip4": { "locator": "[data-attributeid='LSI_DOS_FilerZip4'] input", "type": "text" },
+   "UseServiceOfProcessAddress": { "locator": "button:text-is('Use Service of Process Address'):visible", "type": "button" },
+   "UseIncorporatorAddress": { "locator": "button:text-is('Use Incorporator Address'):visible", "type": "button" },
+   "Email": { "locator": "[data-attributeid='LSI_DOS_EmailAddress'] input", "type": "text", "autoGen": "email" },
+   "ConfirmEmail": { "locator": "[data-attributeid='LSI_DOS_EmailVerification'] input", "type": "text" }
+ }
+}

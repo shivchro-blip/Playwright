@@ -1,0 +1,10 @@
+{
+ "fields": {
+   "Notice": { "locator": "[data-opaid='global_global_g_0'] label.Normal", "type": "text" },
+   "OwnerSummary": { "locator": "fieldset [data-attributeid='LSI_LSA19_TheGamAttestOwnershipId'] p", "type": "text" },
+   "ConvictedYes": { "locator": "[data-attributeid='LSI_LSA19_ApplicantConviction'] label[for^='boolRadioY_']", "type": "radio" },
+   "ConvictedNo": { "locator": "[data-attributeid='LSI_LSA19_ApplicantConviction'] label[for^='boolRadioN_']", "type": "radio" },
+   "ChargesPendingYes": { "locator": "[data-attributeid='LSI_LSA19_OwnerChargesPending'] label[for^='boolRadioY_']", "type": "radio" },
+   "ChargesPendingNo": { "locator": "[data-attributeid='LSI_LSA19_OwnerChargesPending'] label[for^='boolRadioN_']", "type": "radio" }
+ }
+}

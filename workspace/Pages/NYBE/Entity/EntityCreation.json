@@ -1,0 +1,7 @@
+{
+  "fields": {
+    "myBusinessNotListedCell": { "role": "cell", "name": "My business is not listed", "type": "button" },
+	"myNameNotListedCell": { "role": "cell", "name": "My name is not listed", "type": "button" },
+    "startApplicationButton": { "role": "button", "name": "Start Application", "type": "button" }
+  }
+}

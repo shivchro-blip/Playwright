@@ -1,0 +1,10 @@
+{
+  "fields": {
+    "SupervisorUid": { "locator": "[data-attributeid='LSI_AEB_NailVRSupervisingSpecialistID'] .AEB_UID input.form-control[type='text']", "type": "text" },
+    "SupervisorUidLookup": { "locator": "[data-attributeid='LSI_AEB_NailVRSupervisingSpecialistID'] button.AEB_UID_Validate_Button", "type": "click" },
+    "SupervisorUidResult": { "locator": "[data-attributeid='LSI_AEB_NailVRSupervisingSpecialistID'] .AEB_UID_Validation_Result", "type": "text" },
+    "BusinessLicenseUid": { "locator": "[data-attributeid='LSI_AEB_AEVRBusinessLicenseID'] .AEB_UID input.form-control[type='text']", "type": "text" },
+    "BusinessLicenseUidLookup": { "locator": "[data-attributeid='LSI_AEB_AEVRBusinessLicenseID'] button.AEB_UID_Validate_Button", "type": "click" },
+    "BusinessLicenseUidResult": { "locator": "[data-attributeid='LSI_AEB_AEVRBusinessLicenseID'] .AEB_UID_Validation_Result", "type": "text" }
+  }
+}

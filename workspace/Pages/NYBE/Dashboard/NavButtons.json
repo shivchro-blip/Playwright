@@ -1,0 +1,13 @@
+{
+  "fields": {
+    "back": { "locator": "#btnBack", "type": "link" },
+    "saveAndContinue": { "locator": "input#btnNext[value='Save & Continue']", "type": "button" },
+    "next": { "locator": "input#btnNext[value='Next']", "type": "button" },
+	"validateAddress": { "locator": "button[id^='addresvalidate_']:visible", "type": "button" },
+	"loader": { "locator": "div.nybe-interview-loader-overlay:visible", "type": "text" },
+	"proceedToPayment": { "locator": "input#btnNext[value='Proceed to Payment']", "type": "button" },
+	"proceed": { "locator": "input#btnNext[value='Proceed']", "type": "button" },
+	"submitApplication": {"locator": "button:has-text('Submit Application'):visible, input[value='Submit Application']:visible","type": "button"},
+    "exitApplication": { "locator": "#btnSave", "type": "link" }
+  }
+}

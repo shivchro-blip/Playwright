@@ -1,0 +1,15 @@
+{
+ "fields": {
+   "OwnerSummary": { "locator": "[data-attributeid='LSI_LSA19_TheGamAttestOwnershipId'] p", "type": "text" },
+   "BirthPlaceHeading": { "locator": "label.Heading4:text-is(\"Owner's Place of Birth (City, State and Country)\")", "type": "text" },
+   "BirthCountry": { "locator": "[data-attributeid='LSI_LSA19_OwnerCountry'] select", "type": "select" },
+   "BirthState": { "locator": "[data-attributeid='LSI_LSA19_OwnerState'] select", "type": "select" },
+   "BirthCity": { "locator": "[data-attributeid='LSI_LSA19_OwnerCity'] input", "type": "text", "autoGen": "city" },
+   "UsCitizenYes": { "locator": "[data-attributeid='LSI_LSA19_OwnerUSCitizen'] label[for^='boolRadioY_']", "type": "radio" },
+   "UsCitizenNo": { "locator": "[data-attributeid='LSI_LSA19_OwnerUSCitizen'] label[for^='boolRadioN_']", "type": "radio" },
+   "ResidentAlienYes": { "locator": "[data-attributeid='LSI_LSA19_OwnerResidentAlien'] label[for^='boolRadioY_']", "type": "radio" },
+   "ResidentAlienNo": { "locator": "[data-attributeid='LSI_LSA19_OwnerResidentAlien'] label[for^='boolRadioN_']", "type": "radio" },
+   "AlienCardNumber": { "locator": "[data-attributeid='LSI_LSA19_OwnerResidentAlienCardNum'] input", "type": "text", "autoGen": "getIntBetween(100000000, 999999999)" },
+   "OwnerEmail": { "locator": "[data-attributeid='LSI_LSA19_OwnerEmail'] input", "type": "text", "autoGen": "email" }
+ }
+}

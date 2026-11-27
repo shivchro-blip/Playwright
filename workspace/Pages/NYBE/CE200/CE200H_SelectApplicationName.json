@@ -1,0 +1,8 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "GoBack": { "locator": "input#removeSelection", "type": "button" },
+   "NameNotListed": { "locator": "tr.notListed td.colName", "type": "button" },
+   "StartApplication": { "locator": "input#start-app-btn", "type": "button" }
+ }
+}

@@ -1,0 +1,33 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "firstName": { "locator": "input[id^='global_global_a_LSI_CLPDirectorFirstName_']", "type": "text" },
+    "middleInitial": { "locator": "input[id^='global_global_a_LSI_CLPDirectorMiddleInitial_']", "type": "text" },
+    "lastName": { "locator": "input[id^='global_global_a_LSI_CLPDirectorLastName_']", "type": "text" },
+    "cqCode": { "locator": "input[id^='global_global_a_LSI_CLPDirectorCQCode_']", "type": "text" },
+    "verifyButton": { "locator": "button[id^='cqLookupLookup_Button_']", "type": "button" },
+    "cqResult": { "locator": "tbody.cqLookupLookupResultsTable tr:first-child label.radio_label", "type": "radio" },
+    "directorEmail": { "locator": "input[id^='global_global_a_LSI_CLPDirectorEmailAddress_']", "type": "text", "autoGen": "email" },
+    "last4SSN": { "locator": "input[id^='global_global_a_LSI_CLPDirectorLast4SSN_']", "type": "text" },
+    "noSsnCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_CLPDirectorHasNoSSN_']", "type": "checkbox" },
+    "noSsnReason": { "locator": "textarea[id^='global_global_a_LSI_CLPDirectorHasNoSSNReason_']", "type": "text" },
+    "hours": { "locator": "input[id^='global_global_a_LSI_CLPDirectorHoursOnsite_']", "type": "text" },
+    "weeklyCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_CLPDirectorHoursFeqIsWeekly_']", "type": "checkbox" },
+    "everyOtherWeekCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_CLPDirectorHoursFeqIsBiWeekly_']", "type": "checkbox" },
+    "otherFrequencyCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_CLPDirectorHoursFeqIsOther_']", "type": "checkbox" },
+    "hoursNote": { "locator": "textarea[id^='global_global_a_LSI_CLPDirectorHoursNote_']", "type": "text" },
+
+    "addDirectorship": { "locator": "table:has(th:text-is('Additional Directorships of the Director')) button.crc2_addbutton", "type": "button" },
+    "dirLabName": { "locator": "input[id*='LSI_CLPOtherLabName_']", "type": "text", "autoGen": "name" },
+    "dirLabCliaNumber": { "locator": "input[id*='LSI_CLPOtherLabCLIANumber_']", "type": "text" },
+    "dirLabPfi": { "locator": "input[id*='LSI_CLPOtherLabPFINumber_']", "type": "text" },
+    "dirLabAddressLine1": { "locator": "input[id*='LSI_CLPOtherLabAddressLine1_']", "type": "text", "autoGen": "addressLine1" },
+    "dirLabCity": { "locator": "input[id*='LSI_CLPOtherLabAddressCity_']", "type": "text", "autoGen": "city" },
+    "dirLabCountry": { "locator": "select[id*='LSI_CLPOtherLabAddressCountry_']", "type": "select" },
+    "dirLabState": { "locator": "select[id*='LSI_CLPOtherLabAddressState_']", "type": "select" },
+    "dirLabZip": { "locator": "input[id*='LSI_CLPOtherLabAddressZip_']", "type": "text", "autoGen": "zipcode" },
+    "dirLabZip4": { "locator": "input[id*='LSI_CLPOtherLabAddressZip4_']", "type": "text" },
+    "dirLabCounty": { "locator": "select[id*='LSI_CLPOtherLabAddressCounty_']", "type": "select", "autoGen": "county" },
+    "dirLabSave": { "locator": ".modal-footer button.save-close", "type": "button" }
+  }
+}

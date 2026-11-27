@@ -1,0 +1,13 @@
+{
+ "fields": {
+   "AcquiredBusinessYes": { "locator": "[data-attributeid='LSI_DTF17_AcquiredBus'] label[for^='boolRadioY_']", "type": "radio" },
+   "AcquiredBusinessNo": { "locator": "[data-attributeid='LSI_DTF17_AcquiredBus'] label[for^='boolRadioN_']", "type": "radio" },
+   "FiledFormYes": { "locator": "[data-attributeid='LSI_DTF17_FiledTaxDept'] label[for^='boolRadioY_']", "type": "radio" },
+   "FiledFormNo": { "locator": "[data-attributeid='LSI_DTF17_FiledTaxDept'] label[for^='boolRadioN_']", "type": "radio" },
+   "FormerOwnerName": { "locator": "[data-attributeid='LSI_DTF17_BusInfoName'] input", "type": "text", "autoGen": "name" },
+   "SellerId": { "locator": "[data-attributeid='LSI_DTF17_SellerNum'] input", "type": "text", "autoGen": "getIntBetween(100000000, 999999999)" },
+   "FormerOwnerAddress": { "locator": "[data-attributeid='LSI_DTF17_BusInfnAdd'] input", "type": "text", "autoGen": "addressLine1" },
+   "FormerOwnerCity": { "locator": "[data-attributeid='LSI_DTF17_BusCity'] input", "type": "text", "autoGen": "city" },
+   "FormerOwnerZip": { "locator": "[data-attributeid='LSI_DTF17_SIBusZip'] input", "type": "text", "autoGen": "zipcode" }
+ }
+}

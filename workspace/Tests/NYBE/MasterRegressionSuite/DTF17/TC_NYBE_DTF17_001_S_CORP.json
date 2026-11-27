@@ -1,0 +1,388 @@
+{
+  "testCases": [
+    {
+      "testCaseID": "TC_NYBE_DTF17_001_S_CORP",
+      "description": "Sign in through NY.gov, open the Test Dashboard and start the DTF17 interview for an S Corporation, complete entity setup, Business Information, Former Owner Information, Financial Information, Physical Mailing Address, Additional Locations, Corporate Ownership, Business Entity Background, Business Associations, Business Activity, Responsible Persons and Attestation, then submit the application.",
+      "system": "NYBE",
+      "env": "dev",
+      "module": "licenses",
+      "tags": [
+        "NYBE",
+        "DTF17",
+        "smoke",
+		"TC_NYBE_DTF17_001_S_CORP"
+      ],
+      "steps": [
+        {
+          "screen": "NYBEHome",
+          "do": [
+            {
+              "field": "loginRegisterLink",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYBELoginRegister",
+          "do": [
+            {
+              "field": "loginHereButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYGovSignIn",
+          "do": [
+            {
+              "field": "username",
+              "value": "ENV.NYBE_DEV_USERNAME"
+            },
+            {
+              "field": "password",
+              "value": "ENV.NYBE_DEV_PASSWORD"
+            },
+            {
+              "field": "signInButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYBEDashboard",
+          "do": [
+            {
+              "field": "openDropdownButton",
+              "click": true
+            },
+            {
+              "field": "testDashboardLink",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYBETestDashboard",
+          "do": [
+            {
+              "field": "startInterviewLink",
+              "value": "DTF17"
+            }
+          ]
+        },
+        {
+          "screen": "EntityCreation",
+          "do": [
+            {
+              "field": "myBusinessNotListedCell",
+              "click": true
+            },
+            {
+              "field": "startApplicationButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "EntityTypeSelection",
+          "do": [
+            {
+              "field": "getStartedButton",
+              "click": true
+            },
+            {
+              "field": "entityType",
+              "value": "Corporation"
+            },
+            {
+              "field": "entitySubType",
+              "value": "S Corp"
+            },
+            {
+              "field": "continueButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "EntityInformation",
+          "do": [
+            {
+              "field": "legalNameCorporation",
+              "use": null
+            },
+            {
+              "field": "dbaName",
+              "use": null
+            },
+            {
+              "field": "ein",
+              "use": null
+            }
+          ]
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "commonAction": "Next"
+        },
+        {
+          "screen": "BusinessAddress",
+          "formData": {
+            "addressLine1": "100 Broadway",
+            "city": "Menands",
+            "zipCode": "12204",
+            "county": "Albany"
+          }
+        },
+        {
+          "commonAction": "Validate address"
+        },
+        {
+          "screen": "BusinessAddress",
+          "formData": {
+            "sameAsMailingCheckbox": "click"
+          }
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "screen": "ContactInformation",
+          "do": [
+            {
+              "field": "cdiNumberTheSpPhone",
+              "use": null
+            },
+            {
+              "field": "globalGlobalACdiBusmobile1",
+              "use": null
+            },
+            {
+              "field": "globalGlobalACdiBusfax1",
+              "use": null
+            },
+            {
+              "field": "cdiEmailTheSpEmail",
+              "use": null
+            },
+            {
+              "field": "globalGlobalACdiBusweb",
+              "value": "www.nybe.com"
+            }
+          ]
+        },        
+        {
+          "commonAction": "Save and continue"
+        },
+		{
+		  "screen": "NaicsCodeSelection",
+		  "formData": {
+			"PrimaryFilterByCategory": "click",
+			"PrimarySector": "44 Retail Trade",
+			"PrimarySubSector": "445 Food and Beverage Retailers",
+			"PrimaryIndustry": "4452 Specialty Food Retailers",
+			"PrimaryClassification": "445230 Fruit and Vegetable Retailers",
+			"PrimarySelect": "click"
+		  }
+		},
+		{
+		  "screen": "NaicsCodeSelection",
+		  "formData": {
+			"HasSecondaryYes": "click",
+			"SecondaryFilterByCategory": "click",
+			"SecondarySector": "11 Agriculture, Forestry, Fishing and Hunting",
+			"SecondarySubSector": "115 Support Activities for Agriculture and Forestry",
+			"SecondaryIndustry": "1151 Support Activities for Crop Production",
+			"SecondaryClassification": "115111 Cotton Ginning",
+			"SecondarySelect": "click"
+		  }
+		},
+		{ "commonAction": "Save and continue" },
+        {
+          "commonAction": "Next"
+        },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "AddPrincipal": "click" } },
+		{ "screen": "OfficerShareholderPrincipal", "formData": {
+			"PrincipalType": "Person",
+			"PersonTitle": "President",
+			"FirstName": null,
+			"LastName": null,
+			"DobYear": "2000",
+			"DobMonth": "1",
+			"DobDay": "1",
+			"ResidentYes": "click",
+			"SsnArea": null,
+			"SsnGroup": null,
+			"SsnSerial": null,
+			"PersonPhone": null,
+			"PersonEmail": null,
+			"OwnershipPercent": "51",
+			"HomeAddressLine1": null,
+			"HomeCity": null,
+			"HomeZip": null,
+			"HomeCounty": null
+		} },
+		{ "commonAction": "Validate address" },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "SavePrincipal": "click" } },
+
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "AddPrincipal": "click" } },
+		{ "screen": "OfficerShareholderPrincipal", "formData": {
+			"PrincipalType": "Business",
+			"BusinessTitle": "Shareholder",
+			"BusinessLegalName": null,
+			"BusinessEin": null,
+			"BusinessPhone": null,
+			"BusinessEmail": null,
+			"OwnershipPercent": "49",
+			"BusinessAddressLine1": null,
+			"BusinessCity": null,
+			"BusinessZip": null,
+			"BusinessCounty": null
+		} },
+		{ "commonAction": "Validate address" },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "SavePrincipal": "click" } },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "CUSTOMFIELD_CONFIRMTEXT": "TotalRecords|2" } },
+		{ "commonAction": "Save and continue" },
+        { "commonAction": "Next" },
+		{ "screen": "BusinessInformation", "formData": {
+		   "CUSTOMFIELD_CONFIRMTEXT": "Heading|Business Information",
+		   "ReasonApply": "Starting a new business",
+		   "BeginBusinessDate": null,
+		   "BusinessActivity": "BusinessActivity",
+		   "HomeBasedNo": "click"
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "FormerOwnerInformation", "formData": {
+		   "AcquiredBusinessYes": "click",
+		   "FiledFormYes": "click",
+		   "FormerOwnerName": null,
+		   "SellerId": null,
+		   "FormerOwnerAddress": null,
+		   "FormerOwnerCity": null,
+		   "FormerOwnerZip": null
+		} },
+		{ "commonAction": "Save and continue" },	
+		{ "screen": "FinancialInformation", "formData": {			
+			"AcceptCardsYes": "click",
+			"ExpectedAnnualSales": "$35,001 - $3,500,000",
+			"ExpectedAnnualTax": "$3001 - $10,000",
+			"BankName": "JPMorgan Chase",
+			"RoutingNumber": "021000021",
+			"AccountNumber": null
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "PhysicalMailingAddress", "formData": { "PhysicalAddress": "100 Broadway", "MailingAddress": "100 Broadway" } },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "AdditionalLocations", "formData": { "MorePermanentPlace_No": "click" } },
+		{ "commonAction": "Save and continue" },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "CorporateOwnership", "formData": { "ShareholderDifferentCorp_No": "click", "ShareholderTaxCrime_No": "click", "PubliclyTraded_Yes": "click" } },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "BusinessEntityBackground", "formData": { 
+			"TaxNotPaid_No": "click", "TaxCrime_No": "click", "TaxAssessment_No": "click", "EntityTaxCrime_No": "click", 	"PriorCertificate_No": "click" } },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "BusinessAssociations",
+			  "formData": {
+				"Franchisee_Yes": "click",
+				"FranchisorName": null,
+				"FranchisorId": null,
+				"FranchisorAddress1": null,
+				"FranchisorCity": null,
+				"FranchisorZip": null,
+				"OwnedByEntity_Yes": "click",
+				"OwnerName": null,
+				"OwnerTaxIdType": "EIN",
+				"OwnerTaxId": null,
+				"OwnerAddress1": null,
+				"OwnerCity": null,
+				"OwnerZip": null,
+				"TaxType": "Sales Tax",
+				"TaxTypeIdNumber": null,
+				"DifferentEntityReporting_Yes": "click",
+				"ReportingEntityName": null,
+				"ReportingEntityId": null,
+				"HasTaxPreparer_Yes": "click",
+				"PreparerName": null,
+				"PreparerEin": null,
+				"PreparerDate": null,
+				"PreparerAddress1": null,
+				"PreparerCity": null,
+				"PreparerZip": null,
+				"PreparerEmail": null,
+				"PreparerPhone": null
+		  }
+		},
+		{ "commonAction": "Save and continue" },	
+		{ "commonAction": "Save and continue" },		
+		{
+		  "screen": "BusinessActivity",
+		  "formData": {
+			"SlaLicensed_No": "click",
+			"LotteryLicensed_No": "click",
+			"DmvFacility_No": "click",
+			"OcmLicensed_No": "click",
+			"SellsTobacco_No": "click",
+			"SellsVapor_No": "click",
+			"SellsCannabis_No": "click",
+			"SellsNewTires_No": "click",
+			"SellsMotorFuel_No": "click",
+			"SellsHeatingFuel_No": "click",
+			"SellsElectricity_No": "click",
+			"SellsWireless_No": "click",
+			"SellsTelecom_No": "click",
+			"SellsClothing_No": "click",
+			"ManufacturerOrWholesaler_No": "click",
+			"FleaMarketsOnly_No": "click",
+			"SidewalkVendorOnly_No": "click"
+		  }
+		},
+		{ "commonAction": "Save and continue" },
+		{ "commonAction": "Next" },		
+		{
+		  "screen": "ResponsiblePersons",
+		  "formData": {
+			"ResponsiblePerson": "President",
+			"EffectiveDate": null,
+			"ActiveInOperations_Yes": "click",
+			"DecidesFinancialObligations_Yes": "click",
+			"PersonnelActivity_No": "click",
+			"CheckSigning_Yes": "click",
+			"PreparesTaxReturns_No": "click",
+			"BusinessDecisions_Yes": "click",
+			"TaxOrGeneralManager_No": "click",
+			"OpenJudgments_No": "click",
+			"PendingCharges_No": "click",
+			"PastJudgments5y_No": "click",
+			"RevokedLicense5y_No": "click",
+			"Investigated5y_No": "click",
+			"Misdemeanor5y_No": "click",
+			"Sanction5y_No": "click",
+			"FailedToFileReturn5y_No": "click",
+			"FailedToPayTaxes5y_No": "click",
+			"Bankruptcy7y_No": "click",
+			"FelonyConviction10y_No": "click"
+		  }
+		},
+		{ "commonAction": "Save and continue" },
+		{ "commonAction": "Next" },	
+		{
+		  "screen": "DTF17Attestation",
+		  "formData": {
+			"AttestingPerson": "President",
+			"AttestCheck": "click"			
+		  }
+		},
+		{ "commonAction": "Save and continue" },		
+		{ "commonAction": "Submit application" } 
+      ]
+    }
+  ]
+}

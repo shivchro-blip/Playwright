@@ -1,0 +1,14 @@
+{
+ "fields": {
+   "ContactPerson": { "locator": "[data-attributeid='LSI_LSA19_GamContactID'] select", "type": "select" },
+   "Title": { "locator": "[data-attributeid='LSI_LSA19_GamBusContactTitle'] input", "type": "text" },
+   "FirstName": { "locator": "[data-attributeid='LSI_LSA19_GamBusFirstName'] input", "type": "text", "autoGen": "name" },
+   "MiddleInitial": { "locator": "[data-attributeid='LSI_LSA19_GamBusMiddleInitial'] input", "type": "text" },
+   "LastName": { "locator": "[data-attributeid='LSI_LSA19_GamBusLastName'] input", "type": "text", "autoGen": "name" },
+   "Phone": { "locator": "[data-attributeid='LSI_LSA19_BusContactPhone'] input", "type": "text", "autoGen": "phone" },
+   "MobilePhone": { "locator": "[data-attributeid='LSI_LSA19_BusContactMobile'] input", "type": "text", "autoGen": "phone" },
+   "Email": { "locator": "[data-attributeid='LSI_LSA19_BusContactEmail'] input", "type": "text", "autoGen": "email" },
+   "BestTimeMorning": { "locator": "[data-attributeid='LSI_LSA19_BusContactTime'] label.radio_label:text-is('Between 8am - 12pm')", "type": "radio" },
+   "BestTimeAfternoon": { "locator": "[data-attributeid='LSI_LSA19_BusContactTime'] label.radio_label:text-is('Between 12pm - 4pm')", "type": "radio" }
+ }
+}

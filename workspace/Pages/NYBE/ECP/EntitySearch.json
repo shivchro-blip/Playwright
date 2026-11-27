@@ -1,0 +1,12 @@
+{
+ "fields": {
+   "Instructions": { "locator": "[data-opaid='global_global_g_0'] label.Normal", "type": "text" },
+   "SelectedEntity": { "locator": "[data-opaid='global_global_g_1'] p", "type": "text" },
+   "SearchBy": { "locator": "select.dosSearchType", "type": "select" },
+   "SearchValue": { "locator": "input.dosSearchValue", "type": "text" },
+   "SearchButton": { "locator": "button.dosComplexSearchButton", "type": "button" },
+   "ResultsCaption": { "locator": "h4.dosSearchResultsCaption", "type": "text" },
+   "ResultsInfo": { "locator": "div.dt-info", "type": "text" },
+   "SelectResult": { "locator": "tbody.dosSearchResultsTable tr:has(td:text-is('{value}')) label.radio_label", "type": "radio" }
+ }
+}

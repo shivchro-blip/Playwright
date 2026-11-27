@@ -1,0 +1,24 @@
+{
+  "fields": {
+    "PhysicalAddress": {
+      "locator": "[data-attributeid='LSI_DTF17_PHYADD_ID'] tr:has(label:has-text('{value}')) label.radio_label",
+      "type": "click"
+    },
+    "AddPhysicalAddress": {
+      "locator": "[data-attributeid='LSI_DTF17_PHYADD_ID'] a.add-new-instance",
+      "type": "click"
+    },
+    "PhysicalCounty": {
+      "locator": "[data-attributeid='LSI_DTF17_PhysicalAddLSICounty'] input",
+      "type": "text"
+    },
+    "MailingAddress": {
+      "locator": "[data-attributeid='LSI_DTF17_MAILADD_ID'] tr:has(label:has-text('{value}')) label.radio_label",
+      "type": "click"
+    },
+    "AddMailingAddress": {
+      "locator": "[data-attributeid='LSI_DTF17_MAILADD_ID'] a.add-new-instance",
+      "type": "click"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+ "fields": {
+   "TaxIdDisplay": { "locator": "[data-opaid='global_global_g_1'] label.Normal", "type": "text" },
+   "TaxIdNumber": { "locator": "[data-attributeid='LSI_LSA19_TaxIdNum'] input", "type": "text", "autoGen": "fein" },
+   "SlaLicenseNumber": { "locator": "[data-attributeid='LSI_LSA19_SLALicNum'] input", "type": "text", "autoGen": "getIntBetween(1000000, 9999999)" },
+   "SlaExpirationDate": { "locator": "[data-attributeid='LSI_LSA19_SLAExpDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(365, 365, '%m/%d/%Y')", "typeKeys": true }
+ }
+}

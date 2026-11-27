@@ -1,0 +1,7 @@
+{
+  "fields": {
+    "AttestingPerson": { "locator": "[data-attributeid='LSI_DTF17_Attestation_ID'] tr:has(label:has-text('{value}')) label.radio_label", "type": "click" },
+    "AttestCheck": { "locator": "[data-attributeid='LSI_DTF17_AttestCheck'] label.checkbox_label", "type": "click" },
+    "AttestText": { "locator": "[data-attributeid='LSI_DTF17_AttestText'] textarea", "type": "text" }
+  }
+}

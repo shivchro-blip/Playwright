@@ -1,0 +1,14 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "RequestorName": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorName'] input", "type": "text", "autoGen": "fullname" },
+   "AddressLine1": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorAddressLine1'] input", "type": "text", "autoGen": "addressLine1" },
+   "AddressLine2": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorAddressLine2'] input", "type": "text" },
+   "City": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorAddressCity'] input", "type": "text", "autoGen": "city" },
+   "Country": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorAddressCountry'] select", "type": "select" },
+   "State": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorAddressState'] select", "type": "select" },
+   "Zip": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorAddressZip'] input", "type": "text", "autoGen": "zipcode" },
+   "Email": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorEmail'] input", "type": "text", "autoGen": "email" },
+   "ConfirmEmail": { "locator": "[data-attributeid='LSI_DOSECOPY_RequestorEmailConfirm'] input", "type": "text" }
+ }
+}

@@ -1,0 +1,15 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "facilityType": { "locator": "select[id^='global_global_a_LSI_CLPFacilityType_']", "type": "select" },
+    "facilityTypeOther": { "locator": "input[id^='global_global_a_LSI_CLPFacilityTypeOther_']", "type": "text" },
+    "contiguousSpace": { "locator": "div.radio:has(input[name^='global_global_a_LSI_CLPFacilityLabSpaceIsContiguous_']) label:text-is('{value}')", "type": "radio" },
+    "contiguousExplanation": { "locator": "textarea[id^='global_global_a_LSI_CLPFacilityLabSpaceExplaination_']", "type": "text" },
+    "sharedSpace": { "locator": "div.radio:has(input[name^='global_global_a_LSI_CLPFacilityLabSpaceIsShared_']) label:text-is('{value}')", "type": "radio" },
+    "sharedSpaceExplanation": { "locator": "textarea[id^='global_global_a_LSI_CLPFacilityLabFloorPlanExplaination_']", "type": "text" },
+    "limitedServiceLab": { "locator": "div.radio:has(input[name^='global_global_a_LSI_CLPFacilityLabIsLSL_']) label:text-is('{value}')", "type": "radio" },
+    "limitedServicePfi": { "locator": "input[id^='global_global_a_LSI_CLPFacilityLabLSLPFI_']", "type": "text" },
+    "accreditedByOtherAgencies": { "locator": "div.radio:has(input[name^='global_global_a_LSI_CLPFacilityLabIsAccreditedByOtherAgencies_']) label:text-is('{value}')", "type": "radio" },
+    "otherAgenciesText": { "locator": "input[id^='global_global_a_LSI_CLPFacilityLabOtherAgenciesText_']", "type": "text" }
+  }
+}

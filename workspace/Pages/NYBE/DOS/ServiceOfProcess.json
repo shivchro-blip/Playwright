@@ -1,0 +1,25 @@
+{
+ "fields": {
+   "Heading": { "locator": "[data-opaid='global_global_g_4'] label.Heading4", "type": "text" },
+   "SopEnterAddress": { "locator": "[data-attributeid='LSI_DOS_Secretary_StateAddress'] label.radio_label:text-is('Enter Service of Process Postal Address')", "type": "radio" },
+   "SopSelectCompany": { "locator": "[data-attributeid='LSI_DOS_Secretary_StateAddress'] label.radio_label:text-is('Select a Service Company')", "type": "radio" },
+   "SopName": { "locator": "[data-attributeid='LSI_DOS_SoPName'] input", "type": "text", "autoGen": "fullname" },
+   "SopAddress1": { "locator": "[data-attributeid='LSI_DOS_SoPAdd1'] input", "type": "text", "autoGen": "addressLine1" },
+   "SopCity": { "locator": "[data-attributeid='LSI_DOS_SoPCity'] input", "type": "text", "autoGen": "city" },
+   "SopState": { "locator": "[data-attributeid='LSI_DOS_SoPState'] select", "type": "select" },
+   "SopZip": { "locator": "[data-attributeid='LSI_DOS_SoPZip'] input", "type": "text", "autoGen": "zipcode" },   
+   "SopEmailCheckbox": { "locator": "[data-attributeid='LSI_DOS_SoPHasEmail'] label.checkbox_label", "type": "checkbox" },
+   "SopEmail": { "locator": "[data-attributeid='LSI_DOS_SoPEmailAddress'] input", "type": "text", "autoGen": "email" },
+   "SopEmailConfirm": { "locator": "[data-attributeid='LSI_DOS_SoPEmailAddressVerify'] input", "type": "text" },
+   "RegisteredAgentCheckbox": { "locator": "[data-attributeid='LSI_DOS_RegCheck'] label.checkbox_label", "type": "checkbox" },
+   "RaEnterInfo": { "locator": "[data-attributeid='LSI_DOS_RegisteredAddress'] label.radio_label:text-is('Enter Registered Agent Information')", "type": "radio" },
+   "RaSelectCompany": { "locator": "[data-attributeid='LSI_DOS_RegisteredAddress'] label.radio_label:text-is('Select a Service Company')", "type": "radio" },
+   "RaName": { "locator": "[data-attributeid='LSI_DOS_RAName'] input", "type": "text", "autoGen": "fullname" },
+   "RaAddress1": { "locator": "[data-attributeid='LSI_DOS_RAAdd1'] input", "type": "text", "autoGen": "addressLine1" },
+   "RaCity": { "locator": "[data-attributeid='LSI_DOS_RACity'] input", "type": "text", "autoGen": "city" },
+   "RaState": { "locator": "[data-attributeid='LSI_DOS_RAState'] select", "type": "select" },
+   "RaZip": { "locator": "[data-attributeid='LSI_DOS_RAZip'] input", "type": "text", "autoGen": "zipcode" }
+   
+
+ }
+}

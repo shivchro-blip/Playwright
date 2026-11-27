@@ -1,0 +1,23 @@
+{
+ "fields": {
+   "AddPrincipal": { "locator": "button[id^='crc2add_']:visible >> nth=0", "type": "button" },
+   "ModalHeading": { "locator": ".modal-content:visible h2.modal-title", "type": "text" },
+   "Title": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincPersonTitleSp'] select", "type": "select" },
+   "FirstName": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincFirstName'] input", "type": "text", "autoGen": "name" },
+   "LastName": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincLastName'] input", "type": "text", "autoGen": "name" },
+   "DobYear": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincDob'] select.dmyyear", "type": "select", "autoGen": "dobY" },
+   "DobMonth": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincDob'] select.dmymonth", "type": "select", "autoGen": "dobM" },
+   "DobDay": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincDob'] select.dmyday", "type": "select", "autoGen": "dobD" },
+   "ResidentYes": { "locator": ".modal-content:visible [data-attributeid='CDI_resident'] label[for^='boolRadioY_']", "type": "radio" },
+   "Ssn1": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincSSN'] input[id$='-ssn1']", "type": "text", "autoGen": "getIntBetween(100, 665)", "typeKeys": true },
+   "Ssn2": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincSSN'] input[id$='-ssn2']", "type": "text", "autoGen": "getIntBetween(10, 99)", "typeKeys": true },
+   "Ssn3": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincSSN'] input[id$='-ssn3']", "type": "text", "autoGen": "getIntBetween(1000, 9999)", "typeKeys": true },
+   "Phone": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincPhone1'] input", "type": "text", "autoGen": "phone" },
+   "Email": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincEmail'] input", "type": "text", "autoGen": "email" },
+   "AddressLine1": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincAddHomeline1'] input", "type": "text", "autoGen": "addressLine1" },
+   "City": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincAddCity'] input", "type": "text", "autoGen": "city" },
+   "Zip": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincAddHomeZip'] input", "type": "text", "autoGen": "zipcode" },
+   "County": { "locator": ".modal-content:visible [data-attributeid='CDI_PrincAddHomeCounty'] select", "type": "select", "autoGen": "county" },
+   "SaveRecord": { "locator": ".modal-content:visible button.save-close", "type": "button" }
+ }
+}

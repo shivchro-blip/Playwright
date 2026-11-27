@@ -1,0 +1,45 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "hasCLIA": { "locator": "div.radio:has(input[name^='global_global_a_LSI_CLPLabHasCLIA_']) label:text-is('{value}')", "type": "radio" },
+    "cliaNumber": { "locator": "input[id^='global_global_a_LSI_CLPLabCLIA_']", "type": "text" },
+    "hasMedicaidId": { "locator": "div.radio:has(input[name^='global_global_a_LSI_CLPHasNYSMedicateProviderID_']) label:text-is('{value}')", "type": "radio" },
+    "medicaidNumber": { "locator": "input[id^='global_global_a_LSI_CLPNYSMedicateProviderID_']", "type": "text" },
+
+    "mondayOpen": { "locator": "#dayRowMonday td:nth-child(1) label.checkbox_label", "type": "checkbox" },
+    "mondayStart": { "locator": "#dayRowMonday td:nth-child(3) select", "type": "select" },
+    "mondayStartPm": { "locator": "#dayRowMonday td:nth-child(4) label.switch", "type": "checkbox" },
+    "mondayEnd": { "locator": "#dayRowMonday td:nth-child(5) select", "type": "select" },
+    "mondayEndPm": { "locator": "#dayRowMonday td:nth-child(6) label.switch", "type": "checkbox" },
+
+    "tuesdayOpen": { "locator": "#dayRowTuesday td:nth-child(1) label.checkbox_label", "type": "checkbox" },
+    "tuesdayStart": { "locator": "#dayRowTuesday td:nth-child(3) select", "type": "select" },
+    "tuesdayStartPm": { "locator": "#dayRowTuesday td:nth-child(4) label.switch", "type": "checkbox" },
+    "tuesdayEnd": { "locator": "#dayRowTuesday td:nth-child(5) select", "type": "select" },
+    "tuesdayEndPm": { "locator": "#dayRowTuesday td:nth-child(6) label.switch", "type": "checkbox" },
+
+    "wednesdayOpen": { "locator": "#dayRowWednesday td:nth-child(1) label.checkbox_label", "type": "checkbox" },
+    "wednesdayStart": { "locator": "#dayRowWednesday td:nth-child(3) select", "type": "select" },
+    "wednesdayStartPm": { "locator": "#dayRowWednesday td:nth-child(4) label.switch", "type": "checkbox" },
+    "wednesdayEnd": { "locator": "#dayRowWednesday td:nth-child(5) select", "type": "select" },
+    "wednesdayEndPm": { "locator": "#dayRowWednesday td:nth-child(6) label.switch", "type": "checkbox" },
+
+    "thursdayOpen": { "locator": "#dayRowThursday td:nth-child(1) label.checkbox_label", "type": "checkbox" },
+    "thursdayStart": { "locator": "#dayRowThursday td:nth-child(3) select", "type": "select" },
+    "thursdayStartPm": { "locator": "#dayRowThursday td:nth-child(4) label.switch", "type": "checkbox" },
+    "thursdayEnd": { "locator": "#dayRowThursday td:nth-child(5) select", "type": "select" },
+    "thursdayEndPm": { "locator": "#dayRowThursday td:nth-child(6) label.switch", "type": "checkbox" },
+
+    "fridayOpen": { "locator": "#dayRowFriday td:nth-child(1) label.checkbox_label", "type": "checkbox" },
+    "fridayStart": { "locator": "#dayRowFriday td:nth-child(3) select", "type": "select" },
+    "fridayStartPm": { "locator": "#dayRowFriday td:nth-child(4) label.switch", "type": "checkbox" },
+    "fridayEnd": { "locator": "#dayRowFriday td:nth-child(5) select", "type": "select" },
+    "fridayEndPm": { "locator": "#dayRowFriday td:nth-child(6) label.switch", "type": "checkbox" },
+
+    "contactFirstName": { "locator": "input[id^='global_global_a_LSI_CLPContactFirstName_']", "type": "text" },
+    "contactMiddleInitial": { "locator": "input[id^='global_global_a_LSI_CLPContactMiddleInitial_']", "type": "text" },
+    "contactLastName": { "locator": "input[id^='global_global_a_LSI_CLPContactLastName_']", "type": "text" },
+    "contactPhone": { "locator": "input[id^='global_global_a_LSI_CLPContactPhone_']", "type": "text", "autoGen": "phone" },
+    "contactEmail": { "locator": "input[id^='global_global_a_LSI_CLPContactEmailAddress_']", "type": "text", "autoGen": "email" }
+  }
+}

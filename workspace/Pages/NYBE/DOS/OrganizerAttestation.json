@@ -1,0 +1,19 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "Title": { "locator": "[data-opaid='global_global_g_1'] label.Normal", "type": "text" },
+   "LlcName": { "locator": "[data-opaid='global_global_g_2'] label.Normal", "type": "text" },
+   "OrganizerHeading": { "locator": "[data-opaid='global_global_g_5'] label.Heading4", "type": "text" },
+   "OrganizerName": { "locator": "[data-attributeid='LSI_DOS1336_OrgName'] input", "type": "text", "autoGen": "fullname" },
+   "AddressLine1": { "locator": "[data-attributeid='LSI_DOS1336_OrgAdd1'] input", "type": "text", "autoGen": "addressLine1" },
+   "AddressLine2": { "locator": "[data-attributeid='LSI_DOS1336_OrgAdd2'] input", "type": "text" },
+   "City": { "locator": "[data-attributeid='LSI_DOS1336_OrgCity'] input", "type": "text", "autoGen": "city" },
+   "State": { "locator": "[data-attributeid='LSI_DOS1336_OrgState'] select", "type": "select" },
+   "Zip": { "locator": "[data-attributeid='LSI_DOS1336_OrgZip'] input", "type": "text", "autoGen": "zipcode" },
+   "Zip4": { "locator": "[data-attributeid='LSI_DOS1336_OrgZip4'] input", "type": "text" },
+   "UseServiceOfProcessAddress": { "locator": "button:text-is('Use Service of Process Address'):visible", "type": "button" },
+   "SignatureHeading": { "locator": "[data-opaid='global_global_g_17'] label.Heading4", "type": "text" },
+   "Signature": { "locator": "[data-attributeid='LSI_DOS_Signature'] input", "type": "text" },
+   "CapacityOfSigner": { "locator": "[data-attributeid='LSI_DOS_TitleOfSigner'] input", "type": "text" }
+ }
+}

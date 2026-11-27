@@ -1,0 +1,20 @@
+{
+  "fields": {
+    "TaxNotPaid_Yes": { "locator": "[data-attributeid='LSI_DTF17_TaxNotPaid'] label[for^='boolRadioY_']", "type": "click" },
+    "TaxNotPaid_No": { "locator": "[data-attributeid='LSI_DTF17_TaxNotPaid'] label[for^='boolRadioN_']", "type": "click" },
+    "TaxNotPaidUnderProtest_Yes": { "locator": "[data-attributeid='LSI_DTF17_UnderProtest'] label[for^='boolRadioY_']", "type": "click" },
+    "TaxNotPaidUnderProtest_No": { "locator": "[data-attributeid='LSI_DTF17_UnderProtest'] label[for^='boolRadioN_']", "type": "click" },
+    "TaxCrime_Yes": { "locator": "[data-attributeid='LSI_DTF17_TaxCrime'] label[for^='boolRadioY_']", "type": "click" },
+    "TaxCrime_No": { "locator": "[data-attributeid='LSI_DTF17_TaxCrime'] label[for^='boolRadioN_']", "type": "click" },
+    "TaxAssessment_Yes": { "locator": "[data-attributeid='LSI_DTF17_TaxAssessment'] label[for^='boolRadioY_']", "type": "click" },
+    "TaxAssessment_No": { "locator": "[data-attributeid='LSI_DTF17_TaxAssessment'] label[for^='boolRadioN_']", "type": "click" },
+    "AssessmentIPA_Yes": { "locator": "[data-attributeid='LSI_DTF17_IPA'] label[for^='boolRadioY_']", "type": "click" },
+    "AssessmentIPA_No": { "locator": "[data-attributeid='LSI_DTF17_IPA'] label[for^='boolRadioN_']", "type": "click" },
+    "EntityTaxCrime_Yes": { "locator": "[data-attributeid='LSI_DTF17_EntTaxCrime'] label[for^='boolRadioY_']", "type": "click" },
+    "EntityTaxCrime_No": { "locator": "[data-attributeid='LSI_DTF17_EntTaxCrime'] label[for^='boolRadioN_']", "type": "click" },
+    "PriorCertificate_Yes": { "locator": "[data-attributeid='LSI_DTF17_SalesTaxCert'] label[for^='boolRadioY_']", "type": "click" },
+    "PriorCertificate_No": { "locator": "[data-attributeid='LSI_DTF17_SalesTaxCert'] label[for^='boolRadioN_']", "type": "click" },
+    "CertificateRevoked_Yes": { "locator": "[data-attributeid='LSI_DTF17_EntRevoked'] label[for^='boolRadioY_']", "type": "click" },
+    "CertificateRevoked_No": { "locator": "[data-attributeid='LSI_DTF17_EntRevoked'] label[for^='boolRadioN_']", "type": "click" }
+  }
+}

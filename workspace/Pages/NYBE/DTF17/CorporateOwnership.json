@@ -1,0 +1,36 @@
+{
+  "fields": {
+    "ShareholderDifferentCorp_Yes": {
+      "locator": "[data-attributeid='LSI_DTF17_ShDiffStock'] label[for^='boolRadioY_']",
+      "type": "click"
+    },
+    "ShareholderDifferentCorp_No": {
+      "locator": "[data-attributeid='LSI_DTF17_ShDiffStock'] label[for^='boolRadioN_']",
+      "type": "click"
+    },
+    "ShareholderTaxCrime_Yes": {
+      "locator": "[data-attributeid='LSI_DTF17_ShTaxCrime'] label[for^='boolRadioY_']",
+      "type": "click"
+    },
+    "ShareholderTaxCrime_No": {
+      "locator": "[data-attributeid='LSI_DTF17_ShTaxCrime'] label[for^='boolRadioN_']",
+      "type": "click"
+    },
+    "AddShareholder": {
+      "locator": "[data-opaid^='global_global_e_eeed67e2'] a.add-new-instance",
+      "type": "click"
+    },
+    "PubliclyTraded_Yes": {
+      "locator": "[data-attributeid='LSI_DTF17_PublicTraded'] label[for^='boolRadioY_']",
+      "type": "click"
+    },
+    "PubliclyTraded_No": {
+      "locator": "[data-attributeid='LSI_DTF17_PublicTraded'] label[for^='boolRadioN_']",
+      "type": "click"
+    },
+    "AddPerson": {
+      "locator": "[data-opaid^='global_global_e_1410a593'] a.add-new-instance",
+      "type": "click"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+ "fields": {
+   "Heading": { "locator": "[data-opaid='global_global_g_0'] label.Heading4", "type": "text" },
+   "LegalNameCorporation": { "locator": "[data-attributeid='CDI_LegalName'] input", "type": "text", "autoGen": "legalNameCorporation", "typeKeys": true },
+   "LegalNameLLC": { "locator": "[data-attributeid='CDI_LegalName'] input", "type": "text", "autoGen": "legalNameLLC", "typeKeys": true },
+   "CheckName": { "locator": "button[id^='nameCheck_global_global_g_']", "type": "button" },
+   "ResetName": { "locator": "button[id^='nameCheck_Reset_']", "type": "button" },
+   "NameErrors": { "locator": "div[id^='rn_NameCheck_ErrorList_']", "type": "text" },
+   "TrueName": { "locator": "[data-attributeid='LSI_DOS_TrueNameVerification'] input", "type": "text", "typeKeys": true }
+ }
+}

@@ -1,0 +1,336 @@
+{
+  "testCases": [
+    {
+      "testCaseID": "TC_NYBE_LSA19_001",
+      "description": "Sign in through NY.gov, open the Test Dashboard and start the LSA19 interview (Lottery Sales Agent Retailer Application).",
+      "system": "NYBE",
+      "env": "dev",
+      "module": "licenses",
+      "tags": [
+        "NYBE",
+        "LSA19",
+        "smoke",
+        "TC_NYBE_LSA19_001"
+      ],
+      "steps": [
+        {
+          "screen": "NYBEHome",
+          "do": [
+            {
+              "field": "loginRegisterLink",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYBELoginRegister",
+          "do": [
+            {
+              "field": "loginHereButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYGovSignIn",
+          "do": [
+            {
+              "field": "username",
+              "value": "ENV.NYBE_DEV_USERNAME"
+            },
+            {
+              "field": "password",
+              "value": "ENV.NYBE_DEV_PASSWORD"
+            },
+            {
+              "field": "signInButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYBEDashboard",
+          "do": [
+            {
+              "field": "openDropdownButton",
+              "click": true
+            },
+            {
+              "field": "testDashboardLink",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "NYBETestDashboard",
+          "do": [
+            {
+              "field": "startInterviewLink",
+              "value": "LSA19"
+            }
+          ]
+        },
+        {
+          "screen": "EntityCreation",
+          "do": [
+            {
+              "field": "myBusinessNotListedCell",
+              "click": true
+            },
+            {
+              "field": "startApplicationButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "EntityTypeSelection",
+          "do": [
+            {
+              "field": "getStartedButton",
+              "click": true
+            },
+            {
+              "field": "entityType",
+              "value": "Corporation"
+            },
+            {
+              "field": "entitySubType",
+              "value": "S Corp"
+            },
+            {
+              "field": "continueButton",
+              "click": true
+            }
+          ]
+        },
+        {
+          "screen": "EntityInformation",
+          "do": [
+            {
+              "field": "legalNameCorporation",
+              "use": null
+            },
+            {
+              "field": "dbaName",
+              "use": null
+            },
+            {
+              "field": "ein",
+              "use": null
+            }
+          ]
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "commonAction": "Next"
+        },
+        {
+          "screen": "BusinessAddress",
+          "formData": {
+            "addressLine1": "100 Broadway",
+            "city": "Menands",
+            "zipCode": "12204",
+            "county": "Albany"
+          }
+        },
+        {
+          "commonAction": "Validate address"
+        },
+        {
+          "screen": "BusinessAddress",
+          "formData": {
+            "sameAsMailingCheckbox": "click"
+          }
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "commonAction": "Save and continue"
+        },
+        {
+          "screen": "ContactInformation",
+          "do": [
+            {
+              "field": "cdiNumberTheSpPhone",
+              "use": null
+            },
+            {
+              "field": "globalGlobalACdiBusmobile1",
+              "use": null
+            },
+            {
+              "field": "globalGlobalACdiBusfax1",
+              "use": null
+            },
+            {
+              "field": "cdiEmailTheSpEmail",
+              "use": null
+            },
+            {
+              "field": "globalGlobalACdiBusweb",
+              "value": "www.nybe.com"
+            }
+          ]
+        },        
+        {
+          "commonAction": "Save and continue"
+        },
+		{
+		  "screen": "NaicsCodeSelection",
+		  "formData": {
+			"PrimaryFilterByCategory": "click",
+			"PrimarySector": "44 Retail Trade",
+			"PrimarySubSector": "445 Food and Beverage Retailers",
+			"PrimaryIndustry": "4452 Specialty Food Retailers",
+			"PrimaryClassification": "445230 Fruit and Vegetable Retailers",
+			"PrimarySelect": "click"
+		  }
+		},
+		{
+		  "screen": "NaicsCodeSelection",
+		  "formData": {
+			"HasSecondaryYes": "click",
+			"SecondaryFilterByCategory": "click",
+			"SecondarySector": "11 Agriculture, Forestry, Fishing and Hunting",
+			"SecondarySubSector": "115 Support Activities for Agriculture and Forestry",
+			"SecondaryIndustry": "1151 Support Activities for Crop Production",
+			"SecondaryClassification": "115111 Cotton Ginning",
+			"SecondarySelect": "click"
+		  }
+		},
+		{ "commonAction": "Save and continue" },
+        {
+          "commonAction": "Next"
+        },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "AddPrincipal": "click" } },
+		{ "screen": "OfficerShareholderPrincipal", "formData": {
+			"PrincipalType": "Person",
+			"PersonTitle": "President",
+			"FirstName": null,
+			"LastName": null,
+			"DobYear": "2000",
+			"DobMonth": "1",
+			"DobDay": "1",
+			"ResidentYes": "click",
+			"SsnArea": null,
+			"SsnGroup": null,
+			"SsnSerial": null,
+			"PersonPhone": null,
+			"PersonEmail": null,
+			"OwnershipPercent": "51",
+			"HomeAddressLine1": null,
+			"HomeCity": null,
+			"HomeZip": null,
+			"HomeCounty": null
+		} },
+		{ "commonAction": "Validate address" },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "SavePrincipal": "click" } },
+
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "AddPrincipal": "click" } },
+		{ "screen": "OfficerShareholderPrincipal", "formData": {
+			"PrincipalType": "Business",
+			"BusinessTitle": "Shareholder",
+			"BusinessLegalName": null,
+			"BusinessEin": null,
+			"BusinessPhone": null,
+			"BusinessEmail": null,
+			"OwnershipPercent": "49",
+			"BusinessAddressLine1": null,
+			"BusinessCity": null,
+			"BusinessZip": null,
+			"BusinessCounty": null
+		} },
+		{ "commonAction": "Validate address" },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "SavePrincipal": "click" } },
+		{ "screen": "OfficerShareholderPrincipal", "formData": { "CUSTOMFIELD_CONFIRMTEXT": "TotalRecords|2" } },
+		{ "commonAction": "Save and continue" },
+        { "commonAction": "Next" },
+		{ "screen": "PurchasePlan", "formData": {
+		   "PlanToPurchaseYes": "click",
+		   "InContractYes": "click",
+		   "SalesAgentNumber": null,
+		   "ExpectedClosingDate": null
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "LSABusinessAddress", "formData": {
+		    "CUSTOMFIELD_CONFIRMTEXT": "Heading|Business Address Information",
+		   "PhysicalAddressRadio": "100 Broadway",
+		   "IndianCountryNo": "click",
+		   "MailingAddressRadio": "100 Broadway"
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "LSAContactPerson", "formData": {
+		   "ContactPerson": "Other",
+		   "Title": "Manager",
+		   "FirstName": null,
+		   "MiddleInitial": "A",
+		   "LastName": null,
+		   "Phone": null,
+		   "MobilePhone": null,
+		   "Email": null,
+		   "BestTimeMorning": "click"
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "PriorLicenseHistory", "formData": {
+		   "PriorLicenseYes": "click",
+		   "LicenseNumber": null,
+		   "PriorBusinessName": null,
+		   "LicenseStatus": "Active",
+		   "AddPriorHistory": "click",
+		   "LicenseNumber2": null,
+		   "PriorBusinessName2": null,
+		   "LicenseStatus2": "Probation",
+		   "StatusExplanation2": "License placed on probation after a late filing."
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "TaxInformation", "formData": {		  
+		   "SlaLicenseNumber": null,
+		   "SlaExpirationDate": null
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "PropertyInformation", "formData": {		  
+		   "YearsAtLocation": null,
+		   "BuildingRent": "click",
+		   "LeaseExpirationDate": null,
+		   "LandlordFirstName": null,
+		   "LandlordLastName": null,
+		   "LandlordAddress": null,
+		   "LandlordCity": null,
+		   "LandlordState": "New York",
+		   "LandlordZip": null,
+		   "LandlordPhone": null
+		} },
+		{ "commonAction": "Save and continue" },		
+		{ "commonAction": "Save and continue" },
+		{ "screen": "OwnerInformation", "formData": {		   
+		   "BirthCountry": "United States",
+		   "BirthState": "New York",
+		   "BirthCity": null,
+		   "UsCitizenYes": "click"
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "screen": "OwnerBackground", "formData": {		   
+		   "ConvictedNo": "click",
+		   "ChargesPendingNo": "click"
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "commonAction": "Next" },
+		{ "screen": "PersonalInformationNotice", "formData": {		   
+		   "IAgree": "click",
+		   "AttestName": null,
+		   "AttestEmail": null,		   
+		   "IAccept": "click"
+		} },
+		{ "commonAction": "Save and continue" },
+		{ "commonAction": "Submit application" }
+      ]
+    }
+  ]
+}

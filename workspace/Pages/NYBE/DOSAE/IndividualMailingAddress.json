@@ -1,0 +1,16 @@
+{
+  "fields": {
+    "AddressLine1": { "locator": "[data-attributeid='CDI_IndiviAddLine1'] input", "type": "text", "autoGen": "addressLine1" },
+    "AddressLine2": { "locator": "[data-attributeid='CDI_IndiviAddLine2'] input", "type": "text" },
+    "City": { "locator": "[data-attributeid='CDI_IndiviAddCity'] input", "type": "text", "autoGen": "city" },
+    "Country": { "locator": "[data-attributeid='CDI_IndiviAddCountry'] select", "type": "select" },
+    "State": { "locator": "[data-attributeid='CDI_IndiviAddState'] select", "type": "select" },
+    "Zip": { "locator": "[data-attributeid='CDI_IndiviAddZip'] input", "type": "text", "autoGen": "zipcode" },
+    "ZipExt": { "locator": "[data-attributeid='CDI_IndiviAddZip4'] input", "type": "text" },
+    "PostalCodeCA": { "locator": "[data-attributeid='CDI_IndiviAddPostalCode_CA'] input", "type": "text" },
+    "PostalCode": { "locator": "[data-attributeid='CDI_IndiviAddPostalCode'] input", "type": "text" },
+    "County": { "locator": "[data-attributeid='CDI_IndiviCounty'] select", "type": "select", "autoGen": "county" },
+    "Phone": { "locator": "[data-attributeid='CDI_IndiviPhoneNum'] input", "type": "text", "autoGen": "phone" },
+    "Email": { "locator": "[data-attributeid='CDI_IndiviEmail'] input", "type": "text", "autoGen": "email" }
+  }
+}
