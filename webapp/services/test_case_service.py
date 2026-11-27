@@ -27,6 +27,7 @@ class TestRef:
     tags: list[str]
     steps: int
     duplicate: bool = False
+    description: str = ""
 
 
 @dataclass
@@ -78,7 +79,8 @@ class TestCaseService:
             for i, tc in enumerate(data.get("testCases", [])):
                 if isinstance(tc, dict):
                     refs.append(TestRef(rel, i, str(tc.get("testCaseID", "")), list(tc.get("tags") or []),
-                                        len(tc.get("steps") or [])))
+                                        len(tc.get("steps") or []),
+                                        description=str(tc.get("description") or "").strip()))
         counts = Counter(r.test_id for r in refs)
         for r in refs:
             r.duplicate = counts[r.test_id] > 1

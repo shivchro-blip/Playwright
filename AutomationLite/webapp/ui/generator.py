@@ -20,6 +20,8 @@ from webapp.services.locator_check import page_url
 from webapp.services.refactor import Plan, Refactor, RefactorError, apply_plan
 from webapp.services.tidy import analyze as tidy_analyze, build_plan as tidy_plan
 from webapp.services.usage import Usage, UsageIndex
+from webapp.services.field_groups import choice_groups, fields_to_add, split_option
+from webapp.services.list_views import ALL_FOLDERS, folder_choices, folder_of, in_folder, visible_tags
 from webapp.services.pom_service import FIELD_TYPES, PAGE_KEYS
 from webapp.services.test_case_service import STEP_KINDS
 from webapp.auth import audit, guard
@@ -41,6 +43,7 @@ from webapp.ui.locator_dialog import open_locator_check
 from webapp.ui.quarantine_dialog import toggle_quarantine
 from webapp.ui.locator_health_dialog import open_locator_health
 from webapp.ui.page_components_panel import ComponentsSection, extract_dialog
+from webapp.ui.html_page_dialog import open_html_page
 from webapp.ui.page_scan_dialog import open_page_scan
 from webapp.ui.step_actions import (
     HINTS, KEY_NAMES, action_options, apply_action, default_action, has_value_slot, json_value, loop_of,
@@ -186,6 +189,7 @@ class TestEditor:
         self._screens: list[str] = []
         self._common: list[str] = []
         self._test_ids: list[str] = []
+        self.folder = ALL_FOLDERS  # the folder filter of the test list
         self.run_id: str = ""  # the run started from this editor, followed here (not on the Control tab)
         self._run_sig: tuple = ()
         live(self.svc.bus, ["run"], self._follow_run, when=lambda e: e.get("id") == self.run_id, fallback=5.0)
@@ -223,12 +227,23 @@ class TestEditor:
         refs, errors = self.svc.tests.list_tests(system)
         for err in errors:
             ui.label(f"Could not read {err}").classes("any-err-line px-6")
+        choices = folder_choices(folder_of(r.file) for r in refs)
+        if self.folder not in choices:
+            self.folder = ALL_FOLDERS
         rows = []
         for r in refs:
+            if not in_folder(folder_of(r.file), self.folder):
+                continue
             name, code = split_test_id(r.test_id)
+            shown_tags = visible_tags(r.test_id, r.tags)
             rows.append({"key": f"{r.file}#{r.index}", "file": r.file, "index": r.index, "test_id": r.test_id,
-                         "name": name, "code": code, "tag_list": r.tags, "tags": ", ".join(r.tags),
-                         "steps": r.steps, "dup": r.duplicate})
+                         "name": name, "code": code, "description": r.description, "tag_list": shown_tags,
+                         "tags": ", ".join(shown_tags), "steps": r.steps, "dup": r.duplicate})
+        if choices:
+            with ui.element("div").classes("any-folder-filter"):
+                ui.select(choices, value=self.folder, on_change=lambda e: self._set_folder(e.value)) \
+                    .props('outlined dense options-dense aria-label="Folder filter" data-testid="test-folder-filter" '
+                           f'dropdown-icon="{icon("chevron-down")}" popup-content-class="any-menu"').classes("w-full")
         with ui.element("div").classes("any-table-wrap"):
             table = ui.table(rows=rows, row_key="key", pagination=15, columns=[
                 {"name": "test_id", "label": "Test case", "field": "test_id", "align": "left", "sortable": True},
@@ -242,7 +257,9 @@ class TestEditor:
                     <span v-if="props.row.dup" class="any-dup" title="Duplicate test ID"
                           aria-label="Duplicate test ID">{svg("triangle-alert")}</span></div>
                   <div v-if="props.row.code" class="any-tc-code">{{{{ props.row.code }}}}</div>
-                  <div class="any-tags mt-1">
+                  <div v-else-if="props.row.description" class="any-tc-desc" :title="props.row.description">
+                    {{{{ props.row.description }}}}</div>
+                  <div v-if="props.row.tag_list.length" class="any-tags mt-1">
                     <span v-for="t in props.row.tag_list" :key="t" class="any-tag">{{{{ t }}}}</span>
                   </div>
                 </q-td>''')
@@ -252,6 +269,10 @@ class TestEditor:
                                       'No test cases for this system yet - use + to create one.</div>')
             self.search.bind_value(table, "filter")
             table.on("rowClick", lambda e: self.open(e.args[1]["file"], e.args[1]["index"]))
+
+    def _set_folder(self, folder: str) -> None:
+        self.folder = folder or ALL_FOLDERS
+        self.list_view.refresh()
 
     def reload_list(self) -> None:
         self.load_refs()
@@ -554,10 +575,15 @@ class TestEditor:
         system = self.meta.get("system") or self.gen.system
         configs = self.svc.pom.field_configs(system, step.target) if step.target and system else {}
         fields = list(configs)
+        groups = choice_groups(fields)  # Yes/No pairs: one row with a choice instead of two fields
         custom = self.svc.pom.custom_fields()
         for row in step.rows:
             name, _ = split_key(row.key)
             cfg = configs.get(name)
+            base, option = split_option(name)
+            if option and base in groups and row_action(row, cfg) == "click":
+                self.choice_row(step, row, base, option, groups[base])
+                continue
             key_options = sorted(set(fields) | ({name} if name else set()), key=str.casefold) + \
                 [c for c in custom if c != name]
 
@@ -591,9 +617,29 @@ class TestEditor:
         with ui.element("div").classes("any-form-line is-actions"):
             ui.button("Field", icon=icon("plus"), color=None, on_click=lambda: self.add_row(step)) \
                 .props("flat").classes("any-ghost")
-            if fields:
-                ui.button(f"All {len(fields)} page fields", icon=icon("plus"), color=None,
-                          on_click=lambda: self.add_all_rows(step, fields, configs)).props("flat").classes("any-ghost")
+            addable = fields_to_add(fields, {split_key(r.key)[0] for r in step.rows})
+            if addable:
+                ui.button(f"All {len(addable)} page fields", icon=icon("plus"), color=None,
+                          on_click=lambda: self.add_all_rows(step, fields, configs)) \
+                    .props("flat").classes("any-ghost") \
+                    .tooltip("One answer for each Yes/No question (No); change it with the toggle")
+
+    def choice_row(self, step: StepModel, row: FormRow, base: str, option: str, pair: dict[str, str]) -> None:
+        """A Yes/No question: one row, the answer picked with a toggle. The step keeps the same entry as before
+        ("Question_No": "click"); the toggle only changes which of the two fields it names."""
+        def pick(e, r=row):
+            if not e.value or e.value == option:
+                return
+            r.key = pair[e.value] + split_key(r.key)[1]
+            self.touch()
+            self.steps_view.refresh()
+
+        with ui.element("div").classes("any-form-line").props(f'data-testid="choice-row-{base}"'):
+            text("span", base, "mono any-choice-name").classes("w-64 max-w-full truncate").props(f'title="{base}"')
+            ui.toggle({o: o for o in pair}, value=option, on_change=pick) \
+                .props('no-caps unelevated dense toggle-color="primary" aria-label="Answer"').classes("w-48")
+            ui.label("Clicks the answer.").classes("flex-1 any-muted text-sm italic")
+            icon_button("x", "Remove field", lambda r=row: self.remove_row(step, r), "is-32")
 
     def value_control(self, row: FormRow, action: str, cfg: dict | None, set_raw) -> None:
         """The part of a row that depends on the action: a value, a key, seconds, JSON, or just a hint."""
@@ -721,9 +767,7 @@ class TestEditor:
 
     def add_all_rows(self, step: StepModel, fields: list[str], configs: dict[str, dict]) -> None:
         present = {split_key(r.key)[0] for r in step.rows}
-        for name in fields:
-            if name in present:
-                continue
+        for name in fields_to_add(fields, present):
             row = FormRow(name, "auto", "")
             if default_action(configs.get(name)) == "click":
                 apply_action(row, "click")  # clicks say what they do; text fields stay generated
@@ -1190,6 +1234,7 @@ class PageEditor:
         self.dirty = False
         self.json_mode = False
         self.field_filter = ""
+        self.folder = ALL_FOLDERS  # the folder filter of the page list
         self.usage: Usage | None = None  # who uses this page's fields (tests, common actions)
         self.orig_names: list[str] = []
 
@@ -1223,12 +1268,21 @@ class PageEditor:
                  "used": usage.page_count(r.name) + users.get(r.name, 0), "dup": r.duplicate,
                  "comp": r.component} for r in refs]
         has_folders = any(r["folder"] for r in rows)
+        choices = folder_choices(r["folder"] for r in rows)
+        if self.folder not in choices:
+            self.folder = ALL_FOLDERS
+        rows = [r for r in rows if in_folder(r["folder"], self.folder)]
         columns = [{"name": "name", "label": "Page", "field": "name", "align": "left", "sortable": True}]
         if has_folders:  # the column is only worth its width when some page is in a folder
             columns.append({"name": "folder", "label": "Folder", "field": "folder", "align": "left",
                             "sortable": True})
         columns += [{"name": "fields", "label": "Fields", "field": "fields", "align": "right", "sortable": True},
                     {"name": "used", "label": "Used by", "field": "used", "align": "right", "sortable": True}]
+        if choices:
+            with ui.element("div").classes("any-folder-filter"):
+                ui.select(choices, value=self.folder, on_change=lambda e: self._set_folder(e.value)) \
+                    .props('outlined dense options-dense aria-label="Folder filter" data-testid="page-folder-filter" '
+                           f'dropdown-icon="{icon("chevron-down")}" popup-content-class="any-menu"').classes("w-full")
         with ui.element("div").classes("any-table-wrap"):
             table = ui.table(rows=rows, row_key="rel", pagination=15, columns=columns) \
                 .classes("w-full is-clickable is-compact")
@@ -1238,7 +1292,7 @@ class PageEditor:
                   <span v-if="props.row.comp" class="any-tag" title="Shared component: pages use its fields"
                         >component</span>
                   <span v-if="props.row.dup" class="any-dup"
-                        title="Another page has this name - the last one loaded wins"
+                        title="Another page has this name: a test that uses it fails until one is renamed"
                         aria-label="Duplicate page name">{svg("triangle-alert")}</span>
                 </q-td>''')
             table.add_slot("body-cell-folder", f'''
@@ -1256,6 +1310,10 @@ class PageEditor:
                                       'No pages for this system yet - use + to create one.</div>')
             self.search.bind_value(table, "filter")
             table.on("rowClick", lambda e: self.open(e.args[1]["rel"]))
+
+    def _set_folder(self, folder: str) -> None:
+        self.folder = folder or ALL_FOLDERS
+        self.list_view.refresh()
 
     async def open(self, rel: str) -> None:
         if self.dirty and not await confirm("Discard unsaved changes to this page?", "Discard", "negative"):
@@ -1407,6 +1465,10 @@ class PageEditor:
                     ui.input(placeholder="Filter fields", value=self.field_filter, on_change=self._set_filter) \
                         .props('clearable debounce=300 aria-label="Filter fields"').classes("w-56")
                 with ui.element("div").classes("flex gap-2"):
+                    ui.button("From HTML", icon=icon("sparkles"), color=None,
+                              on_click=lambda: open_html_page(self)).props('data-testid="html-open"') \
+                        .classes("any-btn is-32") \
+                        .tooltip("Build fields and the first step from the page's pasted HTML: no browser, no login")
                     ui.button("From page", icon=icon("scan-search"), color=None,
                               on_click=lambda: open_page_scan(self)).props('data-testid="scan-open"') \
                         .classes("any-btn is-32").tooltip("Add fields by scanning the live page")

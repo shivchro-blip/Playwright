@@ -28,6 +28,12 @@ A variable that is **not** set in `.env` or the environment gets a box: type the
 
 Preview of what will run: test case, tags, file and step count. **Selected only** hides tests that do not match the tags. Duplicate test IDs are flagged. The count at the top reads "N of M selected": M is the number of test cases the selected tags match (hover it to see how many test cases the whole system has), and N is how many of those are still ticked. Untick a test to leave it out of the run; it stays unticked when you change tags.
 
+When a test case has a description, it is shown under its ID. A tag that only repeats a test's own ID is not shown (it says nothing the ID does not), and is not offered in the **Tags** picker; the test is still run by ticking it here.
+
+**Folder.** When the matching tests sit in two or more folders of the suite, a **Folder** filter above the table narrows the run to one folder (each folder shows how many tests it has). Only the tests of that folder are run, and the counts, the Run button and the run itself follow the filter. It goes back to all folders when you change system or tags.
+
+**Asking before a big run.** A run of 10 or more test runs (tests x browsers) asks first: how many, where (system and environment), from which folders, and about how long (from how long these tests took in earlier runs here). Cancel leaves everything as it was. Change the number with `AUTOPLAY_RUN_CONFIRM_THRESHOLD` (0 never asks); a run started from the Generator, a schedule or the API does not ask.
+
 ## Run what matters (Plan)
 
 **Plan** (next to Run) picks the test cases worth running in the time you have, on the chosen system and

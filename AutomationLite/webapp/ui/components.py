@@ -93,7 +93,9 @@ def test_case_template(muted_expr: str = "false") -> str:
     """Two-line name/code cell; row needs name, code and test_id fields."""
     return (f'<div :title="props.row.test_id" :aria-label="props.row.test_id">'
             f'<div :class="[\'any-tc-name\', ({muted_expr}) ? \'is-muted\' : \'\']">{{{{ props.row.name }}}}</div>'
-            f'<div v-if="props.row.code" class="any-tc-code">{{{{ props.row.code }}}}</div></div>')
+            f'<div v-if="props.row.code" class="any-tc-code">{{{{ props.row.code }}}}</div>'
+            f'<div v-else-if="props.row.description" class="any-tc-desc" :title="props.row.description">'
+            f'{{{{ props.row.description }}}}</div></div>')
 
 
 def pager_template(total: int) -> str:

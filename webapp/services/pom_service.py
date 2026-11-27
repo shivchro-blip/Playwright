@@ -13,7 +13,7 @@ from webapp.services.json_files import NAME_RE, PathError, read_json, safe_path,
 
 # Field types the engine maps to actions (utils/dynamic_form_handler.FIELD_TYPE_DEFAULT_ACTION)
 FIELD_TYPES = [
-    "button", "link", "checkbox", "radio", "table",
+    "click", "button", "link", "checkbox", "radio", "table",
     "text", "input", "textarea", "select", "number",
     "document", "sladocument", "correctionDocument", "fileChooserDocument",
     "keyboard", "date", "datepicker",

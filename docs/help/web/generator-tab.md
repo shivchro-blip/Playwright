@@ -40,7 +40,9 @@ Each row is a field, an **action** and (for some actions) a value. The action me
 | Wait (seconds) | `{"type": "wait", "value": "2"}` | Pauses. |
 | Custom (JSON) | `{...}` | Any other explicit action. |
 
-Picking a field starts it with the natural action (a button as **Click**, a text box as **Fill**, a `{value}` field as **Choose option**). The **{ }** button next to a value inserts `ENV.NAME` (a `.env` variable, name only) or `DICT.name` (a value saved earlier in the test). The small box at the end repeats the action N times (`name|ELoop(N)`); to use the same field twice in a step, repeat it as `next`, `next|`, `next||`. **+ All page fields** adds every field of the page: clicks as **Click**, text fields as **Generate**.
+Picking a field starts it with the natural action (a button as **Click**, a text box as **Fill**, a `{value}` field as **Choose option**). The **{ }** button next to a value inserts `ENV.NAME` (a `.env` variable, name only) or `DICT.name` (a value saved earlier in the test). The small box at the end repeats the action N times (`name|ELoop(N)`); to use the same field twice in a step, repeat it as `next`, `next|`, `next||`. **+ All page fields** adds the fields of the page that are not on the step yet, one answer for each Yes/No question (see below): clicks as **Click**, text fields as **Generate**.
+
+**Yes/No questions.** A question answered by clicking Yes or No is two fields on a page (`Franchise_Yes`, `Franchise_No`). In a step they show as one row, **Franchise** with a **Yes | No** choice, and **+ All page fields** adds one of the two (No). The step keeps the same entry as ever (`"Franchise_No": "click"`); the choice only changes which of the two it names. A pair is two fields named `<Question>_Yes` and `<Question>_No` on the same page.
 
 The files keep the same JSON as before; the menu is only a clearer way to write it.
 
@@ -137,6 +139,8 @@ The recorder only works when the web app listens on this machine (`AUTOPLAY_HOST
 
 ## Pages
 
+The page list has a **Folder** filter when the pages sit in more than one folder, and the test list has one for the suite's folders; the test list shows each test's description under its ID. A page name that two files share is flagged: a screen is found by its file name alone, so a step that uses it fails (naming both files) until one of them is renamed.
+
 1. Select a page on the left, or **+** to create one (optional folder). The list shows how many tests and common actions use each page (**Used by**).
 2. **Page settings**: `path` (added to the system base URL) or `fullpath` (absolute URL) to navigate on entry; title check; error locators / texts.
 3. **Fields**: name, type, locator, index and autoGen rule. **{ }** edits all keys of a field (role, name, nested, tableId, waitForNewTab, picker, ...), including **indexed**. Use the filter on large pages. A field that no test uses is shown in italics.
@@ -159,6 +163,26 @@ The **Maintain** menu works on the whole page and the tests that use it:
 - **Suggest fixes** (in that dialog, when fields are *not found*, *hidden* or *index too high*) scans the live page and ranks the elements that could replace each one, by what the field still says: its name, its old locator (a renamed id such as `#zip-code` → `#applicantZipCode` scores high), its label, placeholder or text, and its type. Up to three suggestions per field are listed with a score and the reason; elements a working field already uses are left out. **Use** puts the locator into the field in the editor (type, autoGen and the other keys are kept); nothing is saved until you click Save. A field with no good match says so. Treat a suggestion as a lead to check, not a fix: a redesign can move a label to a different field.
 
 Rename and Tidy each ask you to **Preview** first: it lists the files that would change and writes nothing. **Apply** then changes all of them, or none: if a file changed on disk since the preview, or a write fails, every file is left as it was. Save or revert your edits before using it. Renaming or deleting a used field by typing in the field list does not update tests; Save warns you.
+
+### From HTML: build the fields and the first step from pasted HTML
+
+**From HTML** (next to **From page**) needs no browser and no login. Paste the page's HTML (`tools/compact_html.py` shrinks it) and **Build**:
+
+- the fields, as a person would write them: a Yes/No question as `Question_Yes` and `Question_No` (clicked through their labels), checkboxes through their label, a date picker typed key by key with a date rule, a split SSN as three fields, a date in three selects, an upload as its "Choose a file" label, a list of radio options one field each, a table of records as one field that picks a row by its text;
+- names and locators from the site's own id attribute, and an autoGen rule where the label says which fits (checked against the placeholder: an EIN with no hyphen in its placeholder gets digits only);
+- two steps: what the page requires, each question answered No; and every question answered Yes with what that reveals filled in. What the page hid when it was captured (`data-hidden`) is named with the question that probably reveals it (assumed from the page order).
+
+Tick **Add** for the fields to put on the open page and **Step** for the fields in the first step; the names can be changed, and the steps follow. **Add steps to the open test** appends the first step and the common action that moves on to the test case you have open (save the page first, so the step can find it). Everything the builder could not decide is listed above the fields: required fields no rule fits, a list with Add New links, a page without buttons.
+
+How a site is built is a profile of data, not code. The built-in **OPA (NYBE)** profile (`data-attributeid`, `boolRadioY_`, `label.radio_label`, `hasDatepicker`, `fileUpload_button`) is used when the HTML looks like that site; change it, or add one for another site, in `Data/pageConventions.json`:
+
+```json
+{"*":    {"required_class": "mandatory"},
+ "NYBE": {"autogen_by_label": [["\\bnickname\\b", "name"]],
+          "buttons": {"save & continue": "Save and continue"}}}
+```
+
+`"*"` applies to every system, a system's entry wins over it, and both win over the built-in profile. A list replaces the built-in list (copy the entries you want to keep); an object is merged key by key. The keys are `id_attribute`, `name_strip`, `required_class`, `hidden_attr`, `yes_no`, `radio_label_class`, `checkbox_label_class`, `datepicker_class`, `upload`, `split_inputs`, `parts`, `date_autogen`, `autogen_by_label`, `buttons` and `default_common_action`. A file with a mistake is reported and the built-in profile is used.
 
 ### From page: add fields by scanning
 

@@ -47,7 +47,8 @@ processor = RandGen(randgen_config_path, workspaceDir)
 dictionary = Dictionary()
 
 FIELD_TYPE_DEFAULT_ACTION = {
-    # clickable controls
+    # clickable controls ("click" is for one the page gives no better name: a label that stands for a radio)
+    "click":             "click",
     "button":            "click",
     "link":              "click",
     "checkbox":          "click",

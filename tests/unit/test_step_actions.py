@@ -84,3 +84,9 @@ def test_keys_and_repeats():
 
 def test_value_slot_detection():
     assert has_value_slot(CHOICE) and not has_value_slot(BUTTON) and not has_value_slot(None)
+
+
+def test_a_field_of_type_click_starts_as_a_click_like_a_button():
+    cfg = {"locator": "label.radio_label", "type": "click"}
+    assert default_action(cfg) == "click"
+    assert default_action({"locator": "#a", "type": "text"}) == "fill"

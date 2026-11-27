@@ -7,6 +7,7 @@ from nicegui import run as nrun
 from nicegui import ui
 
 from webapp.services.env_config import LEVELS
+from webapp.services.list_views import ALL_FOLDERS, folder_choices, folder_of, in_folder, visible_tags
 from webapp.services.run_manager import Run, RunConfig
 from webapp.auth import audit, guard
 from webapp.state import services
@@ -22,6 +23,7 @@ from webapp.ui.failure_panel import failure_panel
 from webapp.ui.run_actions import cancel_run, pause_run, rerun_test
 from webapp.ui.test_details import open_test_details, result_rows
 from webapp.ui.plan_dialog import open_plan
+from webapp.ui.run_confirm import confirm_big_run
 from webapp.ui.theme import icon, svg
 
 BROWSERS = ["chrome", "msedge", "chromium", "firefox", "webkit"]
@@ -108,6 +110,7 @@ class ControlPanel:
         self.log_pos = 0
         self.last_signature: tuple = ()
         self.show_selected_only = True
+        self.folder = ALL_FOLDERS  # the folder filter of the Tests table: only its tests can be run
         # Test IDs unchecked in the Tests table. Only tag-matched tests can be checked: the suite filters by tags
         # first and by test ID second, so an empty set keeps the old behaviour (run everything the tags match).
         self.excluded: set[str] = set()
@@ -184,7 +187,7 @@ class ControlPanel:
                 tags = self.catalog.tags_for(_split(cfg["runTags"]), system)  # only tags this system has
                 with field("Tags", "sel-tags"):
                     self.tags_select = self._select(
-                        sorted(set(self.catalog.all_tags()) | set(tags), key=str.casefold), tags, "sel-tags",
+                        sorted(set(self.catalog.picker_tags()) | set(tags), key=str.casefold), tags, "sel-tags",
                         multiple=True, with_input=True, new_value_mode="add-unique", clearable=True,
                         on_change=self._on_tags_change,
                     ).classes("any-multi")
@@ -364,6 +367,9 @@ class ControlPanel:
 
     @ui.refreshable_method
     def tests_view(self) -> None:
+        choices = folder_choices(folder_of(t.file) for t in self._tag_matched())
+        if self.folder not in choices:
+            self.folder = ALL_FOLDERS  # the tags changed and that folder has none of their tests
         matched, chosen = self._selection()
         selected = {id(t) for t in matched}
         checked = {id(t) for t in chosen}
@@ -379,11 +385,19 @@ class ControlPanel:
             if self.show_selected_only and id(t) not in selected:
                 continue
             name, code = split_test_id(t.test_id)
+            shown_tags = visible_tags(t.test_id, t.tags)
             rows.append({"key": i, "run": id(t) in checked, "match": id(t) in selected, "test_id": t.test_id,
-                         "name": name, "code": code, "tag_list": t.tags, "tags": ", ".join(t.tags), "file": t.file,
-                         "steps": t.steps})
+                         "name": name, "code": code, "description": t.description, "tag_list": shown_tags,
+                         "tags": ", ".join(shown_tags), "file": t.file, "steps": t.steps})
         all_on = bool(matched) and len(chosen) == len(matched)
         some_on = bool(chosen) and not all_on
+        if choices:
+            with ui.element("div").classes("any-folder-filter"):
+                ui.label("Folder").classes("any-muted text-sm")
+                ui.select(choices, value=self.folder, on_change=lambda e: self._set_folder(e.value)) \
+                    .props('outlined dense options-dense aria-label="Folder filter" data-testid="folder-filter" '
+                           f'dropdown-icon="{icon("chevron-down")}" popup-content-class="any-menu"').classes("w-64")
+                ui.label("Only the tests of this folder are run.").classes("any-muted text-xs")
         with ui.element("div").classes("any-table-wrap"):
             table = ui.table(rows=rows, row_key="key", pagination=10, columns=[
                 {"name": "run", "label": "", "field": "run", "align": "center",
@@ -404,7 +418,7 @@ class ControlPanel:
             table.add_slot("body-cell-run", '''
                 <q-td :props="props" class="any-col-check"><span class="any-check-hit">
                   <input type="checkbox" class="any-check" :checked="props.value" :disabled="!props.row.match"
-                         :title="props.row.match ? '' : 'Not matched by the selected tags'"
+                         :title="props.row.match ? '' : 'Not matched by the selected tags or the folder'"
                          :aria-label="(props.value ? 'Selected: ' : 'Not selected: ') + props.row.test_id"
                          @change="() => $parent.$emit('toggle_test', props.row.test_id)">
                 </span></q-td>''')
@@ -626,10 +640,17 @@ class ControlPanel:
 
     # ───────────── presentation helpers ─────────────
 
+    def _tag_matched(self) -> list:
+        return self.catalog.select(self.tags_select.value or [])
+
     def _selection(self) -> tuple[list, list]:
-        """(tests the tags match, those of them still checked in the Tests table)."""
-        matched = self.catalog.select(self.tags_select.value or [])
+        """(tests the tags and the folder filter match, those of them still checked in the Tests table)."""
+        matched = [t for t in self._tag_matched() if in_folder(folder_of(t.file), self.folder)]
         return matched, [t for t in matched if t.test_id not in self.excluded]
+
+    def _set_folder(self, folder: str) -> None:
+        self.folder = folder or ALL_FOLDERS
+        self.tests_view.refresh()
 
     def _toggle_test(self, test_id: str) -> None:
         if test_id in self.excluded:
@@ -724,6 +745,7 @@ class ControlPanel:
 
     def on_system_change(self) -> None:
         self.excluded.clear()
+        self.folder = ALL_FOLDERS
         envs = self.svc.systems.environments(self.system_select.value)
         self.env_select.set_options(envs, value=envs[0] if envs else None)
         self._sync_compare()
@@ -735,7 +757,7 @@ class ControlPanel:
         current = self.tags_select.value or []
         if system_changed:  # tags of the previous system (e.g. GOOGLE) don't carry over
             current = self.catalog.tags_for(current, self.system_select.value)
-        self.tags_select.set_options(sorted(set(self.catalog.all_tags()) | set(current), key=str.casefold),
+        self.tags_select.set_options(sorted(set(self.catalog.picker_tags()) | set(current), key=str.casefold),
                                      value=current)
         self.tests_view.refresh()
 
@@ -773,8 +795,15 @@ class ControlPanel:
             ui.notify("No test cases match the selected tags." if not matched else "No test cases are checked.",
                       type="warning")
             return
-        # All checked -> no ID filter (same payload as before); a subset -> run only those IDs
-        test_ids = sorted({t.test_id for t in selected}) if len(selected) < len(matched) else []
+        # All checked -> no ID filter (same payload as before); a subset of what the tags match (unticked tests, or
+        # one folder) -> run only those IDs
+        test_ids = sorted({t.test_id for t in selected}) if len(selected) < len(self._tag_matched()) else []
+        threshold = int(getattr(self.svc.settings, "run_confirm_threshold", 0) or 0)
+        if threshold and len(selected) * len(browsers) >= threshold and not await confirm_big_run(
+                tests=len(selected), browsers=len(browsers), system=system or "", env=env or "",
+                groups=sorted({folder_of(t.file) or "(top level)" for t in selected}),
+                runs_so_far=self.svc.runs.list()[:60], test_ids=[t.test_id for t in selected]):
+            return
         status = self.svc.credential_status(self.system_select.value, self.env_select.value)
         if status is None:
             ui.notify("No login entry in systemData.json for this system/environment.", type="negative")

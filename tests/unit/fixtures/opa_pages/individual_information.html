@@ -1,0 +1,21 @@
+<div id="controls-div">
+ <div class="rn_OpaControl optional" data-opaid="g0"><label class="Normal">Please enter information for the Individual</label></div>
+ <div class="rn_OpaControl optional" data-opaid="g1">
+  <div class="rn_OpaControl required" data-attributeid="CDI_IndiviFirstName" data-opaid="a1"><label for="fn">First Name</label><input id="fn" class="form-control FIRST_NAME" type="text" name="fn" value="" aria-required="true"></div>
+  <div class="rn_OpaControl optional" data-attributeid="CDI_IndiviMiddleInitial" data-opaid="a2"><label for="mi">M.I.</label><input id="mi" class="form-control MIDDLE_INITIAL" type="text" name="mi" value=""></div>
+  <div class="rn_OpaControl required" data-attributeid="CDI_IndiviLastName" data-opaid="a3"><label for="ln">Last Name</label><input id="ln" class="form-control LAST_NAME" type="text" name="ln" value="" aria-required="true"></div>
+  <div class="rn_OpaControl optional" data-attributeid="CDI_IndiviSuffix" data-opaid="a4"><label for="sf">Suffix</label><select id="sf" class="form-control NAME_SUFFIX" name="sf"><option value="">- Select One -</option><option value="I">I</option><option value="JR">JR</option></select></div>
+ </div>
+ <div class="rn_OpaControl optional" data-attributeid="CDI_IndiviSSN" data-opaid="a5">
+  <label for="s1">SSN</label>
+  <input id="s1-ssn1" class="form-control" name="x_9f3a-ssn1" value="" maxlength="3"> -
+  <input id="s1-ssn2" class="form-control" name="x_9f3a-ssn2" value="" maxlength="2"> -
+  <input id="s1-ssn3" class="form-control" name="x_9f3a-ssn3" value="" maxlength="4">
+ </div>
+ <div class="rn_OpaControl required" data-attributeid="CDI_IndiviDOB" data-opaid="a6">
+  <label>Date of Birth</label>
+  <select id="y" class="dmyyear form-control" name="dob_y" aria-required="true"><option value="YYYY">YYYY</option><option value="2026">2026</option></select>
+  <select id="m" class="dmymonth form-control" name="dob_m" aria-required="true"><option value="MM">MM</option><option value="1">Jan</option></select>
+  <select id="d" class="dmyday form-control" name="dob_d" aria-required="true"><option value="DD">DD</option></select>
+ </div>
+</div>

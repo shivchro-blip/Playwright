@@ -27,7 +27,7 @@ ACTIONS: dict[str, str] = {
     "custom": "Custom (JSON)",
 }
 SHORTHANDS = ("click", "dblclick", "hover", "check", "setchecked", "kendodate")  # the engine lowercases strings
-CLICK_TYPES = {"button", "link", "checkbox", "radio", "table"}
+CLICK_TYPES = {"click", "button", "link", "checkbox", "radio", "table"}
 HINTS = {
     "click": "Clicks the field.", "dblclick": "Double-clicks the field.", "hover": "Moves the pointer over it.",
     "check": "Ticks the checkbox.", "setchecked": "Sets the checkbox by script.",
