@@ -1,0 +1,18 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "RemunerationYes": { "locator": "[data-attributeid='LSI_NYS100_RemunPay'] label[for^='boolRadioY_']", "type": "radio" },
+   "RemunerationNo": { "locator": "[data-attributeid='LSI_NYS100_RemunPay'] label[for^='boolRadioN_']", "type": "radio" },
+   "RemunerationExplanation": { "locator": "[data-attributeid='LSI_NYS100_BusExpltn'] textarea", "type": "textarea" },
+   "BeganBusinessDate": { "locator": "[data-attributeid='LSI_NYS100_Bbny'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(-365, -365, '%m/%d/%Y')", "typeKeys": true },
+   "FirstQuarter": { "locator": "[data-attributeid='LSI_NYS100_FirstQuarter'] select", "type": "select" },
+   "QuarterYear": { "locator": "[data-attributeid='LSI_NYS100_CalYear'] input", "type": "text", "autoGen": "getIntBetween(2025, 2027)" },
+   "WithholdTaxYes": { "locator": "[data-attributeid='LSI_NYS100_TaxWithHold'] label[for^='boolRadioY_']", "type": "radio" },
+   "WithholdTaxNo": { "locator": "[data-attributeid='LSI_NYS100_TaxWithHold'] label[for^='boolRadioN_']", "type": "radio" },
+   "FirstPayrollDate": { "locator": "[data-attributeid='LSI_NYS100_PayrollDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(-30, -30, '%m/%d/%Y')", "typeKeys": true },
+   "TotalEmployees": { "locator": "[data-attributeid='LSI_NYS100_BusTotEmp'] input", "type": "text", "autoGen": "getIntBetween(1, 50)" },
+   "OtherWorkersYes": { "locator": "[data-attributeid='LSI_NYS100_ConsiderNotEmp'] label[for^='boolRadioY_']", "type": "radio" },
+   "OtherWorkersNo": { "locator": "[data-attributeid='LSI_NYS100_ConsiderNotEmp'] label[for^='boolRadioN_']", "type": "radio" },
+   "ServicesPerformed": { "locator": "[data-attributeid='LSI_NYS100_ServicesPerformed'] textarea", "type": "textarea" }
+ }
+}

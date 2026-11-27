@@ -1,0 +1,11 @@
+{
+ "fields": {
+   "NoticeHeading": { "locator": "[data-opaid='global_global_g_0'] label.Heading4", "type": "text" },
+   "NoticeText": { "locator": "[data-opaid='global_global_g_2'] label.Normal", "type": "text" },
+   "IAgree": { "locator": "[data-attributeid='LSI_LSA19_GamAttestCheck'] label.checkbox_label", "type": "checkbox" },
+   "AttestName": { "locator": "[data-attributeid='LSI_LSA19_GamAttestName'] input", "type": "text", "autoGen": "fullname" },
+   "AttestEmail": { "locator": "[data-attributeid='LSI_LSA19_GamAttestEmail'] input", "type": "text", "autoGen": "email" },
+   "ElectronicSignatureText": { "locator": "[data-opaid='global_global_g_9'] label.Normal", "type": "text" },
+   "IAccept": { "locator": "[data-attributeid='LSI_LSA19_GamAttestIAcceptCheck'] label.checkbox_label", "type": "checkbox" }
+ }
+}

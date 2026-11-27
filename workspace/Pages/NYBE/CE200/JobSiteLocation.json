@@ -1,0 +1,14 @@
+{
+  "fields": {
+    "ProjectFromDate": { "locator": "[data-attributeid='LSI_CE200_ProjectFromDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(30, 30, '%m/%d/%Y')", "typeKeys": true },
+    "ProjectToDate": { "locator": "[data-attributeid='LSI_CE200_ProjectToDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(90, 90, '%m/%d/%Y')", "typeKeys": true },
+    "EstimatedDollar": { "locator": "[data-attributeid='LSI_CE200_EstimatedDollar'] select", "type": "select" },
+
+    "JobAddressLine1": { "locator": "[data-attributeid='LSI_CE200_JobAddressLine1'] input", "type": "text", "autoGen": "addressLine1" },
+    "JobAddressLine2": { "locator": "[data-attributeid='LSI_CE200_JobAddressLine2'] input", "type": "text" },
+    "JobCity": { "locator": "[data-attributeid='LSI_CE200_JobCity'] input", "type": "text", "autoGen": "city" },
+    "JobState": { "locator": "[data-attributeid='LSI_CE200_JobState'] select", "type": "select" },
+    "JobZip": { "locator": "[data-attributeid='LSI_CE200_JobZip'] input", "type": "text", "autoGen": "zipcode" },
+    "JobCounty": { "locator": "[data-attributeid='LSI_CE200_JobCounty'] select", "type": "select", "autoGen": "county" }
+  }
+}

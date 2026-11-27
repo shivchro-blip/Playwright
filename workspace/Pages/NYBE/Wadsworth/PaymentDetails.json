@@ -1,0 +1,24 @@
+{
+  "fields": {
+    "checkoutButton": { "locator": "button#id_checkout", "type": "button" },
+
+    "cardNumber": { "locator": "input#ssl_card_number", "type": "text", "autoGen": "nybeCardNumber" },
+    "expirationDate": { "locator": "input#ssl_exp_date", "type": "text", "autoGen": "nybeCardExpiry" },
+    "cvv": { "locator": "input#ssl_cvv2cvc2", "type": "text", "autoGen": "nybeCardCvv" },
+
+    "firstName": { "locator": "input#ssl_first_name", "type": "text", "autoGen": "name" },
+    "lastName": { "locator": "input#ssl_last_name", "type": "text", "autoGen": "name" },
+    "addressLine1": { "locator": "input#ssl_avs_address", "type": "text", "autoGen": "addressLine1" },
+    "addressLine2": { "locator": "input#ssl_address2", "type": "text" },
+    "city": { "locator": "input#ssl_city", "type": "text" , "autoGen": "city"},
+    "state": { "locator": "input#ssl_state", "type": "text","autoGen": "state" },
+    "zipCode": { "locator": "input#ssl_avs_zip", "type": "text" , "autoGen": "zipcode"},
+    "countryDropdown": { "locator": "md-select#ssl_country", "type": "button" },
+    "countryOption": { "locator": "md-option:has(div.md-text:text-is('{value}'))", "type": "button" },
+    "email": { "locator": "input#ssl_email", "type": "text", "autoGen": "email" },
+    "phone": { "locator": "input#ssl_phone", "type": "text", "autoGen": "phone" },
+
+    "submitPayment": { "locator": "button#id_recaptcha", "type": "button" },
+    "backToOrderSection": { "locator": "div#id_goto_payment_method", "type": "button" }
+  }
+}

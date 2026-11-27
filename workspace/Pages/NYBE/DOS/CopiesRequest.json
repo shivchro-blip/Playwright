@@ -1,0 +1,7 @@
+{
+ "fields": {
+   "PlainCopy": { "locator": "[data-attributeid='LSI_DOS_PlainCopyReq'] label.checkbox_label", "type": "checkbox" },
+   "CertifiedCopy": { "locator": "[data-attributeid='LSI_DOS_CertCopyReq'] label.checkbox_label", "type": "checkbox" },
+   "CertificateOfStatus": { "locator": "[data-attributeid='LSI_DOS_CertOfExistenceReq'] label.checkbox_label", "type": "checkbox" }
+ }
+}

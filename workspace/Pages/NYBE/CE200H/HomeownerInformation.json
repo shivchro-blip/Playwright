@@ -1,0 +1,18 @@
+{
+  "fields": {
+    "FirstName": { "locator": "[data-attributeid='CDI_FirstName1'] input", "type": "text","autoGen": "name" },
+    "LastName": { "locator": "input[id*='CDI_LastName1_']", "type": "text","autoGen": "name" },
+    "Ssn1": { "locator": "[data-attributeid='CDI_GenSsn'] input[id$='-ssn1']", "type": "text", "autoGen": "getIntBetween(100, 665)", "typeKeys": true },
+    "Ssn2": { "locator": "[data-attributeid='CDI_GenSsn'] input[id$='-ssn2']", "type": "text", "autoGen": "getIntBetween(10, 99)", "typeKeys": true },
+    "Ssn3": { "locator": "[data-attributeid='CDI_GenSsn'] input[id$='-ssn3']", "type": "text", "autoGen": "getIntBetween(1000, 9999)", "typeKeys": true },
+    "addressLine1": { "locator": "input[id*='CDI_BusAddLine1_']", "type": "text", "autoGen": "addressLine1" },
+    "addressLine2": { "locator": "input[id*='CDI_BusAddLine2_']", "type": "text" },
+    "city": { "locator": "input[id*='CDI_BusAddCity_']", "type": "text", "autoGen": "city" },
+    "country": { "locator": "select[id*='CDI_BusAddCountry_']", "type": "select" },
+    "state": { "locator": "select[id*='CDI_BusAddState_']", "type": "select" },
+    "zipCode": { "locator": "input[id*='CDI_BusAddZip_']", "type": "text", "autoGen": "zipcode" },
+    "county": { "locator": "select[id*='CDI_BusAddCounty_']", "type": "select", "autoGen": "county" },
+    "BusinessPhone": { "locator":"[data-attributeid='CDI_BusPhone1'] input", "type": "text", "autoGen": "phone" },
+    "BusinessEmail": { "locator":"[data-attributeid='CDI_BusEmail1'] input", "type": "text", "autoGen": "email" }
+  }
+}

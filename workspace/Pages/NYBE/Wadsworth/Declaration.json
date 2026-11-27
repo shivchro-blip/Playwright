@@ -1,0 +1,23 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "priorPublicHealthLawViolations": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPDeclareDirectorsHasPriorPublicHealthLawViolations_']) label:text-is('{value}')", "type": "radio"},
+    "priorPublicHealthLawViolationsUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDeclareDirectorsHasPriorPublicHealthLawViolations_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "priorFraudOffense": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPDeclareOwnershipHasPriorFraudOffense_']) label:text-is('{value}')", "type": "radio"},
+    "priorFraudOffenseUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDeclareOwnershipHasPriorFraudOffense_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "ownersAuthorizedToOrderTests": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPDeclareOwnershipIsAuthorizedbyLawForTesting_']) label:text-is('{value}')", "type": "radio"},
+    "ownersAuthorizedToOrderTestsUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDeclareOwnershipIsAuthorizedbyLawForTesting_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "managedByOtherOrganization": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPDeclareLabIsManagedByOtherOrganization_']) label:text-is('{value}')", "type": "radio"},
+    "managementContractUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDeclareManagementContract_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "managementName": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementName_']", "type": "text"},
+    "managementAddressLine1": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementAddressLine1_']", "type": "text"},
+    "managementCity": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementAddressCity_']", "type": "text"},
+    "managementCountry": {"locator": "select[id^='global_global_a_LSI_CLPDeclareManagementAddressCountry_']", "type": "select"},
+    "managementState": {"locator": "select[id^='global_global_a_LSI_CLPDeclareManagementAddressState_']", "type": "select"},
+    "managementZipCode": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementAddressZip_']", "type": "text"},
+    "managementZip4": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementAddressZip4_']", "type": "text"},
+    "managementCounty": {"locator": "select[id^='global_global_a_LSI_CLPDeclareManagementAddressCounty_']", "type": "select"},
+    "managementPostalCodeCanada": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementAddressPostalCodeCA_']", "type": "text"},
+    "managementInternationalPostalCode": {"locator": "input[id^='global_global_a_LSI_CLPDeclareManagementAddressPostalCode_']", "type": "text"}
+  }
+}

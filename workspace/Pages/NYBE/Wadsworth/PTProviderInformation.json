@@ -1,0 +1,19 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "aabMleCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_PTPI_AABMLE_']", "type": "checkbox" },
+    "aabMleId": { "locator": "input[id^='global_global_a_LSI_PTPI_AABMLE_ID_']", "type": "text" },
+
+    "apiCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_PTPI_API_']", "type": "checkbox" },
+    "apiId": { "locator": "input[id^='global_global_a_LSI_PTPI_API_ID_']", "type": "text" },
+
+    "capCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_PTPI_CAP_']", "type": "checkbox" },
+    "capId": { "locator": "input[id^='global_global_a_LSI_PTPI_CAP_ID_']", "type": "text" },
+
+    "accutestCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_PTPI_Accutest_']", "type": "checkbox" },
+    "accutestId": { "locator": "input[id^='global_global_a_LSI_PTPI_Accutest_ID_']", "type": "text" },
+
+    "wslhCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_PTPI_WSLHPT_']", "type": "checkbox" },
+    "wslhId": { "locator": "input[id^='global_global_a_LSI_PTPI_WSLHPT_ID_']", "type": "text" }
+  }
+}

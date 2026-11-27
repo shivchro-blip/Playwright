@@ -1,0 +1,8 @@
+{
+  "fields": {
+    "getStartedButton": { "role": "button", "name": "Get Started", "type": "button" },
+    "entityType": { "label": "Type of entity or", "type": "select" },
+    "entitySubType": { "locator": "select[autocomplete^='Sub-Type-for-']:visible", "type": "select" },
+    "continueButton": { "role": "button", "name": "Continue", "type": "button" }
+  }
+}

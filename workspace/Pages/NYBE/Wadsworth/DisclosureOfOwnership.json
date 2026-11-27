@@ -1,0 +1,32 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "typeOfControl": {"locator": "select[id^='global_global_a_LSI_CLPDirectOwnerTypeOfControl_']", "type": "select"},
+    "typeOfControlOther": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerTypeOfControlOther_']", "type": "text"},
+    "entityType": {"locator": "select[id^='global_global_a_LSI_CLPDirectOwnerEntityType_']", "type": "select"},
+    "entityTypeOther": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerEntityTypeOther_']", "type": "text"},
+    "directOwnerName": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerName_']", "type": "text", "autoGen": "name"},
+    "addAdditionalDirectOwner": {"locator": "button[id^='crc2add_'][id$='_1']", "type": "button"},
+    "directOwnerFein": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerFEIN_']", "type": "text", "autoGen": "fein"},
+    "einVerificationUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDirectOwnerEINVerification_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "taxResidencyUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDirectOwnerTaxResidencyCertificate_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "addressLine1": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerAddressLine1_']", "type": "text"},
+    "city": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerAddressCity_']", "type": "text"},
+    "country": {"locator": "select[id^='global_global_a_LSI_CLPDirectOwnerAddressCountry_']", "type": "select"},
+    "state": {"locator": "select[id^='global_global_a_LSI_CLPDirectOwnerAddressState_']", "type": "select"},
+    "zipCode": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerAddressZip_']", "type": "text"},
+    "zip4": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerAddressZip4_']", "type": "text"},
+    "county": {"locator": "select[id^='global_global_a_LSI_CLPDirectOwnerAddressCounty_']", "type": "select"},
+    "postalCodeCanada": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerAddressPostalCodeCA_']", "type": "text"},
+    "internationalPostalCode": {"locator": "input[id^='global_global_a_LSI_CLPDirectOwnerAddressPostalCode_']", "type": "text"},
+    "individualOwnersUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDOINDVDetails_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "governmentOwnersUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDOGOVDetails_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "forProfitCorpOwnersUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDOFPCorpDetails_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "nonProfitCorpOwnersUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDONFPCorpDetails_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "directOwnerHasOtherClpInterests": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPDirectOwnerHasOtherCLPInterests_']) label:text-is('{value}')", "type": "radio"},
+    "directOwnerOtherClpUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPDirectOwnerOtherCLP_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "indirectOwnerDocUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPIndirectOwnerDoc_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "indirectOwnerHasOtherClpInterests": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPIndirectOwnerHasOtherCLPInterests_']) label:text-is('{value}')", "type": "radio"},
+    "indirectOwnerOtherClpUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPIndirectOwnerOtherCLP_Upload_']", "type": "fileChooserDocument", "autoGen": "document"}
+  }
+}

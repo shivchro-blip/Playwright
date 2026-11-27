@@ -1,0 +1,13 @@
+{
+  "fields": {
+    "Heading": { "locator": ".page-header h2:text-is(\"Workers' Compensation Coverage Exemptions\")", "type": "text" },
+
+    "ExemptTwoPersonCorporation": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_14'] + label", "type": "radio" },
+    "ExemptNonprofit": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_15'] + label", "type": "radio" },
+    "ExemptTempAgencyStaff": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_18'] + label", "type": "radio" },
+    "ExemptGeneralContractor": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_20'] + label", "type": "radio" },
+    "ExemptNativeAmerican": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_21'] + label", "type": "radio" },
+    "ExemptFederalAgency": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_22'] + label", "type": "radio" },
+    "ExemptNoneApply": { "locator": "[data-attributeid='LSI_CE200_WCB_WCCExemption'] input[value='FA_C70_23'] + label", "type": "radio" }
+  }
+}

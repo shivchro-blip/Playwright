@@ -1,0 +1,11 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "ReasonApply": { "locator": "[data-attributeid='LSI_DTF17_ReasonApply'] select", "type": "select" },
+   "BeginBusinessDate": { "locator": "[data-attributeid='LSI_DTF17_NysBeginBus'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(30, 30, '%m/%d/%Y')", "typeKeys": true },
+   "ActivityEndDate": { "locator": "[data-attributeid='LSI_DTF17_TempVendor'] input.hasDatepicker", "type": "text" },
+   "BusinessActivity": { "locator": "[data-attributeid='LSI_DTF17_BusAct'] textarea", "type": "textarea", "autoGen": "desc" },
+   "HomeBasedYes": { "locator": "[data-attributeid='LSI_DTF17_HomeBased'] label[for^='boolRadioY_']", "type": "radio" },
+   "HomeBasedNo": { "locator": "[data-attributeid='LSI_DTF17_HomeBased'] label[for^='boolRadioN_']", "type": "radio" }
+ }
+}

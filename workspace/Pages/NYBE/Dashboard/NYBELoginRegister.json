@@ -1,0 +1,8 @@
+{
+  "fields": {
+    "loginHereButton": { "role": "link", "name": "Login Here", "type": "link" },
+    "forgotUsernameLink": { "role": "link", "name": "I forgot my username", "type": "link" },
+    "forgotPasswordLink": { "role": "link", "name": "I forgot my password", "type": "link" },
+    "registerHereButton": { "role": "link", "name": "Register Here", "type": "link" }
+  }
+}

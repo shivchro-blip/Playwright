@@ -1,0 +1,10 @@
+{
+  "fields": {
+    "HasNailTraineeReg_Yes": { "locator": "[data-attributeid='LSI_AEB_QualHasNailTranineeReg'] label[for^='boolRadioY_']", "type": "click" },
+    "HasNailTraineeReg_No": { "locator": "[data-attributeid='LSI_AEB_QualHasNailTranineeReg'] label[for^='boolRadioN_']", "type": "click" },
+    "TraineeUid": { "locator": "[data-attributeid='LSI_AEB_QualNailTraineeRegID'] .AEB_UID input.form-control", "type": "text" },
+    "TraineeUidLookup": { "locator": "[data-attributeid='LSI_AEB_QualNailTraineeRegID'] button.AEB_UID_Validate_Button", "type": "click" },
+    "TraineeUidResult": { "locator": "[data-attributeid='LSI_AEB_QualNailTraineeRegID'] .AEB_UID_Validation_Result", "type": "text" },
+    "TraineeRegExpiry": { "locator": "[data-attributeid='LSI_AEB_QualNailTraineeRegExpireDate'] input", "type": "text", "typeKeys": true, "autoGen": "getDateBetween(30, 365, '%m/%d/%Y')" }
+  }
+}

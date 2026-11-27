@@ -1,0 +1,8 @@
+{
+  "fields": {
+    "addressChoice": { "locator": "label.radio_label[for$='_{value}']", "type": "radio" },
+    "useSelectedAddress": { "locator": "#btn-add-select", "type": "button" },
+    "closeAddressDialog": { "locator": "#addressModalDismiss", "type": "button" }
+  }
+}
+ 

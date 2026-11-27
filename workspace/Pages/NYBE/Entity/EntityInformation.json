@@ -1,0 +1,14 @@
+{
+ "fields": {
+   "legalName": { "locator": "input[id^='global_global_a_CDI_LegalName_']", "type": "text", "autoGen": "legalName" },
+   "legalNameLLC": { "locator": "input[id^='global_global_a_CDI_LegalName_']", "type": "text", "autoGen": "legalNameLLC" },
+   "legalNameCorporation": { "locator": "input[id^='global_global_a_CDI_LegalName_']", "type": "text", "autoGen": "legalNameCorporation" },
+   "legalNameLLP": { "locator": "input[id^='global_global_a_CDI_LegalName_']", "type": "text", "autoGen": "legalNameLLP" },
+   "dbaName": { "locator": "input[id^='global_global_a_CDI_DbaNme_']", "type": "text", "autoGen": "name" },
+   "ein": { "locator": "input[id^='global_global_a_CDI_Ein_']", "type": "text", "autoGen": "fein" },
+   "noEinCheckbox": { "locator": "input[type='checkbox'][id*='CDI_NoFedID']", "type": "checkbox" },
+   "heading": { "locator": ".page-header h2", "type": "text" },
+   "errorMessage": { "locator": ".error-list .alert-danger[data-code='RuleEventError']", "type": "text" },
+   "entityType": { "locator": "[data-attributeid='CDI_EntType'] .rn_LabelControl label", "type": "text" }
+ }
+}

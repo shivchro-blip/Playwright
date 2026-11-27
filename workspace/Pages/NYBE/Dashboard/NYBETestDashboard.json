@@ -1,0 +1,6 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "startInterviewLink": { "locator": "a[href*='licenseTypeCode={value}&']", "type": "link" }
+  }
+}

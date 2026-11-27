@@ -1,0 +1,17 @@
+{
+ "fields": {
+   "PriorLicenseYes": { "locator": "[data-attributeid='LSI_LSA19_PriorNYLottHisto'] label[for^='boolRadioY_']", "type": "radio" },
+   "PriorLicenseNo": { "locator": "[data-attributeid='LSI_LSA19_PriorNYLottHisto'] label[for^='boolRadioN_']", "type": "radio" },
+   "LicenseNumber": { "locator": "fieldset [data-attributeid='LSI_LSA19_NYLottAgentNum'] input", "type": "text", "index": 0, "autoGen": "getIntBetween(1000000, 9999999)" },
+   "PriorBusinessName": { "locator": "fieldset [data-attributeid='LSI_LSA19_PriorBusName'] input", "type": "text", "index": 0, "autoGen": "legalName" },
+   "LicenseStatus": { "locator": "fieldset [data-attributeid='LSI_LSA19_GamCurrLicStat'] select", "type": "select", "index": 0 },
+   "StatusExplanation": { "locator": "fieldset [data-attributeid='LSI_LSA19_LicNotCurrActive'] textarea", "type": "textarea", "index": 0 },
+   "RemoveHistory": { "locator": "fieldset button.remove-instance", "type": "button", "index": 0 },
+   "AddPriorHistory": { "locator": "button.add-instance:text-is('Add Prior License History')", "type": "button" },
+   "LicenseNumber2": { "locator": "fieldset [data-attributeid='LSI_LSA19_NYLottAgentNum'] input", "type": "text", "index": 1, "autoGen": "getIntBetween(1000000, 9999999)" },
+   "PriorBusinessName2": { "locator": "fieldset [data-attributeid='LSI_LSA19_PriorBusName'] input", "type": "text", "index": 1, "autoGen": "legalName" },
+   "LicenseStatus2": { "locator": "fieldset [data-attributeid='LSI_LSA19_GamCurrLicStat'] select", "type": "select", "index": 1 },
+   "StatusExplanation2": { "locator": "fieldset [data-attributeid='LSI_LSA19_LicNotCurrActive'] textarea", "type": "textarea", "index": 1 },
+   "RemoveHistory2": { "locator": "fieldset button.remove-instance", "type": "button", "index": 1 }
+ }
+}

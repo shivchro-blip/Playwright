@@ -1,0 +1,20 @@
+{
+ "fields": {
+   "Title": { "locator": "[data-opaid='global_global_g_1'] label.Normal", "type": "text" },
+   "CorporationName": { "locator": "[data-opaid='global_global_g_12'] label.Normal", "type": "text" },
+   "LlcNameHeader": { "locator": "[data-opaid='global_global_g_2'] label.Normal", "type": "text" },
+   "LlcNameHeading": { "locator": "[data-opaid='global_global_g_9'] label.Heading4", "type": "text" },
+   "LlcName": { "locator": "[data-opaid='global_global_g_11'] label.Normal", "type": "text" },
+   "OpeningStatement": { "locator": "[data-attributeid='LSI_DOS1239_OpeningStatement'] label.checkbox_label", "type": "checkbox" },
+   "LlcOpeningStatement": { "locator": "[data-attributeid='LSI_DOS1336_LegalStructure'] label.checkbox_label", "type": "checkbox" },
+   "PurposeClause": { "locator": "[data-attributeid='LSI_DOS1336_PurposeClauseCheck'] label.checkbox_label", "type": "checkbox" },
+   "NonEnglishYes": { "locator": "[data-attributeid='LSI_DOS_NonEnglish'] label[for^='boolRadioY_']", "type": "radio" },
+   "NonEnglishNo": { "locator": "[data-attributeid='LSI_DOS_NonEnglish'] label[for^='boolRadioN_']", "type": "radio" },
+   "EnglishTranslation": { "locator": "[data-attributeid='LSI_DOS_EnglishTranslation'] input", "type": "text", "autoGen": "name" },
+   "County": { "locator": "[data-attributeid='LSI_DOS_County'] select", "type": "select" },
+   "NumberOfShares": { "locator": "[data-attributeid='LSI_DOS1239_NumberOfShares'] input", "type": "text" },
+   "NoPar": { "locator": "[data-attributeid='LSI_DOS1239_ParNoPar'] label.radio_label:text-is('No Par')", "type": "radio" },
+   "Par": { "locator": "[data-attributeid='LSI_DOS1239_ParNoPar'] label.radio_label:text-is('Par')", "type": "radio" },
+   "ShareValue": { "locator": "[data-attributeid='LSI_DOS1239_ShareValue'] input", "type": "text" }
+ }
+}

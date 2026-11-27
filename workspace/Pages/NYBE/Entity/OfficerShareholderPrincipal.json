@@ -1,0 +1,58 @@
+{
+  "fields": {    
+	"AddPrincipal": { "locator": "button[id^='crc2add_']:visible >> nth=0", "type": "button" },
+    "TotalRecords": { "locator": ".crc2-count-number", "type": "text" },
+
+    "PrincipalType": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincType'] select", "type": "select" },
+    "PersonTitle": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincPersonTitle'] select", "type": "select" },
+    "BusinessTitle": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusTitle'] select", "type": "select" },
+
+    "FirstName": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincFirstName'] input", "type": "text", "autoGen": "name" },
+    "MiddleInitial": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincMiddleInitial'] input", "type": "text" },
+    "LastName": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincLastName'] input", "type": "text", "autoGen": "name" },
+    "Suffix": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincSuffix'] select", "type": "select" },
+    "DobYear": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincDob'] select.dmyyear", "type": "select" },
+    "DobMonth": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincDob'] select.dmymonth", "type": "select" },
+    "DobDay": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincDob'] select.dmyday", "type": "select" },
+    "ResidentYes": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_resident'] label[for^='boolRadioY_']", "type": "radio" },
+    "ResidentNo": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_resident'] label[for^='boolRadioN_']", "type": "radio" },
+	"SsnArea":   { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincSSN'] input[id$='-ssn1']", "type": "text", "autoGen": "getIntBetween(100, 665)", "typeKeys": true },
+	"SsnGroup":  { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincSSN'] input[id$='-ssn2']", "type": "text", "autoGen": "getIntBetween(10, 99)", "typeKeys": true },
+	"SsnSerial": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincSSN'] input[id$='-ssn3']", "type": "text", "autoGen": "getIntBetween(1000, 9999)", "typeKeys": true},
+    "PersonPhone": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincPhone1'] input", "type": "text", "autoGen": "phone" },
+    "PersonEmail": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincEmail'] input", "type": "text", "autoGen": "email" },
+
+    "BusinessLegalName": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusLegal'] input", "type": "text", "autoGen": "legalName" },
+    "BusinessEin": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusFederalEmpID'] input", "type": "text", "autoGen": "fein" },
+    "BusinessPhone": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusPhone1'] input", "type": "text", "autoGen": "phone" },
+    "BusinessEmail": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusEmail1'] input", "type": "text", "autoGen": "email" },
+
+    "OwnershipPercent": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincOwnershipPercent'] input", "type": "text" },
+    "ProfitDistribution": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincProfitDis'] input", "type": "text" },
+
+    "HomeAddressLine1": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddHomeline1'] input", "type": "text", "autoGen": "addressLine1" },
+    "HomeAddressLine2": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddHomeLine2'] input", "type": "text" },
+    "HomeCity": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddCity'] input", "type": "text", "autoGen": "city" },
+    "HomeCountry": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddHomeCountry'] select", "type": "select" },
+    "HomeState": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddState'] select", "type": "select" },
+    "HomeZip": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddHomeZip'] input", "type": "text", "autoGen": "zipcode" },
+    "HomeZip4": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincHomeAddZip4'] input", "type": "text" },
+    "HomeCounty": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddHomeCounty'] select", "type": "select", "autoGen": "county" },
+    "HomeValidateAddress": { "locator": "div[id^='crc2modal_'] .address[id*='_g_30_'] button[title='Address Validate']", "type": "button" },
+
+    "BusinessAttn": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusAddCO'] input", "type": "text" },
+    "BusinessAddressLine1": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusLine1'] input", "type": "text", "autoGen": "addressLine1" },
+    "BusinessAddressLine2": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusLine2'] input", "type": "text" },
+    "BusinessCity": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusAddCity'] input", "type": "text", "autoGen": "city" },
+    "BusinessCountry": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddCountry'] select", "type": "select" },
+    "BusinessState": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusState'] select", "type": "select" },
+    "BusinessZip": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBusZip'] input", "type": "text", "autoGen": "zipcode" },
+    "BusinessZip4": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincBus_Zip4'] input", "type": "text" },
+    "BusinessCounty": { "locator": "div[id^='crc2modal_'] [data-attributeid='CDI_PrincAddCounty'] select", "type": "select", "autoGen": "county" },
+    "BusinessValidateAddress": { "locator": "div[id^='crc2modal_'] .address[id*='_g_49_'] button[title='Address Validate']", "type": "button" },
+
+    "SavePrincipal": { "locator": "div[id^='crc2modal_'] button.save-close", "type": "button" },
+    "UpdatePrincipal": { "locator": "div[id^='crc2modal_'] button.update", "type": "button" },
+    "CancelPrincipal": { "locator": "div[id^='crc2modal_'] .modal-footer button:text-is('Cancel')", "type": "button" }
+  }
+}

@@ -1,0 +1,16 @@
+{
+ "fields": {
+   "YearsAtLocation": { "locator": "[data-attributeid='LSI_LSA19_PropInfoLocation'] input", "type": "text", "autoGen": "getIntBetween(1, 20)" },
+   "BuildingRent": { "locator": "[data-attributeid='LSI_LSA19_GamBusLoc'] label.radio_label:text-is('Rent')", "type": "radio" },
+   "BuildingOwn": { "locator": "[data-attributeid='LSI_LSA19_GamBusLoc'] label.radio_label:text-is('Own')", "type": "radio" },
+   "LeaseExpirationDate": { "locator": "[data-attributeid='LSI_LSA19_PropInfoLeaseExp'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(365, 365, '%m/%d/%Y')", "typeKeys": true },
+   "LandlordHeading": { "locator": "[data-opaid='global_global_g_5'] label.Heading4", "type": "text" },
+   "LandlordFirstName": { "locator": "[data-attributeid='LSI_LSA19_LandlordFirstName'] input", "type": "text", "autoGen": "name" },
+   "LandlordLastName": { "locator": "[data-attributeid='LSI_LSA19_LandlordLastName'] input", "type": "text", "autoGen": "name" },
+   "LandlordAddress": { "locator": "[data-attributeid='LSI_LSA19_LandlordAddLine1'] input", "type": "text", "autoGen": "addressLine1" },
+   "LandlordCity": { "locator": "[data-attributeid='LSI_LSA19_LandlordAddCity'] input", "type": "text", "autoGen": "city" },
+   "LandlordState": { "locator": "[data-attributeid='LSI_LSA19_LandlordAddState'] select", "type": "select" },
+   "LandlordZip": { "locator": "[data-attributeid='LSI_LSA19_LandlordAddZipCode'] input", "type": "text", "autoGen": "zipcode" },
+   "LandlordPhone": { "locator": "[data-attributeid='LSI_LSA19_LandlordAddPhonNum'] input", "type": "text", "autoGen": "phone" }
+ }
+}

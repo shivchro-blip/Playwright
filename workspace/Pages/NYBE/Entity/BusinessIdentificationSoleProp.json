@@ -1,0 +1,18 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "FirstName": { "locator": "[data-attributeid='CDI_SpFirstName'] input", "type": "text", "autoGen": "name", "typeKeys": true },
+   "MiddleInitial": { "locator": "[data-attributeid='CDI_SpMiddleInitial'] input", "type": "text", "typeKeys": true },
+   "LastName": { "locator": "[data-attributeid='CDI_SpLastName'] input", "type": "text", "autoGen": "name", "typeKeys": true },
+   "Suffix": { "locator": "[data-attributeid='CDI_SpSuffix'] select", "type": "select" },
+   "LegalName": { "locator": "[data-attributeid='CDI_LegalName'] input", "type": "text" },
+   "DbaName": { "locator": "[data-attributeid='CDI_DbaNme'] input", "type": "text", "autoGen": "name", "typeKeys": true },
+   "EmployeesYes": { "locator": "[data-attributeid='CDI_IntendsToHaveEmp'] label[for^='boolRadioY_']", "type": "radio" },
+   "EmployeesNo": { "locator": "[data-attributeid='CDI_IntendsToHaveEmp'] label[for^='boolRadioN_']", "type": "radio" },
+   "Ein": { "locator": "[data-attributeid='CDI_Ein'] input", "type": "text", "autoGen": "fein" },
+   "NoEin": { "locator": "[data-attributeid='CDI_NoFedID'] label.checkbox_label", "type": "checkbox" },
+   "Ssn1": { "locator": "[data-attributeid='CDI_GenSsn'] input[id$='-ssn1']", "type": "text", "autoGen": "getIntBetween(100, 665)", "typeKeys": true },
+   "Ssn2": { "locator": "[data-attributeid='CDI_GenSsn'] input[id$='-ssn2']", "type": "text", "autoGen": "getIntBetween(10, 99)", "typeKeys": true },
+   "Ssn3": { "locator": "[data-attributeid='CDI_GenSsn'] input[id$='-ssn3']", "type": "text", "autoGen": "getIntBetween(1000, 9999)", "typeKeys": true }
+ }
+}

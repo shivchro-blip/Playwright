@@ -1,0 +1,10 @@
+{
+  "fields": {
+    "openDropdownButton": { "role": "button", "name": "Open Dropdown", "type": "button" },
+    "testDashboardLink": { "role": "link", "name": "Test Dashboard", "type": "link" },
+    "startInterviewLink": {
+      "locator": "a[href*='licenseTypeCode={value}&']",
+      "type": "link"
+    }
+  }
+}

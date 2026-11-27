@@ -1,0 +1,18 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "laboratoryName": { "locator": "input[id^='global_global_a_CDI_LaboratoryName_']", "type": "text", "autoGen": "name" },
+    "telephone": { "locator": "input[id^='global_global_a_LSI_CLPLaboratoryPhoneNumber_']", "type": "text", "autoGen": "phone" },
+    "email": { "locator": "input[id^='global_global_a_LSI_CLPLaboratoryEmailAddress_']", "type": "text", "autoGen": "email" },
+    "addressLine1": { "locator": "input[id^='global_global_a_LSI_CLPLabAddressLine1_']", "type": "text" },
+    "city": { "locator": "input[id^='global_global_a_LSI_CLPLabAddressCity_']", "type": "text" },
+    "country": { "locator": "select[id^='global_global_a_LSI_CLPLabAddressCountry_']", "type": "select" },
+    "state": { "locator": "select[id^='global_global_a_LSI_CLPLabAddressState_']", "type": "select" },
+    "zipCode": { "locator": "input[id^='global_global_a_LSI_CLPLabAddressZip_']", "type": "text" },
+    "zip4": { "locator": "input[id^='global_global_a_LSI_CLPLabAddressZip4_']", "type": "text" },
+    "postalCodeCanada": { "locator": "input[id^='global_global_a_LSI_CLPLabAddressPostalCodeCA_']", "type": "text" },
+    "internationalPostalCode": { "locator": "input[id^='global_global_a_LSI_CLPLabAddressPostalCode_']", "type": "text" },
+    "county": { "locator": "select[id^='global_global_a_LSI_CLPLabAddressCounty_']", "type": "select" },
+    "sameAsMailingCheckbox": { "locator": "label.checkbox_label[for^='checkboxOneInput_global_global_a_LSI_CLPLabAddressIsSameAsMailing']", "type": "checkbox" }
+  }
+}

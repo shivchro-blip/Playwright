@@ -1,0 +1,8 @@
+{
+  "fields": {
+    "ApplyingFor": { "locator": "[data-attributeid='LSI_CE200_ApplyingFor'] select", "type": "select" },
+    "TaxiNotice": { "locator": "[data-opaid='global_global_g_1']", "type": "text" },
+    "OtherType": { "locator": "[data-attributeid='LSI_CE200_OtherBusinessType'] input", "type": "text" },
+    "IssuingGovAgency": { "locator": "[data-attributeid='LSI_CE200_IssuingGovAgency'] input", "type": "text" }
+  }
+}

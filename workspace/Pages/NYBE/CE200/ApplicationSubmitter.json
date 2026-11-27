@@ -1,0 +1,16 @@
+{
+  "fields": {
+	"Question": { "locator": "[data-attributeid='LSI_CE200_ATTESTOR_ID'] .rn_FieldLabelControl label", "type": "text" },
+    "Submitter": { "locator": "[data-attributeid='LSI_CE200_ATTESTOR_ID'] select", "type": "select" },
+    "Title": { "locator": "[data-attributeid='LSI_CE200_PersonalTitle'] input", "type": "text" },
+    "FirstName": { "locator": "[data-attributeid='LSI_CE200_PersonalName'] input", "type": "text", "autoGen": "name" },
+    "MiddleInitial": { "locator": "[data-attributeid='LSI_CE200_PersonalMI'] input", "type": "text" },
+    "LastName": { "locator": "[data-attributeid='LSI_CE200_PersonalLastName'] input", "type": "text", "autoGen": "name" },
+    "AddressLine1": { "locator": "[data-attributeid='LSI_CE200_PersonalAddress1'] input", "type": "text", "autoGen": "addressLine1" },
+    "AddressLine2": { "locator": "[data-attributeid='LSI_CE200_PersonalAddress2'] input", "type": "text" },
+    "City": { "locator": "[data-attributeid='LSI_CE200_PersonalAddressCity'] input", "type": "text", "autoGen": "city" },
+    "Zip": { "locator": "[data-attributeid='LSI_CE200_PersonalAddressZip'] input", "type": "text", "autoGen": "zipcode" },
+    "Phone": { "locator": "[data-attributeid='LSI_CE200_PersonalPhone'] input", "type": "text", "autoGen": "phone" },
+    "Email": { "locator": "[data-attributeid='LSI_CE200_PersonalEmail'] input", "type": "text", "autoGen": "email" }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "fields": {
+    "WorkersCompHeading": { "locator": "label.Heading3:text-is(\"Workers' Compensation Insurance\")", "type": "text" },
+    "WorkersCompYes": { "locator": "[data-attributeid='LSI_CE200_WorkersComp'] label[for^='boolRadioY_']", "type": "radio" },
+    "WorkersCompNo": { "locator": "[data-attributeid='LSI_CE200_WorkersComp'] label[for^='boolRadioN_']", "type": "radio" },
+    "DisabilityHeading": { "locator": "label.Heading3:text-is('Disability and Paid Family Leave Benefits Insurance')", "type": "text" },
+    "DisabilityBenefitYes": { "locator": "[data-attributeid='LSI_CE200_DisabilityBenefit'] label[for^='boolRadioY_']", "type": "radio" },
+    "DisabilityBenefitNo": { "locator": "[data-attributeid='LSI_CE200_DisabilityBenefit'] label[for^='boolRadioN_']", "type": "radio" }
+  }
+}

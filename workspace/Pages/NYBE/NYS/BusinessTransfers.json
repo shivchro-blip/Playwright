@@ -1,0 +1,22 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "AcquiredBusinessYes": { "locator": "[data-attributeid='LSI_NYS100_AccEmplyrIns'] label[for^='boolRadioY_']", "type": "radio" },
+   "AcquiredBusinessNo": { "locator": "[data-attributeid='LSI_NYS100_AccEmplyrIns'] label[for^='boolRadioN_']", "type": "radio" },
+   "AcquiredAllOrPart": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquirePartOrAll'] select", "type": "select" },
+   "AcquiredDate": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredDate'] input.hasDatepicker", "type": "text", "autoGen": "getDateBetween(-90, -90, '%m/%d/%Y')", "typeKeys": true },
+   "AcquiredLegalName": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredEmprLegalName'] input", "type": "text", "autoGen": "legalNameLLC" },
+   "AcquiredAddress1": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredAddLine1'] input", "type": "text", "autoGen": "addressLine1" },
+   "AcquiredAddress2": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredAddLine2'] input", "type": "text" },
+   "AcquiredCity": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredCity'] input", "type": "text", "autoGen": "city" },
+   "AcquiredCountry": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredCountry'] select", "type": "select" },
+   "AcquiredState": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredState'] select", "type": "select" },
+   "AcquiredZip": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredZip'] input", "type": "text", "autoGen": "zipcode" },
+   "AcquiredZip4": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredZipExt'] input", "type": "text" },
+   "AcquiredCounty": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredCounty'] select", "type": "select", "autoGen": "county" },
+   "AcquiredRegNumber": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredEmplyrRegNum'] input", "type": "text", "autoGen": "employerRegNum" },
+   "AcquiredFein": { "locator": "fieldset [data-attributeid='LSI_NYS100_AcquiredFeidNum'] input", "type": "text", "autoGen": "fein" },
+   "RemoveTransfer": { "locator": "fieldset button.remove-instance", "type": "button" },
+   "AddNewTransfer": { "locator": "button.add-instance:text-is('Add New')", "type": "button" }
+ }
+}

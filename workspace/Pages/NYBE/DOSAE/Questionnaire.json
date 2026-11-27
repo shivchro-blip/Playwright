@@ -1,0 +1,6 @@
+{
+  "fields": {
+    "OrganDonor": { "locator": "[data-attributeid='LSI_AEB_OrganDonor'] input[value='{value}'] + label.radio_label", "type": "click" },
+    "RegisterToVote": { "locator": "[data-attributeid='LSI_AEB_RegisterToVote'] input[value='{value}'] + label.radio_label", "type": "click" }
+  }
+}

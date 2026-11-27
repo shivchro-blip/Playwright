@@ -1,0 +1,12 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "username": { "locator": "[id='loginform:username']", "type": "text" },
+    "password": { "locator": "[id='loginform:password']", "type": "text" },
+    "signInButton": { "locator": "[id='loginform:signinButton']", "type": "button" },
+    "signInError": { "locator": "[id='loginform:signinmessage_error-detail']", "type": "text" },
+    "forgotUsernameLink": { "locator": "#forgotusername", "type": "link" },
+    "forgotPasswordLink": { "locator": "#forgotpassword", "type": "link" },
+    "createAccountLink": { "locator": "#createAccountLink", "type": "link" }
+  }
+}

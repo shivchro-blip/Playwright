@@ -1,0 +1,16 @@
+{
+  "fields": {
+    "attnCO": { "locator": "input[id*='CDI_BusAddressCO_']", "type": "text" },
+    "addressLine1": { "locator": "input[id*='CDI_BusAddLine1_']", "type": "text", "autoGen": "addressLine1" },
+    "addressLine2": { "locator": "input[id*='CDI_BusAddLine2_']", "type": "text" },
+    "city": { "locator": "input[id*='CDI_BusAddCity_']", "type": "text", "autoGen": "city" },
+    "country": { "locator": "select[id*='CDI_BusAddCountry_']", "type": "select" },
+    "state": { "locator": "select[id*='CDI_BusAddState_']", "type": "select" },
+    "zipCode": { "locator": "input[id*='CDI_BusAddZip_']", "type": "text", "autoGen": "zipcode" },
+    "zip4": { "locator": "input[id*='CDI_BusAddZip4_']", "type": "text" },
+    "county": { "locator": "select[id*='CDI_BusAddCounty_']", "type": "select", "autoGen": "county" },
+    "postalCodeCanada": { "locator": "input[id*='CDI_BusPostalCode_CA_']", "type": "text" },
+    "internationalPostalCode": { "locator": "input[id*='CDI_BusPostalCode_']:not([id*='CDI_BusPostalCode_CA_'])", "type": "text" },
+    "sameAsMailingCheckbox": { "locator": "label.checkbox_label[for*='CDI_AddressDiff_b']", "type": "checkbox" }
+  }
+}

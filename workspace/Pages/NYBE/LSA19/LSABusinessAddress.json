@@ -1,0 +1,9 @@
+{
+ "fields": {
+   "Heading": { "locator": ".page-header h2", "type": "text" },
+   "PhysicalAddressRadio": { "locator": "[data-attributeid='LSI_LSA19_BusPhysAddressID'] tr:has(label:has-text('{value}')) label.radio_label", "type": "radio" },
+   "IndianCountryYes": { "locator": "[data-attributeid='LSI_LSA19_AddressIsInIndianCountry'] label[for^='boolRadioY_']", "type": "radio" },
+   "IndianCountryNo": { "locator": "[data-attributeid='LSI_LSA19_AddressIsInIndianCountry'] label[for^='boolRadioN_']", "type": "radio" },
+   "MailingAddressRadio": { "locator": "[data-attributeid='LSI_LSA19_MailAddrID'] tr:has(label:has-text('{value}')) label.radio_label", "type": "radio" }
+ }
+}

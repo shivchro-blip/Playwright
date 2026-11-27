@@ -1,0 +1,8 @@
+{
+  "path": "/app/home",
+  "titleContains": "New York Business Express",
+  "fields": {
+    "closeNoticeBanner": { "locator": "#notice-banner-close", "type": "link" },
+    "loginRegisterLink": { "role": "link", "name": "Login or Register", "type": "link" }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "testingNysAnalytes": {"locator": "div.radio:has(input[name*='CategoryIsTestingforNYSAnalyte_']) label:text-is('{value}')", "type": "radio"},
+    "pco2": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pCO2')) label.checkbox_label", "type": "checkbox"},
+    "pco2SpecimenType": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pCO2')) input[type='text']", "type": "text", "autoGen": "name"},
+    "pco2Product": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pCO2')) select", "type": "select"},
+    "pco2LabDeveloped": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pCO2')) div.radio label:text-is('{value}')", "type": "radio"},
+    "ph": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pH')) label.checkbox_label", "type": "checkbox"},
+    "phSpecimenType": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pH')) input[type='text']", "type": "text", "autoGen": "name"},
+    "phProduct": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pH')) select", "type": "select"},
+    "phLabDeveloped": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pH')) div.radio label:text-is('{value}')", "type": "radio"},
+    "po2": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pO2')) label.checkbox_label", "type": "checkbox"},
+    "po2SpecimenType": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pO2')) input[type='text']", "type": "text", "autoGen": "name"},
+    "po2Product": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pO2')) select", "type": "select"},
+    "po2LabDeveloped": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('pO2')) div.radio label:text-is('{value}')", "type": "radio"},
+    "tco2": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('tCO2')) label.checkbox_label", "type": "checkbox"},
+    "tco2SpecimenType": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('tCO2')) input[type='text']", "type": "text", "autoGen": "name"},
+    "tco2Product": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('tCO2')) select", "type": "select"},
+    "tco2LabDeveloped": {"locator": "div.rn_EntityInstanceControl:has(label.checkbox_label span:text-is('tCO2')) div.radio label:text-is('{value}')", "type": "radio"},
+    "testingNonNysAnalytes": {"locator": "div.radio:has(input[name*='CategoryIsTestingforAnalyte_']) label:text-is('{value}')", "type": "radio"}
+  }
+}

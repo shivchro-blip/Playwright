@@ -1,0 +1,13 @@
+{
+  "titleContains": "NY",
+  "fields": {
+    "attestPublicHealthLaw": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPAttestPublicHealthLaw_']) label:text-is('{value}')", "type": "radio"},
+    "attestNycrr": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPAttestNYCRR_']) label:text-is('{value}')", "type": "radio"},
+    "attestLaboratoryStandards": {"locator": "div.radio:has(input[name^='global_global_a_LSI_CLPAttestLaboratoryStandards_']) label:text-is('{value}')", "type": "radio"},
+    "signatureUpload": {"locator": "label.fileUpload_button[for^='file_global_global_a_LSI_CLPAttestSignature_Upload_']", "type": "fileChooserDocument", "autoGen": "document"},
+    "filerFirstName": {"locator": "input[id^='global_global_a_LSI_CLPFilerFirstName_']", "type": "text", "autoGen": "name"},
+    "filerMiddleInitial": {"locator": "input[id^='global_global_a_LSI_CLPFilerMiddleInitial_']", "type": "text"},
+    "filerLastName": {"locator": "input[id^='global_global_a_LSI_CLPFilerLastName_']", "type": "text", "autoGen": "name"},
+    "filerEmail": {"locator": "input[id^='global_global_a_LSI_CLPFilerEmailAddress_']", "type": "text", "autoGen": "email"}
+  }
+}
