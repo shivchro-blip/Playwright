@@ -180,6 +180,7 @@ logger.info("~~~ Test Cases Loaded ~~~\n~~~ Test Cases Loaded ~~~")
 
 reusableTestCases = {}
 screen_config_cache = {}
+screen_duplicates = {}  # screen name -> every page file that has that name (see build_screen_cache)
 commonActions = {}
 
 reusableTestCasesLoaded = load_all_test_cases(os.path.join(workspaceDir, "Tests"), "all", ["applications"], ["dev"])
@@ -304,12 +305,21 @@ async def write_allure_environment(results_dir, system, env):
     except OSError as e:
         logger.error(f"Failed to write Allure environment to {results_dir}: {e}")
 
+_reported_duplicates = set()
+
+
 def build_screen_cache(systemConfig):
-    for dirpath, dirnames, filenames in os.walk(os.path.join(workspaceDir, "Pages", systemConfig)):
-        for filename in filenames:
-            if filename.endswith(".json"):
-                screen_name = filename[:-5]  # remove '.json'
-                screen_config_cache[screen_name] = os.path.join(dirpath, filename)
+    """screen name -> page file for one system. Names are unique per system: a name that two files share is recorded
+    in screen_duplicates, reported once, and fails any step that uses it (see run_single_step)."""
+    paths, duplicates = page_components.scan_screens(os.path.join(workspaceDir, "Pages", systemConfig))
+    screen_config_cache.update(paths)
+    for screen_name in paths:
+        screen_duplicates.pop(screen_name, None)
+    for screen_name, files in duplicates.items():
+        screen_duplicates[screen_name] = files
+        if (screen_name, tuple(files)) not in _reported_duplicates:
+            _reported_duplicates.add((screen_name, tuple(files)))
+            logger.error("[DynamicSuite] %s", page_components.duplicate_message(screen_name, files, workspaceDir))
 
 def load_common_actions():
     global commonActions
@@ -747,6 +757,13 @@ async def run_single_step(step, page, base_url, browser, systemConfig, dictionar
         await attach_allure_failure_details(page, step, name="POMFailure", extra_label=f"Page Config - {screen_name} Not Found!")
         await addFail(f"Page Config: {screen_name} not found!")
         #return page
+
+    duplicate_files = screen_duplicates.get(screen_name)
+    if duplicate_files:
+        message = page_components.duplicate_message(screen_name, duplicate_files, workspaceDir)
+        logger.error("Page config is ambiguous: %s", message)
+        await attach_allure_failure_details(page, step, name="POMFailure", extra_label=f"Page Config - {message}")
+        await addFail(f"Page Config: {message}")
 
     with open(screen_config_path, "r", encoding="utf-8") as file:
         screen_config = json.load(file)

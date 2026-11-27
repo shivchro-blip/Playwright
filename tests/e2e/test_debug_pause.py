@@ -227,7 +227,8 @@ def test_continue_in_studio_adds_the_next_page_to_the_paused_test_case(workspace
         expect(picture).to_have_attribute("src", re.compile("^data:image/jpeg"), timeout=30_000)
         shown = picture.bounding_box()
         scale = shown["width"] / width
-        picture.click(position={"x": (box["x"] + box["width"] / 2) * scale, "y": (box["y"] + box["height"] / 2) * scale})
+        centre_x, centre_y = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+        picture.click(position={"x": centre_x * scale, "y": centre_y * scale})
         expect(page.get_by_test_id("studio-picked")).to_contain_text("#notes")
         page.get_by_test_id("studio-value").fill("typed while paused")
         page.get_by_test_id("studio-run").click()

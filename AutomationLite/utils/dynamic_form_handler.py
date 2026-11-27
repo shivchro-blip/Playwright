@@ -15,6 +15,7 @@ import utils.debug_pause as debug_pause
 import pytest
 import warnings
 import re
+import difflib
 import logging
 import allure
 
@@ -72,10 +73,38 @@ FIELD_TYPE_DEFAULT_ACTION = {
     "datepicker":        "muidate",
 }
 
-# For Error Loggingg
-current_page = ""
-current_action = ""
-current_actions = []
+# For Error Logging: where the test was when it failed. Written only through set_failure_context() (assigning these
+# names inside a function would make them local, and the failure text would always be empty).
+current_page = ""       # the screen and the URL of the page it is on
+current_action = ""     # the action running now, as "<type> <field>"
+current_actions = []    # every action of the screen, as "<type> <field>"
+_failure_screen = ""
+
+
+def _describe_action(action):
+    """An action as '<type> <field>': enough to find it in the test, and never a typed value."""
+    if not isinstance(action, dict):
+        return ""
+    return f"{action.get('type', '?')} {action.get('field', '?')}"
+
+
+def set_failure_context(screen=None, page=None, action=None, actions=None):
+    """Remember where the test is, for the "[Current Page = ...]" part of a failure.
+    screen= starts a new screen (and clears the action and action list); page= adds the page URL; actions= and
+    action= record the screen's actions and the one running now."""
+    global current_page, current_action, current_actions, _failure_screen
+    if screen is not None:
+        _failure_screen = screen
+        current_action, current_actions = "", []
+        current_page = screen
+    if page is not None:
+        url = getattr(page, "url", "")
+        current_page = " ".join(part for part in (_failure_screen, url if isinstance(url, str) else "") if part)
+    if actions is not None:
+        current_actions = [_describe_action(a) for a in actions]
+    if action is not None:
+        current_action = _describe_action(action)
+
 
 # Will return string before pipe (ignores everything after it)
 def strip_pipe(s):
@@ -152,7 +181,7 @@ async def addWarn(msg):
 async def addFail(msg):
     logger.error(f"Adding Failure - {msg}")
     #await page.screenshot(path=f"{cwd}/screenshots/fail.png")
-    pytest.fail(f"Failure - [Current Page = {current_page}] - [Current Action = {current_action}] - [Action List = {current_actions} - \n Failure Message: {msg}")
+    pytest.fail(f"Failure - [Current Page = {current_page}] - [Current Action = {current_action}] - [Action List = {current_actions}] - \n Failure Message: {msg}")
 
 async def getFailInfo():
     return current_page, current_action, current_actions
@@ -434,6 +463,19 @@ async def resolve_value_locator(dictionaryContext, field_name, locator, raw_valu
     return locator.replace("{value}", text)
 
 
+def _field_hint(field_name, pomFields, limit=40):
+    """What to say after "No Field Config for: x": the closest field names on the screen, and the field names it has
+    (a misspelt name, or a screen that is not the one meant, is the usual cause)."""
+    known = sorted(pomFields, key=str.casefold) if isinstance(pomFields, dict) else []
+    if not known:
+        return " (this screen's page file defines no fields)"
+    base = strip_pipe(str(field_name))
+    near = difflib.get_close_matches(base, known, n=3, cutoff=0.5)
+    near += [k for k in known if k.casefold() == base.casefold() and k not in near]
+    shown = ", ".join(known[:limit]) + (f", ... ({len(known)} in all)" if len(known) > limit else "")
+    return (f". Did you mean: {', '.join(near)}?" if near else ".") + f" Fields on this screen: {shown}"
+
+
 async def generate_action(dictionaryContext, field_name, raw_value, field_config, pomFields, auto=False):
     # 1) strip off any |ELoop(x) or |LLoop(x)
     field_config, clean_name, loop_type, loop_count = await parse_field_override(dictionaryContext, field_name, pomFields)    ## GET FIELD CONFIG AGAIN AFTER PARSE NAME!!!!
@@ -456,10 +498,10 @@ async def generate_action(dictionaryContext, field_name, raw_value, field_config
         auto_gen    = field_config.get("autoGen")
         picker      = field_config.get("picker")
         type_keys   = field_config.get("typeKeys")
-        required    = field_config.get("required") or True
+        required    = field_config.get("required", True)
     else:
         await attach_allure_failure_details(name=f"Generate Action Failure - No Field Config for: {field_name}")
-        await addFail(f"Failed to generate Actions - No Field Config for: {field_name}")
+        await addFail(f"Failed to generate Actions - No Field Config for: {field_name}{_field_hint(field_name, pomFields)}")
 
     if field_config and locator and "{value}" in str(locator):
         locator = await resolve_value_locator(dictionaryContext, clean_name, str(locator), raw_value, auto)
@@ -590,8 +632,7 @@ async def createActionsFromPOM(dictionaryContext, pomFields):
 async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators, pageErrorContains, dictionaryContext): 
     found_errors = []  # the failure handler below reports it, also when an action failed before the page was checked
     try:
-        current_page = page
-        current_actions = actions
+        set_failure_context(page=page, actions=actions)
         formData = test_data.get("formData", None)
         logger.info(f"Executing actions; test_data: {test_data}")
         if not actions:
@@ -606,7 +647,7 @@ async def execute_actions(page, actions, pomFields, test_data, pageErrorLocators
         resume_after = debug_pause.take_action_resume()  # resuming after a pause: these already ran
 
         for action in actions:
-            current_action = action
+            set_failure_context(action=action)
             actionCount += 1
             if actionCount <= resume_after:
                 continue

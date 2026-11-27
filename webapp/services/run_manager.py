@@ -534,7 +534,8 @@ class RunManager:
         if run.paused:
             return "The run is already paused."
         if not is_truthy(run.config.options.get("debugOnFailure")):
-            return "This run was started without Pause on failure. Turn it on before you start a run to be able to pause it."
+            return ("This run was started without Pause on failure. "
+                    "Turn it on before you start a run to be able to pause it.")
         folder = run.dir / "debug"
         folder.mkdir(parents=True, exist_ok=True)
         (folder / "pause_request").write_text("1", encoding="utf-8")
