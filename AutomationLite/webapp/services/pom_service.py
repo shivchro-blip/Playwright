@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -57,12 +56,8 @@ class PomService:
     def screen_index(self, system: str) -> dict[str, str]:
         """screen name -> rel path, resolved in the same order as the suite's build_screen_cache."""
         base = self.pages_dir(system)
-        index: dict[str, str] = {}
-        for dirpath, _, filenames in os.walk(base):
-            for fn in filenames:
-                if fn.endswith(".json"):
-                    index[fn[:-5]] = Path(dirpath, fn).relative_to(base).as_posix()
-        return index
+        paths, _ = page_components.scan_screens(str(base))
+        return {name: Path(path).relative_to(base).as_posix() for name, path in paths.items()}
 
     def list_pages(self, system: str) -> list[PageRef]:
         base = self.pages_dir(system)

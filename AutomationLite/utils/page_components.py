@@ -138,11 +138,42 @@ def file_lookup(paths: dict[str, str]) -> Lookup:
     return lookup
 
 
+def scan_screens(pages_dir: str) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """Every page file under a system's Pages folder, found in one fixed order.
+
+    Returns (paths, duplicates). paths maps screen name (the file name without .json) to the file that is used.
+    duplicates maps a name that two or more files share to all of those files, in the order found.
+
+    A screen is found by file name alone, wherever it sits in the folder tree, so two files with the same name are
+    ambiguous. Folders and files are visited in sorted order so the result is the same on every OS (os.walk lists
+    them in disk order, which differs between Windows and Linux); of several files with one name the last visited
+    is the one in paths, exactly as before. Callers report duplicates instead of silently using one of them."""
+    paths: dict[str, str] = {}
+    found: dict[str, list[str]] = {}
+    for dirpath, dirnames, filenames in os.walk(pages_dir):
+        dirnames.sort()
+        for fn in sorted(filenames):
+            if fn.endswith(".json"):
+                name, path = fn[:-5], os.path.join(dirpath, fn)
+                paths[name] = path
+                found.setdefault(name, []).append(path)
+    return paths, {name: files for name, files in found.items() if len(files) > 1}
+
+
 def folder_paths(pages_dir: str) -> dict[str, str]:
     """screen name -> path of every page file under a system's Pages folder (the last one found wins)."""
-    out: dict[str, str] = {}
-    for dirpath, _, filenames in os.walk(pages_dir):
-        for fn in filenames:
-            if fn.endswith(".json"):
-                out[fn[:-5]] = os.path.join(dirpath, fn)
-    return out
+    return scan_screens(pages_dir)[0]
+
+
+def duplicate_message(screen: str, files: list[str], base: str | None = None) -> str:
+    """The failure text for a screen that two or more files define; paths are shown relative to base."""
+    def short(path: str) -> str:
+        try:
+            return os.path.relpath(path, base) if base else path
+        except ValueError:  # another drive (Windows): the full path is still correct
+            return path
+
+    shown = [short(f) for f in files]
+    return (f"Screen '{screen}' is defined by {len(files)} page files: {', '.join(shown)}. A screen is found by its "
+            f"file name alone, so the names under one system must be unique - rename all but one "
+            f"(for example with the application code as a prefix) and update the tests that use it.")

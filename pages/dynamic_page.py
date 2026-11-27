@@ -1,5 +1,5 @@
 ﻿import logging
-from utils.dynamic_form_handler import execute_actions, auto_generate_actions
+from utils.dynamic_form_handler import execute_actions, auto_generate_actions, set_failure_context
 from playwright.async_api import expect
 from utils.errors import RequiredFieldError, addFail, attach_allure_failure_details
 import pytest
@@ -61,6 +61,7 @@ class DynamicPage:
 
     async def execute_actions(self, test_data, dictionaryContext):
         logger.info("--- IN EXECUTE ACTIONS --- ")
+        set_failure_context(screen=self.screen_name, page=self.page)  # a failure now names this screen
         fields = fields_for_step(self.screen_config.get("fields", {}), test_data)
         logger.info("")
         #logger.info("fields :")

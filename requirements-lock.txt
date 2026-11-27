@@ -1227,9 +1227,9 @@ nicegui==3.18.0 \
     --hash=sha256:74cf67c57d2a0dbcdc329d9b35d0396d25dc961550765276daef4de244eaf15b \
     --hash=sha256:a2bd51642312d98aab6d8b641245d796ff1b89da5829777170bcc488140c3dcd
     # via -r requirements-web.txt
-opentelemetry-api==1.45.1 \
-    --hash=sha256:aa38ed19bcc084ba42782a73255b3582283eced7ad6dddbd6695189e69adfb75 \
-    --hash=sha256:b31553efa588ae44bc306f863c785c5333a9ecc091248c6ee68b4b6c87fdedfb
+opentelemetry-api==1.45.2 \
+    --hash=sha256:2cbd737377e710ee740d261c94e93fa0f08e6d037c18f17513cc0a2d94479a34 \
+    --hash=sha256:d7b0008e21e5fd61cbe7a7f34ca3b6905a78ab677d9bc395e299359c75cda6b4
     # via anthropic, fastapi
 orjson==3.13.0 ; platform_machine != 'i386' and platform_machine != 'i686' and platform_python_implementation != 'PyPy' \
     --hash=sha256:0526a3456db67b264c6d661b5f090077f326b6cd074d0ef53a72763595dec5d7 \

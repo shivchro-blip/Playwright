@@ -279,7 +279,8 @@ class StudioEditor:
                 self.add_input = ui.select(options, value=chosen, with_input=True) \
                     .props('for="st-add" data-testid="studio-add-to"').classes("w-full")
             with labelled("Insert after step (0 = at the start)", "st-after"):
-                self.after_input = ui.number(value=int(self.target["after"]) if self.target else 0, min=0, precision=0) \
+                after_value = int(self.target["after"]) if self.target else 0
+                self.after_input = ui.number(value=after_value, min=0, precision=0) \
                     .props('for="st-after" data-testid="studio-after"').classes("w-full")
             ui.button("Save page and add steps", icon=icon("save"), color=None, on_click=self.save) \
                 .props('data-testid="studio-save"').classes("any-primary")

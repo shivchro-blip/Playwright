@@ -325,7 +325,8 @@ class ControlPanel:
             with ui.element("div").classes("any-card-head"):
                 with ui.element("div").classes("any-head-left"):
                     text("h2", "Tests", "any-title")
-                    with ui.element("span").classes("any-count-pill").props('data-testid="tests-pill"') as self.count_pill:
+                    with ui.element("span").classes("any-count-pill") \
+                            .props('data-testid="tests-pill"') as self.count_pill:
                         self.pill_selected = text("b", "")
                         text("span", " of ")
                         self.pill_total = text("b", "")
