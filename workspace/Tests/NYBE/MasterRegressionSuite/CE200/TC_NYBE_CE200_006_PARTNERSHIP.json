@@ -108,7 +108,7 @@
           "screen": "EntityInformation",
           "do": [
             {
-              "field": "legalName",
+              "field": "legalNamePartnership",
               "use": null
             },
             {
