@@ -191,3 +191,10 @@ def test_duplicate_message_falls_back_to_full_paths_when_a_path_cannot_be_made_r
     monkeypatch.setattr(pc.os.path, "relpath", other_drive)
     message = pc.duplicate_message("Same", ["C:/a/Same.json", "C:/b/Same.json"], "D:/workspace")
     assert "C:/a/Same.json, C:/b/Same.json" in message
+
+
+def test_a_field_of_type_click_clicks_when_the_step_gives_no_value():
+    field = {"locator": "label.radio_label", "type": "click"}
+    for value in (None, "click"):
+        action = asyncio.run(dfh.generate_action(None, "Pick", value, field, {"Pick": field}))
+        assert action["type"] == "click" and not action.get("value")

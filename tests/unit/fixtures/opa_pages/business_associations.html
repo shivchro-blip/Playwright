@@ -1,0 +1,30 @@
+<div id="main-content" class="container-fluid">
+ <div class="page-header"><h2>Business Associations</h2></div>
+ <form id="interview-form" class="rn_Interview nybe-form DTF_BA_TIN_SCRN"><div id="controls-div">
+   <div class="rn_OpaControl required" data-attributeid="LSI_DTF17_Franchise" data-opaid="a1">
+    <label for="f1">Are you a franchisee?</label>
+    <div class="radio"><input id="boolRadioY_f1" class="radio-inline" type="radio" name="f1" value="false"><label for="boolRadioY_f1">Yes</label>
+     <input id="boolRadioN_f1" class="radio-inline" type="radio" name="f1" value="false"><label for="boolRadioN_f1">No</label></div>
+   </div>
+   <div class="rn_OpaControl optional" data-opaid="g1" data-hidden="1">
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_FranName" data-opaid="a2"><label for="fnm">Franchisor's name</label><input id="fnm" class="form-control" type="text" name="hidden-fnm" value=""></div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_FranIDNum" data-opaid="a3"><label for="fid">Franchisor's ID number (EIN or taxpayer ID number (TIN))</label><input id="fid" class="form-control" type="text" name="hidden-fid" value=""></div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_FranAdd1" data-opaid="a4"><label for="fa1">Address Line 1</label><input id="fa1" class="form-control" type="text" name="hidden-fa1" value=""></div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_FranAddCity" data-opaid="a5"><label for="fc">City</label><input id="fc" class="form-control" type="text" name="hidden-fc" value=""></div>
+   </div>
+   <div class="rn_OpaControl required" data-attributeid="LSI_DTF17_HasTaxPrep" data-opaid="a6">
+    <label for="tp">Do you have a tax preparer?</label>
+    <div class="radio"><input id="boolRadioY_tp" class="radio-inline" type="radio" name="tp" value="false"><label for="boolRadioY_tp">Yes</label>
+     <input id="boolRadioN_tp" class="radio-inline" type="radio" name="tp" value="false"><label for="boolRadioN_tp">No</label></div>
+   </div>
+   <div class="rn_OpaControl optional" data-opaid="g50" data-hidden="1">
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_TaxPayersEin" data-opaid="a7"><label for="ein">Tax Preparer's or firm's EIN (if known)</label><input id="ein" class="form-control optional" type="text" name="hidden-ein" value="" placeholder="#########"></div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_PreparerDate" data-opaid="a8"><label>Date</label><input id="pd" class="form-control hasDatepicker" type="text" name="hidden-pd" value="" placeholder="MM/DD/YYYY"></div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_TaxPreparerEmail" data-opaid="a9"><label for="em">Tax Preparer's E-mail address</label><input id="em" class="form-control optional" type="text" name="hidden-em" value=""></div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_DTF17_TaxPreparerPhone" data-opaid="a10"><label for="ph">Tax Preparer's telephone number</label><input id="ph" class="form-control" type="text" name="hidden-ph" value="" placeholder="###-###-####"></div>
+   </div>
+  </div>
+  <div id="button-container" class="button_Container"><a id="btnBack" class="btn btn-default" name="btnBack">Back</a>
+   <input id="btnNext" class="btn btn-primary" type="button" name="btnNext" value="Save &amp; Continue"><a id="btnSave" class="btn btn-link" name="btnSave" href="#">Exit Application</a></div>
+ </form>
+</div>

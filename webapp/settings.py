@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     python_exe: str = sys.executable
     allure_cmd: str = "allure"  # Allure CLI; report generation is skipped if not found
     max_concurrent_runs: int = 1  # local runs drive real browsers; keep to one by default
+    # A run of at least this many test runs (tests x browsers) asks "are you sure?" first; 0 never asks
+    run_confirm_threshold: int = 10
     # Login with users and roles (python -m webapp.users). Always on when host is not loopback, unless
     # insecure_no_auth=true is set on purpose (e.g. behind a reverse proxy that does its own login).
     auth_enabled: bool = False

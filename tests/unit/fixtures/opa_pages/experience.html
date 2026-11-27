@@ -1,0 +1,42 @@
+<div id="main-content" class="container-fluid">
+ <div class="page-header"><h2>Experience</h2></div>
+ <form id="interview-form" class="rn_Interview nybe-form AEB_EXPERIENCE">
+  <div id="controls-div">
+   <div class="rn_OpaControl required" data-attributeid="LSI_AEB_ExperienceType" data-opaid="a1">
+    <label for="a1">Experience Type:</label>
+    <div class="rn_RadioControl vertical"><div class="radio_button_container">
+     <input id="r_in" type="radio" name="n1" value="EXP_INUSA" aria-required="true"><label class="radio_label" for="r_in">Within the United States</label>
+     <input id="r_out" type="radio" name="n1" value="EXP_OUTUSA" aria-required="true"><label class="radio_label" for="r_out">Outside the United States</label>
+    </div></div>
+   </div>
+   <div class="rn_OpaControl required" data-attributeid="LSI_AEB_ExperienceState" data-opaid="a2">
+    <label for="st">State:</label>
+    <select id="st" class="form-control" name="st" aria-required="true"><option value="">- Select One -</option><option value="NY">New York</option><option value="AL">Alabama</option><option value="CA">California</option></select>
+   </div>
+   <div class="rn_OpaControl optional" data-opaid="g8" data-hidden="1">
+    <div class="rn_OpaControl optional" data-attributeid="LSI_AEB_ExperienceCountry" data-opaid="a3">
+     <label for="co">Country:</label>
+     <select id="co" class="form-control" name="hidden-co"><option value="">- Select One -</option><option value="AF">Afghanistan</option><option value="CA">Canada</option></select>
+    </div>
+    <div class="rn_OpaControl optional" data-attributeid="LSI_AEB_ExperienceOther" data-opaid="a4" data-hidden="1">
+     <label for="ot">Other</label><input id="ot" class="form-control" type="text" name="hidden-ot" value="">
+    </div>
+   </div>
+   <div class="rn_OpaControl required" data-attributeid="LSI_AEB_ExperienceDocType" data-opaid="a5">
+    <label for="dt">Experience Document Type</label>
+    <select id="dt" class="form-control" name="dt" aria-required="true"><option value="">- Select One -</option><option value="CCURTRN">Course Curricula/Transcript</option><option value="EMPRLET">Employer Letters</option></select>
+   </div>
+   <div class="rn_OpaControl required" data-attributeid="LSI_AEB_ExperienceDoc_Upload" data-opaid="a6">
+    <label for="up">Upload Experience Document</label>
+    <textarea id="up" name="up" aria-required="true" data-hidden="1"></textarea>
+    <label id="file_button1" class="fileUpload_button" for="file_up">Choose a File</label>
+    <input id="file_up" class="fileUpload_control do-not-ignore" type="file" name="file_up" value="" aria-required="true" data-hidden="1">
+   </div>
+  </div>
+  <div id="button-container" class="button_Container">
+   <a id="btnBack" class="btn btn-default" name="btnBack">Back</a>
+   <input id="btnNext" class="btn btn-primary" type="button" name="btnNext" value="Save &amp; Continue">
+   <a id="btnSave" class="btn btn-link" name="btnSave" href="#">Exit Application</a>
+  </div>
+ </form>
+</div>

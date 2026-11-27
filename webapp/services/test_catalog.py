@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from webapp.services.json_files import NAME_RE
+from webapp.services.list_views import picker_tags
 
 
 @dataclass
@@ -16,6 +17,7 @@ class TestCaseInfo:
     file: str  # relative to the system's MasterRegressionSuite folder
     steps: int
     duplicate: bool = False
+    description: str = ""
 
 
 @dataclass
@@ -26,6 +28,10 @@ class Catalog:
 
     def all_tags(self) -> list[str]:
         return sorted({t for tc in self.tests for t in tc.tags}, key=str.casefold)
+
+    def picker_tags(self) -> list[str]:
+        """The tags to offer in the picker: all but one that is just the ID of the single test carrying it."""
+        return picker_tags(self.all_tags(), ((t.test_id, t.tags) for t in self.tests))
 
     def tags_for(self, current: list[str], system: str | None = None) -> list[str]:
         """Tags to preselect when this system is chosen: those of `current` it has (spelled as its tests spell
@@ -77,6 +83,7 @@ class TestCatalogService:
                     tags=[str(t).strip() for t in tc.get("tags", []) if str(t).strip()],
                     file=rel,
                     steps=len(tc.get("steps") or []),
+                    description=str(tc.get("description") or "").strip(),
                 ))
 
         counts = Counter(tc.test_id for tc in catalog.tests)

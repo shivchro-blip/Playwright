@@ -20,7 +20,7 @@ from webapp.services.pom_service import PomService
 from webapp.services.test_case_service import TestCaseService
 from webapp.services.usage import Source, iter_steps, list_sources
 
-CLICK_TYPES = {"button", "link", "checkbox", "radio", "table"}
+CLICK_TYPES = {"click", "button", "link", "checkbox", "radio", "table"}
 NAME_OK = re.compile(r"^[\w\-.]+$")
 PAGE_NAME_OK = re.compile(r"^[A-Za-z0-9_\-]+$")
 
